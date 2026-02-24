@@ -117,11 +117,18 @@ defmodule PhxMediaLibrary.Media do
     key = conversion_key(conversion)
 
     case Map.get(responsive, key) do
-      nil -> nil
-      %{"variants" => variants} when is_list(variants) -> build_srcset(media, variants, conversion)
+      nil ->
+        nil
+
+      %{"variants" => variants} when is_list(variants) ->
+        build_srcset(media, variants, conversion)
+
       # Legacy format: list of variants directly
-      variants when is_list(variants) -> build_srcset(media, variants, conversion)
-      _ -> nil
+      variants when is_list(variants) ->
+        build_srcset(media, variants, conversion)
+
+      _ ->
+        nil
     end
   end
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-02-24
+
+### Fixed
+
+- Fixed `Image.write/2` return value handling - now correctly handles `{:ok, image}` tuple
+- Fixed `Image.thumbnail/2` syntax to use proper keyword list options
+- Fixed responsive images generation to handle Image library API correctly
+- Fixed conversions processor to properly destructure Image operation results
+- Fixed path generator to handle conversion paths with proper defaults
+
 ## [0.1.0] - 2026-02-24
 
 ### Added
@@ -53,5 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `mix phx_media_library.clean` - Find and remove orphaned files
   - `mix phx_media_library.gen.migration` - Generate custom migrations
 
-[Unreleased]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mike-kostov/phx_media_library/releases/tag/v0.1.0
