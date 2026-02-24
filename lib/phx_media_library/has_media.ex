@@ -55,7 +55,8 @@ defmodule PhxMediaLibrary.HasMedia do
 
   defmacro __using__(_opts) do
     quote do
-      import PhxMediaLibrary.HasMedia, only: [has_media: 0, has_media: 1, collection: 1, collection: 2, conversion: 2]
+      import PhxMediaLibrary.HasMedia,
+        only: [has_media: 0, has_media: 1, collection: 1, collection: 2, conversion: 2]
 
       @before_compile PhxMediaLibrary.HasMedia
 

@@ -73,7 +73,7 @@ defmodule PhxMediaLibrary.Storage.Disk do
 
   @impl true
   def url(path, opts) do
-    base_url = Keyword.fetch!(opts, :base_url)
+    base_url = Keyword.get(opts, :base_url, "/uploads")
     Path.join(base_url, path)
   end
 

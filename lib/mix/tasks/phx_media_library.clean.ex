@@ -166,14 +166,16 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
   end
 
   defp clean_orphaned_records(disks, force?) do
-    Mix.shell().info("\n#{IO.ANSI.cyan()}Checking for orphaned database records...#{IO.ANSI.reset()}\n")
+    Mix.shell().info(
+      "\n#{IO.ANSI.cyan()}Checking for orphaned database records...#{IO.ANSI.reset()}\n"
+    )
 
     repo = PhxMediaLibrary.Config.repo()
 
     Enum.each(disks, fn disk_name ->
       Mix.shell().info("Disk: #{disk_name}")
 
-      config = PhxMediaLibrary.Config.disk_config(disk_name)
+      _config = PhxMediaLibrary.Config.disk_config(disk_name)
       storage = PhxMediaLibrary.Config.storage_adapter(disk_name)
 
       # Get all media records for this disk
@@ -184,7 +186,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
       orphaned =
         Enum.filter(media_items, fn media ->
           path = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
-          not storage.exists?(path)
+          not PhxMediaLibrary.StorageWrapper.exists?(storage, path)
         end)
 
       if orphaned == [] do
@@ -195,7 +197,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
         Enum.each(orphaned, fn media ->
           if force? do
             repo.delete!(media)
-            Mix.shell().info("    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{media.file_name} (#{media.id})")
+
+            Mix.shell().info(
+              "    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{media.file_name} (#{media.id})"
+            )
           else
             Mix.shell().info("    #{media.file_name} (#{media.id})")
           end

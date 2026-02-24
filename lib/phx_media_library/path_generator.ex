@@ -27,11 +27,12 @@ defmodule PhxMediaLibrary.PathGenerator do
   """
   @spec relative_path(Media.t(), atom() | String.t() | nil) :: String.t()
   def relative_path(%Media{} = media, conversion \\ nil) do
-    base_path = Path.join([
-      media.mediable_type,
-      media.mediable_id,
-      media.uuid
-    ])
+    base_path =
+      Path.join([
+        media.mediable_type,
+        media.mediable_id,
+        media.uuid
+      ])
 
     filename = conversion_filename(media, conversion)
     Path.join(base_path, filename)

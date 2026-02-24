@@ -9,14 +9,14 @@ defmodule PhxMediaLibrary.MediaAdder do
   functions in `PhxMediaLibrary` which delegate here.
   """
 
-  alias PhxMediaLibrary.{Media, Config, Storage, PathGenerator, Conversions, Collection}
+  alias PhxMediaLibrary.{Collection, Config, Media, PathGenerator, StorageWrapper}
 
   defstruct [
     :model,
     :source,
-    :filename,
+    :custom_filename,
     :custom_properties,
-    :responsive_images,
+    :generate_responsive,
     :disk
   ]
 
@@ -25,9 +25,9 @@ defmodule PhxMediaLibrary.MediaAdder do
   @type t :: %__MODULE__{
           model: Ecto.Schema.t(),
           source: source(),
-          filename: String.t() | nil,
+          custom_filename: String.t() | nil,
           custom_properties: map(),
-          responsive_images: boolean(),
+          generate_responsive: boolean(),
           disk: atom() | nil
         }
 
@@ -40,7 +40,7 @@ defmodule PhxMediaLibrary.MediaAdder do
       model: model,
       source: source,
       custom_properties: %{},
-      responsive_images: false
+      generate_responsive: false
     }
   end
 
@@ -49,7 +49,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   """
   @spec using_filename(t(), String.t()) :: t()
   def using_filename(%__MODULE__{} = adder, filename) do
-    %{adder | filename: filename}
+    %{adder | custom_filename: filename}
   end
 
   @doc """
@@ -65,7 +65,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   """
   @spec with_responsive_images(t()) :: t()
   def with_responsive_images(%__MODULE__{} = adder) do
-    %{adder | responsive_images: true}
+    %{adder | generate_responsive: true}
   end
 
   @doc """
@@ -84,7 +84,7 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   # Private functions
 
-  defp resolve_source(%__MODULE__{source: source, filename: custom_filename}) do
+  defp resolve_source(%__MODULE__{source: source, custom_filename: custom_filename}) do
     case source do
       {:url, url} ->
         download_from_url(url, custom_filename)
@@ -92,11 +92,12 @@ defmodule PhxMediaLibrary.MediaAdder do
       path when is_binary(path) ->
         resolve_file_path(path, custom_filename)
 
-      %{path: path, filename: original_filename} ->
-        # Phoenix.LiveView.UploadEntry or similar
+      # Plug.Upload must come before generic map pattern
+      %Plug.Upload{path: path, filename: original_filename} ->
         resolve_file_path(path, custom_filename || original_filename)
 
-      %Plug.Upload{path: path, filename: original_filename} ->
+      # Phoenix.LiveView.UploadEntry or similar map with path/filename
+      %{path: path, filename: original_filename} ->
         resolve_file_path(path, custom_filename || original_filename)
 
       _ ->
@@ -187,15 +188,43 @@ defmodule PhxMediaLibrary.MediaAdder do
     storage_path = PathGenerator.for_new_media(attrs)
 
     # Store the file
-    with {:ok, _} <- storage.put(storage_path, File.read!(file_info.path)),
+    with {:ok, _} <- StorageWrapper.put(storage, storage_path, File.read!(file_info.path)),
          {:ok, media} <- insert_media(attrs) do
       # Handle single file collections
       maybe_cleanup_collection(adder.model, collection_name, media)
+
+      # Generate responsive images if requested
+      media =
+        if adder.generate_responsive and image?(file_info.mime_type) do
+          generate_responsive_images(media)
+        else
+          media
+        end
 
       # Cleanup temp file if needed
       if file_info.temp, do: File.rm(file_info.path)
 
       {:ok, media}
+    end
+  end
+
+  defp image?(mime_type) do
+    String.starts_with?(mime_type, "image/")
+  end
+
+  defp generate_responsive_images(media) do
+    case PhxMediaLibrary.ResponsiveImages.generate(media, nil) do
+      {:ok, responsive_data} ->
+        {:ok, updated} =
+          media
+          |> Ecto.Changeset.change(responsive_images: responsive_data)
+          |> Config.repo().update()
+
+        updated
+
+      {:error, _reason} ->
+        # Log error but don't fail the upload
+        media
     end
   end
 

@@ -56,7 +56,7 @@ if Code.ensure_loaded?(Oban) do
       end
     end
 
-    defp get_conversions(media, conversion_names) do
+    defp get_conversions(_media, conversion_names) do
       # This is simplified - in reality we'd need to look up the model
       # and get its conversion definitions
       Enum.map(conversion_names, fn name ->

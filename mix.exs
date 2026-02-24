@@ -9,6 +9,7 @@ defmodule PhxMediaLibrary.MixProject do
       app: :phx_media_library,
       version: @version,
       elixir: "~> 1.15",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -30,6 +31,9 @@ defmodule PhxMediaLibrary.MixProject do
     ]
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   defp deps do
     [
       # === Required ===
@@ -45,6 +49,9 @@ defmodule PhxMediaLibrary.MixProject do
 
       # === Optional: Oban-based async processing ===
       {:oban, "~> 2.18", optional: true},
+
+      # === Optional: Phoenix view helpers ===
+      {:phoenix_live_view, "~> 1.0", optional: true},
 
       # === Dev/Test ===
       {:postgrex, ">= 0.0.0", only: [:dev, :test]},

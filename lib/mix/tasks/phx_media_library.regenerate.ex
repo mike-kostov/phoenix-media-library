@@ -118,7 +118,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
     Mix.shell().info("\n#{IO.ANSI.green()}✓ Regeneration complete!#{IO.ANSI.reset()}")
   end
 
-  defp process_single(media, filter_conversions, dry_run?, processor, index, total) do
+  defp process_single(media, filter_conversions, dry_run?, _processor, index, total) do
     progress = "#{String.pad_leading("#{index}", String.length("#{total}"))} / #{total}"
 
     # Get conversions for this media item
@@ -138,7 +138,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
       conversion_names = Enum.map(conversions, &to_string(&1.name)) |> Enum.join(", ")
 
       if dry_run? do
-        Mix.shell().info("[#{progress}] #{media.file_name} - would regenerate: #{conversion_names}")
+        Mix.shell().info(
+          "[#{progress}] #{media.file_name} - would regenerate: #{conversion_names}"
+        )
       else
         Mix.shell().info("[#{progress}] #{media.file_name} - regenerating: #{conversion_names}")
 
@@ -157,19 +159,22 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
     # Try to get the model module and its conversions
     # This is a simplified version - in practice you'd need to
     # look up the actual model module from mediable_type
-    case get_model_module(media.mediable_type) do
-      nil ->
-        []
+    media.mediable_type
+    |> get_model_module()
+    |> get_conversions_from_module(media.collection_name)
+  end
 
-      module ->
-        if function_exported?(module, :get_media_conversions, 1) do
-          module.get_media_conversions(String.to_atom(media.collection_name))
-        else
-          []
-        end
+  defp get_conversions_from_module(nil, _collection_name), do: []
+
+  defp get_conversions_from_module(module, collection_name) when is_atom(module) do
+    if function_exported?(module, :get_media_conversions, 1) do
+      module.get_media_conversions(String.to_atom(collection_name))
+    else
+      []
     end
   end
 
+  @spec get_model_module(String.t()) :: module() | nil
   defp get_model_module(_mediable_type) do
     # This would need to be implemented based on your app's conventions
     # For now, return nil to indicate we can't determine the module

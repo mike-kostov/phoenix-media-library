@@ -49,19 +49,19 @@ defmodule PhxMediaLibrary.Storage do
   @callback put(path(), content(), opts()) :: :ok | {:error, term()}
 
   @doc "Retrieve content from the given path."
-  @callback get(path()) :: {:ok, binary()} | {:error, term()}
+  @callback get(path(), opts()) :: {:ok, binary()} | {:error, term()}
 
   @doc "Delete the file at the given path."
-  @callback delete(path()) :: :ok | {:error, term()}
+  @callback delete(path(), opts()) :: :ok | {:error, term()}
 
   @doc "Check if a file exists at the given path."
-  @callback exists?(path()) :: boolean()
+  @callback exists?(path(), opts()) :: boolean()
 
   @doc "Get a URL for the file."
-  @callback url(path(), url_opts()) :: String.t()
+  @callback url(path(), opts()) :: String.t()
 
   @doc "Get the full filesystem path (local storage only)."
-  @callback path(path()) :: String.t() | nil
+  @callback path(path(), opts()) :: String.t() | nil
 
-  @optional_callbacks [path: 1]
+  @optional_callbacks [path: 2]
 end

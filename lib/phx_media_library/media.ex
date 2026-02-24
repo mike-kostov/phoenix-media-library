@@ -24,28 +24,28 @@ defmodule PhxMediaLibrary.Media do
   import Ecto.Changeset
   import Ecto.Query
 
-  alias PhxMediaLibrary.{Config, Storage, PathGenerator, UrlGenerator}
+  alias PhxMediaLibrary.{Config, PathGenerator, ResponsiveImages, StorageWrapper, UrlGenerator}
 
   @type t :: %__MODULE__{}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "media" do
-    field :uuid, :string
-    field :collection_name, :string, default: "default"
-    field :name, :string
-    field :file_name, :string
-    field :mime_type, :string
-    field :disk, :string
-    field :size, :integer
-    field :custom_properties, :map, default: %{}
-    field :generated_conversions, :map, default: %{}
-    field :responsive_images, :map, default: %{}
-    field :order_column, :integer
+    field(:uuid, :string)
+    field(:collection_name, :string, default: "default")
+    field(:name, :string)
+    field(:file_name, :string)
+    field(:mime_type, :string)
+    field(:disk, :string)
+    field(:size, :integer)
+    field(:custom_properties, :map, default: %{})
+    field(:generated_conversions, :map, default: %{})
+    field(:responsive_images, :map, default: %{})
+    field(:order_column, :integer)
 
     # Polymorphic association
-    field :mediable_type, :string
-    field :mediable_id, :binary_id
+    field(:mediable_type, :string)
+    field(:mediable_id, :binary_id)
 
     timestamps(type: :utc_datetime)
   end
@@ -69,10 +69,11 @@ defmodule PhxMediaLibrary.Media do
     {mediable_type, mediable_id} = get_mediable_info(model)
 
     query =
-      from m in __MODULE__,
+      from(m in __MODULE__,
         where: m.mediable_type == ^mediable_type,
         where: m.mediable_id == ^mediable_id,
         order_by: [asc: m.order_column, asc: m.inserted_at]
+      )
 
     query =
       if collection_name do
@@ -98,6 +99,14 @@ defmodule PhxMediaLibrary.Media do
   @spec path(t(), atom() | nil) :: String.t() | nil
   def path(%__MODULE__{} = media, conversion \\ nil) do
     PathGenerator.full_path(media, conversion)
+  end
+
+  @doc """
+  Get the tiny placeholder data URI for progressive loading.
+  """
+  @spec placeholder(t(), atom() | nil) :: String.t() | nil
+  def placeholder(%__MODULE__{} = media, conversion \\ nil) do
+    ResponsiveImages.placeholder(media, conversion)
   end
 
   @doc """
@@ -152,13 +161,11 @@ defmodule PhxMediaLibrary.Media do
   defp conversion_key(nil), do: "original"
   defp conversion_key(conversion), do: to_string(conversion)
 
-  defp build_srcset(media, sizes, conversion) do
-    sizes
-    |> Enum.map(fn %{"width" => width, "path" => path} ->
+  defp build_srcset(media, sizes, _conversion) do
+    Enum.map_join(sizes, ", ", fn %{"width" => width, "path" => path} ->
       url = UrlGenerator.url_for_path(media, path)
       "#{url} #{width}w"
     end)
-    |> Enum.join(", ")
   end
 
   defp delete_files(%__MODULE__{disk: disk} = media) do
@@ -166,14 +173,14 @@ defmodule PhxMediaLibrary.Media do
 
     # Delete original
     original_path = PathGenerator.relative_path(media, nil)
-    storage.delete(original_path)
+    StorageWrapper.delete(storage, original_path)
 
     # Delete conversions
     media.generated_conversions
     |> Map.keys()
     |> Enum.each(fn conversion ->
       conversion_path = PathGenerator.relative_path(media, conversion)
-      storage.delete(conversion_path)
+      StorageWrapper.delete(storage, conversion_path)
     end)
 
     # Delete responsive images
@@ -181,7 +188,7 @@ defmodule PhxMediaLibrary.Media do
     |> Map.values()
     |> List.flatten()
     |> Enum.each(fn %{"path" => path} ->
-      storage.delete(path)
+      StorageWrapper.delete(storage, path)
     end)
 
     :ok

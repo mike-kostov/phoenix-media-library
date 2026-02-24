@@ -69,7 +69,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
     Mix.shell().info("#{IO.ANSI.cyan()}Generating migration...#{IO.ANSI.reset()}")
 
     # Get the repo from config or infer from app
-    app = Mix.Project.config()[:app]
+    _app = Mix.Project.config()[:app]
     migrations_path = Path.join(["priv", "repo", "migrations"])
 
     File.mkdir_p!(migrations_path)
@@ -124,7 +124,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
   end
 
   defp print_configuration_instructions do
-    app = Mix.Project.config()[:app]
+    _app = Mix.Project.config()[:app]
 
     Mix.shell().info("""
 

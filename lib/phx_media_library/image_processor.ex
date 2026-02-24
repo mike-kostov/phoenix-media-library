@@ -19,7 +19,8 @@ defmodule PhxMediaLibrary.ImageProcessor do
   @callback save(image(), path :: String.t(), opts :: keyword()) :: :ok | {:error, term()}
 
   @doc "Get image dimensions."
-  @callback dimensions(image()) :: {:ok, {width :: integer(), height :: integer()}} | {:error, term()}
+  @callback dimensions(image()) ::
+              {:ok, {width :: integer(), height :: integer()}} | {:error, term()}
 
   @doc "Generate a tiny placeholder (base64 encoded)."
   @callback tiny_placeholder(image()) :: {:ok, String.t()} | {:error, term()}

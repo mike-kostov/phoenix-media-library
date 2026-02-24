@@ -22,7 +22,9 @@ defmodule PhxMediaLibrary.Config do
   """
   def disk_config(disk_name) do
     disks = Application.get_env(:phx_media_library, :disks, default_disks())
-    Keyword.get(disks, disk_name) || raise "Unknown disk: #{inspect(disk_name)}"
+    # Convert string disk names to atoms for keyword lookup
+    disk_key = if is_binary(disk_name), do: String.to_existing_atom(disk_name), else: disk_name
+    Keyword.get(disks, disk_key) || raise "Unknown disk: #{inspect(disk_name)}"
   end
 
   @doc """
@@ -50,7 +52,11 @@ defmodule PhxMediaLibrary.Config do
   Get the image processor module.
   """
   def image_processor do
-    Application.get_env(:phx_media_library, :image_processor, PhxMediaLibrary.ImageProcessor.Image)
+    Application.get_env(
+      :phx_media_library,
+      :image_processor,
+      PhxMediaLibrary.ImageProcessor.Image
+    )
   end
 
   @doc """
@@ -90,32 +96,5 @@ defmodule PhxMediaLibrary.Config do
         base_url: "/uploads"
       ]
     ]
-  end
-end
-
-defmodule PhxMediaLibrary.StorageWrapper do
-  @moduledoc false
-  # Wraps a storage adapter to automatically pass config
-
-  defstruct [:adapter, :config]
-
-  def put(%__MODULE__{adapter: adapter, config: config}, path, content) do
-    adapter.put(path, content, config)
-  end
-
-  def get(%__MODULE__{adapter: adapter, config: config}, path) do
-    adapter.get(path, config)
-  end
-
-  def delete(%__MODULE__{adapter: adapter, config: config}, path) do
-    adapter.delete(path, config)
-  end
-
-  def exists?(%__MODULE__{adapter: adapter, config: config}, path) do
-    adapter.exists?(path, config)
-  end
-
-  def url(%__MODULE__{adapter: adapter, config: config}, path, opts \\ []) do
-    adapter.url(path, Keyword.merge(config, opts))
   end
 end

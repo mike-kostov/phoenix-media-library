@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
   Generates URLs for media files.
   """
 
-  alias PhxMediaLibrary.{Media, Config, PathGenerator}
+  alias PhxMediaLibrary.{Media, Config, PathGenerator, StorageWrapper}
 
   @doc """
   Generate a URL for a media item.
@@ -13,7 +13,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
     storage = Config.storage_adapter(disk)
     relative_path = PathGenerator.relative_path(media, conversion)
 
-    storage.url(relative_path, opts)
+    StorageWrapper.url(storage, relative_path, opts)
   end
 
   @doc """
@@ -22,6 +22,6 @@ defmodule PhxMediaLibrary.UrlGenerator do
   @spec url_for_path(Media.t(), String.t(), keyword()) :: String.t()
   def url_for_path(%Media{disk: disk}, path, opts \\ []) do
     storage = Config.storage_adapter(disk)
-    storage.url(path, opts)
+    StorageWrapper.url(storage, path, opts)
   end
 end

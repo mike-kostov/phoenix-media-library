@@ -103,7 +103,7 @@ defmodule PhxMediaLibrary.Storage.S3 do
   end
 
   # S3 doesn't have local filesystem paths
-  # @impl true not needed since it's optional
+  @impl true
   def path(_path, _opts), do: nil
 
   # Private functions
