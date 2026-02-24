@@ -15,8 +15,9 @@ defmodule PhxMediaLibrary.ImageProcessor do
   @doc "Apply a conversion to an image."
   @callback apply_conversion(image(), Conversion.t()) :: {:ok, image()} | {:error, term()}
 
-  @doc "Save an image to a file path."
-  @callback save(image(), path :: String.t(), opts :: keyword()) :: :ok | {:error, term()}
+  @doc "Save an image to a file path. Returns the image for chaining."
+  @callback save(image(), path :: String.t(), opts :: keyword()) ::
+              {:ok, image()} | {:error, term()}
 
   @doc "Get image dimensions."
   @callback dimensions(image()) ::

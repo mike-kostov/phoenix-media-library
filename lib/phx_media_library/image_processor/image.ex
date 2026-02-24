@@ -52,8 +52,9 @@ defmodule PhxMediaLibrary.ImageProcessor.Image do
     with {:ok, tiny} <- Image.thumbnail(image, 32),
          {:ok, buffer} <- Image.write(tiny, :memory, suffix: ".jpg", quality: 40) do
       base64 = Base.encode64(buffer)
-      {:ok, width} = Image.width(tiny)
-      {:ok, height} = Image.height(tiny)
+      # Image.width/height return integers directly, not tuples
+      width = Image.width(tiny)
+      height = Image.height(tiny)
 
       # Return as data URI with dimensions
       {:ok,

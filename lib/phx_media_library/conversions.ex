@@ -65,7 +65,7 @@ defmodule PhxMediaLibrary.Conversions do
     with {:ok, converted} <- processor.apply_conversion(image, conversion),
          conversion_path <- PathGenerator.relative_path(media, conversion.name),
          temp_path <- temp_file_path(conversion_path),
-         :ok <- save_image(processor, converted, temp_path, conversion),
+         {:ok, _} <- save_image(processor, converted, temp_path, conversion),
          {:ok, content} <- File.read(temp_path),
          :ok <- StorageWrapper.put(storage, conversion_path, content) do
       File.rm(temp_path)

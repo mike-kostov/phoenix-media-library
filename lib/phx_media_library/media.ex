@@ -118,7 +118,10 @@ defmodule PhxMediaLibrary.Media do
 
     case Map.get(responsive, key) do
       nil -> nil
-      sizes -> build_srcset(media, sizes, conversion)
+      %{"variants" => variants} when is_list(variants) -> build_srcset(media, variants, conversion)
+      # Legacy format: list of variants directly
+      variants when is_list(variants) -> build_srcset(media, variants, conversion)
+      _ -> nil
     end
   end
 

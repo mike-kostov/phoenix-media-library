@@ -74,8 +74,8 @@ defmodule PhxMediaLibrary.MediaAdder do
   @spec to_collection(t(), atom(), keyword()) :: {:ok, Media.t()} | {:error, term()}
   def to_collection(%__MODULE__{} = adder, collection_name, opts \\ []) do
     with {:ok, file_info} <- resolve_source(adder),
-         {:ok, validated} <- validate_collection(adder, collection_name, file_info),
-         {:ok, media} <- store_and_persist(validated, collection_name, file_info, opts) do
+         {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
+         {:ok, media} <- store_and_persist(adder, collection_name, file_info, opts) do
       # Trigger async conversion processing
       maybe_process_conversions(adder.model, media, collection_name)
       {:ok, media}
@@ -188,7 +188,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     storage_path = PathGenerator.for_new_media(attrs)
 
     # Store the file
-    with {:ok, _} <- StorageWrapper.put(storage, storage_path, File.read!(file_info.path)),
+    with :ok <- StorageWrapper.put(storage, storage_path, File.read!(file_info.path)),
          {:ok, media} <- insert_media(attrs) do
       # Handle single file collections
       maybe_cleanup_collection(adder.model, collection_name, media)

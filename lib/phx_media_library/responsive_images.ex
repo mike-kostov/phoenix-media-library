@@ -228,7 +228,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       temp_path = temp_file_path(variant_path)
 
       # Save and upload
-      with :ok <- processor.save(resized, temp_path),
+      with {:ok, _} <- processor.save(resized, temp_path),
            {:ok, content} <- File.read(temp_path),
            :ok <- StorageWrapper.put(storage, variant_path, content) do
         # Cleanup temp file

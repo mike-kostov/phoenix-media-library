@@ -44,9 +44,10 @@ defmodule PhxMediaLibrary.PathGenerator do
   @spec full_path(Media.t(), atom() | nil) :: String.t() | nil
   def full_path(%Media{disk: disk} = media, conversion) do
     storage = Config.storage_adapter(disk)
+    relative = relative_path(media, conversion)
 
-    if function_exported?(storage.adapter, :path, 2) do
-      relative = relative_path(media, conversion)
+    # Check if the adapter implements the optional path/2 callback
+    if :path in Keyword.keys(storage.adapter.__info__(:functions)) do
       storage.adapter.path(relative, storage.config)
     else
       nil
