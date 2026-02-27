@@ -113,12 +113,12 @@ defmodule PhxMediaLibrary.MediaAdder do
     Telemetry.span([:phx_media_library, :add], telemetry_metadata, fn ->
       result =
         with {:ok, file_info} <- resolve_source(adder),
-             {:ok, file_info, file_content} <- read_and_detect_mime(file_info),
+             {:ok, file_info, header} <- read_and_detect_mime(file_info),
              {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
-             :ok <- maybe_verify_content_type(adder, collection_name, file_info, file_content),
+             :ok <- maybe_verify_content_type(adder, collection_name, file_info, header),
              {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
              {:ok, media} <-
-               store_and_persist(adder, collection_name, file_info, file_content, metadata, opts) do
+               store_and_persist(adder, collection_name, file_info, metadata, opts) do
           # Trigger async conversion processing
           maybe_process_conversions(adder.model, media, collection_name)
           {:ok, media}
@@ -292,22 +292,42 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp validate_file_size(_config, _file_info), do: :ok
 
-  # Read file content and upgrade MIME type using content-based detection.
-  # This reads the file once; the content is then threaded through the rest
-  # of the pipeline to avoid a second read.
+  # How many bytes to read for magic-byte MIME detection.
+  # TAR signatures live at offset 257, so 512 bytes covers all known formats.
+  @mime_header_size 512
+
+  # Read only the file header for MIME detection, avoiding loading the
+  # entire file into memory.  The header bytes are also used for
+  # content-type verification.  The rest of the file is streamed to
+  # storage later, with the checksum computed during the stream.
   defp read_and_detect_mime(file_info) do
-    file_content = File.read!(file_info.path)
-    detected_mime = MimeDetector.detect_with_fallback(file_content, file_info.filename)
-    {:ok, %{file_info | mime_type: detected_mime}, file_content}
+    header = read_file_header(file_info.path, @mime_header_size)
+    detected_mime = MimeDetector.detect_with_fallback(header, file_info.filename)
+    {:ok, %{file_info | mime_type: detected_mime}, header}
+  end
+
+  defp read_file_header(path, max_bytes) do
+    file = File.open!(path, [:read, :binary])
+
+    try do
+      case IO.binread(file, max_bytes) do
+        :eof -> <<>>
+        data when is_binary(data) -> data
+      end
+    after
+      File.close(file)
+    end
   end
 
   # Verify that file content matches the declared MIME type, if the
   # collection has `verify_content_type: true` (the default).
+  # `header` is the first @mime_header_size bytes — enough for magic-byte
+  # matching without needing the full file in memory.
   defp maybe_verify_content_type(
          %__MODULE__{model: model},
          collection_name,
          file_info,
-         file_content
+         header
        ) do
     case get_collection_config(model, collection_name) do
       %Collection{verify_content_type: false} ->
@@ -315,7 +335,7 @@ defmodule PhxMediaLibrary.MediaAdder do
 
       _ ->
         # verify_content_type defaults to true when nil or true
-        MimeDetector.verify(file_content, file_info.filename, file_info.mime_type)
+        MimeDetector.verify(header, file_info.filename, file_info.mime_type)
     end
   end
 
@@ -332,7 +352,6 @@ defmodule PhxMediaLibrary.MediaAdder do
          %__MODULE__{} = adder,
          collection_name,
          file_info,
-         file_content,
          metadata,
          opts
        ) do
@@ -340,10 +359,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     disk = opts[:disk] || adder.disk || get_default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
 
-    # Compute checksum before storage for integrity verification
-    checksum = Media.compute_checksum(file_content, "sha256")
-
-    # Build media attributes
+    # Build media attributes (checksum is computed during streaming below)
     # Merge source URL into custom_properties if present
     custom_props =
       case file_info do
@@ -366,16 +382,16 @@ defmodule PhxMediaLibrary.MediaAdder do
       metadata: metadata,
       mediable_type: get_mediable_type(adder.model),
       mediable_id: adder.model.id,
-      order_column: get_next_order(adder.model, collection_name),
-      checksum: checksum,
-      checksum_algorithm: "sha256"
+      order_column: get_next_order(adder.model, collection_name)
     }
 
     # Determine storage path
     storage_path = PathGenerator.for_new_media(attrs)
 
-    # Store the file
-    with :ok <- StorageWrapper.put(storage, storage_path, file_content),
+    # Stream file to storage while computing checksum in a single pass.
+    # This avoids loading the entire file into memory.
+    with {:ok, checksum} <- stream_and_checksum(storage, storage_path, file_info.path),
+         attrs = Map.merge(attrs, %{checksum: checksum, checksum_algorithm: "sha256"}),
          {:ok, media} <- insert_media(attrs) do
       # Handle single file collections
       maybe_cleanup_collection(adder.model, collection_name, media)
@@ -392,6 +408,49 @@ defmodule PhxMediaLibrary.MediaAdder do
       if file_info.temp, do: File.rm(file_info.path)
 
       {:ok, media}
+    end
+  end
+
+  # Stream a file to storage while computing its SHA-256 checksum in a
+  # single pass.  Each chunk is fed to both the storage adapter (via a
+  # checksumming stream wrapper) and the running hash state.
+  #
+  # The 64 KB chunk size balances memory usage and syscall overhead.
+  @stream_chunk_size 64 * 1024
+
+  defp stream_and_checksum(storage, storage_path, file_path) do
+    # We use a process dictionary key to thread the hash state through the
+    # stream because Enum.reduce inside a stream is not composable with
+    # StorageWrapper.put which expects {:stream, enumerable}.
+    hash_key = {__MODULE__, :hash_state, make_ref()}
+
+    Process.put(hash_key, :crypto.hash_init(:sha256))
+
+    checksumming_stream =
+      file_path
+      |> File.stream!(@stream_chunk_size)
+      |> Stream.map(fn chunk ->
+        state = Process.get(hash_key)
+        Process.put(hash_key, :crypto.hash_update(state, chunk))
+        chunk
+      end)
+
+    result = StorageWrapper.put(storage, storage_path, {:stream, checksumming_stream})
+
+    hash_state = Process.delete(hash_key)
+
+    case result do
+      :ok ->
+        checksum =
+          hash_state
+          |> :crypto.hash_final()
+          |> Base.encode16(case: :lower)
+
+        {:ok, checksum}
+
+      {:error, _} = error ->
+        Process.delete(hash_key)
+        error
     end
   end
 

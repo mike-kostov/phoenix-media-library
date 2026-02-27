@@ -119,6 +119,58 @@ defmodule PhxMediaLibrary.Storage.S3 do
     end
   end
 
+  @impl true
+  def presigned_upload_url(path, presigned_opts, opts) do
+    unless Code.ensure_loaded?(ExAws.S3) do
+      raise "ex_aws_s3 is required for S3 presigned uploads. Add {:ex_aws_s3, \"~> 2.5\"} to your dependencies."
+    end
+
+    bucket = Keyword.fetch!(opts, :bucket)
+    expires_in = Keyword.get(presigned_opts, :expires_in, 3600)
+
+    presign_opts =
+      [expires_in: expires_in]
+      |> maybe_add_content_type(presigned_opts)
+      |> maybe_add_content_length_range(presigned_opts)
+
+    config = ExAws.Config.new(:s3, ex_aws_opts(opts))
+
+    case ExAws.S3.presigned_url(config, :put, bucket, path, presign_opts) do
+      {:ok, url} ->
+        fields = build_upload_fields(presigned_opts)
+        {:ok, url, fields}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp maybe_add_content_type(presign_opts, opts) do
+    case Keyword.get(opts, :content_type) do
+      nil -> presign_opts
+      ct -> Keyword.put(presign_opts, :content_type, ct)
+    end
+  end
+
+  defp maybe_add_content_length_range(presign_opts, opts) do
+    case Keyword.get(opts, :content_length_range) do
+      {_min, _max} = range ->
+        Keyword.put(presign_opts, :content_length_range, range)
+
+      nil ->
+        presign_opts
+    end
+  end
+
+  defp build_upload_fields(presigned_opts) do
+    fields = %{}
+
+    case Keyword.get(presigned_opts, :content_type) do
+      nil -> fields
+      ct -> Map.put(fields, "Content-Type", ct)
+    end
+  end
+
   defp signed_url(bucket, path, opts) do
     expires_in = Keyword.get(opts, :expires_in, 3600)
 

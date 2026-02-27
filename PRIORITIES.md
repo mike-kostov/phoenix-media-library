@@ -13,7 +13,7 @@ The guiding principle: *every feature should reduce repetitive work for the deve
 - [Milestone 2 — Make the Core Solid ✅](#milestone-2--make-the-core-solid-)
 - [Milestone 3a — Error Handling & Validation Hardening (v0.3.0) ✅](#milestone-3a--error-handling--validation-hardening-v030-)
 - [Milestone 3b — Remote URLs, Metadata & Oban Enhancements (v0.4.0) ✅](#milestone-3b--remote-urls-metadata--oban-enhancements-v040-)
-- [Milestone 3c — Production Hardening](#milestone-3c--production-hardening)
+- [Milestone 3c — Production Hardening (v0.5.0) ✅](#milestone-3c--production-hardening-v050-)
 - [Milestone 4 — Best-in-Class](#milestone-4--best-in-class)
 - [Design Decisions](#design-decisions)
 - [Known Issues](#known-issues)
@@ -329,35 +329,44 @@ end
 - [x] `process_sync/2` — synchronous processing callback on `AsyncProcessor.Oban` for immediate conversions
 - [x] Enhanced documentation — full setup walkthrough, queue sizing guidance, retry behaviour docs
 
-## Milestone 3c — Production Hardening
+## Milestone 3c — Production Hardening (v0.5.0) ✅
 
 **Goal**: Add soft deletes, streaming, and direct S3 uploads for large-scale production use.
 
 ### 3.5 — Soft Deletes
 
-- [ ] Add optional `deleted_at` field to Media schema
-- [ ] `delete/1` sets `deleted_at` instead of removing (when enabled)
-- [ ] `permanently_delete/1` for actual removal
-- [ ] Scoping: all queries exclude soft-deleted by default
-- [ ] `restore/1` to undelete
-- [ ] Mix task to permanently delete old soft-deleted media
-- [ ] Make soft deletes opt-in via config (not everyone needs them)
-- [ ] Provide `PhxMediaLibrary.SoftDeletes` module users explicitly opt into
+- [x] Add optional `deleted_at` field to Media schema
+- [x] `delete/1` sets `deleted_at` instead of removing (when enabled via `config :phx_media_library, soft_deletes: true`)
+- [x] `permanently_delete/1` for actual removal (always hard-deletes regardless of config)
+- [x] Scoping: all queries (`get_media`, `media_query`, `get_first_media`) exclude soft-deleted by default
+- [x] `restore/1` to undelete (clears `deleted_at`)
+- [x] `mix phx_media_library.purge_deleted` task to permanently delete old soft-deleted media (with `--days`, `--all`, `--dry-run` options)
+- [x] Make soft deletes opt-in via config (`soft_deletes: false` by default)
+- [x] `trashed?/1` predicate, `get_trashed_media/2`, `purge_trashed/2` API functions
+- [x] `clear_collection/2` and `clear_media/1` soft-delete when enabled (files preserved until purge)
+- [x] `exclude_trashed/1` and `only_trashed/1` query helpers on `Media`
+- [x] Install task updated with `deleted_at` column and index
 
 ### 3.6 — Streaming Upload Support (scoped)
 
-- [ ] Replace `File.read!` in `MediaAdder` with streaming from file to storage
-- [ ] Compute checksum during streaming (not as a separate pass)
-- [ ] Add `put_stream/3` callback to `PhxMediaLibrary.Storage` behaviour
-- [ ] **Deferred to M4**: Full `{:stream, enumerable}` pipeline support
+- [x] Replace `File.read!` in `MediaAdder` with streaming from file to storage (64 KB chunks)
+- [x] Compute SHA-256 checksum during streaming in a single pass (not as a separate read)
+- [x] Read only first 512 bytes for MIME detection (magic bytes), not entire file
+- [x] All three storage adapters (Disk, Memory, S3) already handle `{:stream, stream}` content
+- [x] Known issue "MediaAdder loads entire file into memory" — resolved
+- [ ] **Deferred to M4**: Full `{:stream, enumerable}` pipeline support for caller-provided streams
 
 ### 3.7 — Direct S3 Upload (Presigned URLs)
 
-- [ ] Generate presigned upload URLs for client-to-S3 uploads
-- [ ] Integrate with Phoenix LiveView's external upload mechanism
-- [ ] Skip server as intermediary for large files
-- [ ] Still create Media record and trigger conversions after upload completes
+- [x] `presigned_upload_url/3` — generate presigned URLs for client-to-S3 uploads
+- [x] `complete_external_upload/4` — create Media record after client uploads directly to storage
+- [x] `presigned_upload_url/3` callback added to `PhxMediaLibrary.Storage` behaviour (optional)
+- [x] S3 adapter implements `presigned_upload_url/3` with `:expires_in`, `:content_type`, `:content_length_range` options
+- [x] `StorageWrapper.presigned_upload_url/3` returns `{:error, :not_supported}` for adapters without the callback
+- [x] Telemetry events emitted for external uploads (`[:phx_media_library, :add]`)
+- [x] Supports pre-computed checksums from client-side hashing
 - [ ] **Deferred to M4**: `<.media_upload>` variant that auto-detects S3 and uses external uploads
+- [ ] **Deferred to M4**: LiveView external upload integration via `allow_media_upload/3` `:external` option
 
 ---
 
@@ -455,7 +464,7 @@ Active bugs or problems in the current codebase.
 - [x] **`max_files` cleanup deletes newest items instead of oldest** — `Enum.drop(max)` on ascending-ordered list removes the newest item. (Fixed — now keeps newest `max` items, deletes oldest excess)
 - [x] **No file size validation** — collections can't limit upload size. (Fixed in Milestone 3.2 — `:max_size` collection option, validated before storage)
 - [x] **MIME detection is extension-only** — no content-based verification. (Fixed in Milestone 3.3 — `MimeDetector` behaviour with magic-bytes default, `:verify_content_type` collection option)
-- [ ] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (See Milestone 3c/3.6)
+- [x] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (Fixed in Milestone 3c/3.6 — now streams in 64 KB chunks with single-pass checksum)
 
 ---
 

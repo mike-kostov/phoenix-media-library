@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-27
+
+### Added
+
+- **Milestone 3c complete** (717 tests passing: up from 653 in v0.4.0)
+
+#### 3.5 — Soft Deletes
+
+- **Opt-in soft deletes** — `config :phx_media_library, soft_deletes: true` enables soft deletes globally. Disabled by default — no behaviour change for existing users
+- **`delete/1` respects config** — When soft deletes are enabled, `delete/1` sets `deleted_at` instead of removing the record and files. When disabled, behaviour is unchanged (hard delete)
+- **`permanently_delete/1`** — Always performs a hard delete (removes files from storage and database record) regardless of the soft deletes configuration
+- **`soft_delete/1`** — Explicitly soft-delete a media item by setting its `deleted_at` timestamp. Files are preserved in storage until `permanently_delete/1` or `purge_trashed/2` is called
+- **`restore/1`** — Restore a soft-deleted media item by clearing `deleted_at`
+- **`trashed?/1`** — Predicate to check whether a media item has been soft-deleted
+- **`get_trashed_media/2`** — Query only soft-deleted media for a model, optionally filtered by collection (inverse of `get_media/2`)
+- **`purge_trashed/2`** — Permanently delete all trashed media for a model, with optional `:before` cutoff for age-based cleanup (e.g. `before: DateTime.add(DateTime.utc_now(), -30, :day)`)
+- **Query scoping** — `get_media/2`, `get_first_media/2`, `media_query/2`, and `Media.for_model/2` automatically exclude soft-deleted records when soft deletes are enabled
+- **`exclude_trashed/1`** and **`only_trashed/1`** — Query helpers on `Media` for composing custom Ecto queries
+- **`clear_collection/2` and `clear_media/1` respect soft deletes** — When enabled, these set `deleted_at` via `update_all` instead of deleting records. Files are preserved until purge
+- **`mix phx_media_library.purge_deleted`** — Mix task to permanently remove old soft-deleted media. Options: `--days N` (default: 30), `--all`, `--dry-run`, `--yes`
+- **New migration** — `add_deleted_at_to_media` adds `deleted_at` column with index
+- **Install task updated** — `mix phx_media_library.install` now includes `deleted_at` column and index from the start
+
+#### 3.6 — Streaming Upload Support
+
+- **File streaming** — `MediaAdder` no longer loads entire files into memory via `File.read!`. Files are streamed to storage in 64 KB chunks using `File.stream!/2`
+- **Single-pass checksum** — SHA-256 checksum is computed during the stream (via `Stream.map/2` feeding `:crypto.hash_update/2`) instead of a separate full-file read
+- **Header-only MIME detection** — Only the first 512 bytes are read for magic-byte MIME type detection, sufficient for all supported formats (including TAR at offset 257)
+- **Known issue resolved** — "MediaAdder loads entire file into memory" is no longer applicable
+
+#### 3.7 — Direct S3 Upload (Presigned URLs)
+
+- **`presigned_upload_url/3`** — Generate a presigned URL for direct client-to-S3 uploads. Returns `{:ok, url, fields, upload_key}`. Requires `:filename` option; supports `:content_type`, `:expires_in`, `:max_size`
+- **`complete_external_upload/4`** — Create a `Media` database record after the client uploads directly to storage. Requires `:filename`, `:content_type`, `:size`; supports `:custom_properties`, `:checksum`, `:checksum_algorithm`
+- **`presigned_upload_url/3` callback** — New optional callback on `PhxMediaLibrary.Storage` behaviour. S3 adapter implements it; Disk and Memory adapters return `{:error, :not_supported}`
+- **`StorageWrapper.presigned_upload_url/3`** — Adapter-aware wrapper that checks `function_exported?/3` and returns `{:error, :not_supported}` for adapters without the callback
+- **Telemetry** — `complete_external_upload/4` emits `[:phx_media_library, :add, :start | :stop]` events with `source_type: :external`
+
+### Changed
+
+- **`MediaAdder.store_and_persist/6` → `store_and_persist/5`** — No longer receives `file_content` as a parameter. Checksum is computed during streaming
+- **`MediaAdder.read_and_detect_mime/1`** — Now reads only the first 512 bytes (header) instead of the entire file. Returns `{:ok, file_info, header}` instead of `{:ok, file_info, file_content}`
+- **`Media.delete/1` return type** — Returns `{:ok, media}` when soft deletes are enabled (soft delete), or `:ok` when disabled (hard delete)
+- **`Media` schema** — Added `deleted_at` field (`:utc_datetime`, default `nil`)
+- **`Media.permanently_delete/1`** — Renamed from the previous `delete/1` hard-delete implementation. `delete/1` now dispatches based on soft deletes config
+- **`PhxMediaLibrary.Storage` behaviour** — Added optional `presigned_upload_url/3` callback
+- **Install task migration template** — Now includes `deleted_at` column and index
+
 ## [0.4.0] - 2026-02-27
 
 ### Added

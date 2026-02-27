@@ -13,5 +13,7 @@
   {"lib/mix/tasks/phx_media_library.regenerate.ex", :callback_info_missing},
   {"lib/mix/tasks/phx_media_library.regenerate.ex", :unknown_function},
   {"lib/mix/tasks/phx_media_library.regenerate_responsive.ex", :callback_info_missing},
-  {"lib/mix/tasks/phx_media_library.regenerate_responsive.ex", :unknown_function}
+  {"lib/mix/tasks/phx_media_library.regenerate_responsive.ex", :unknown_function},
+  {"lib/mix/tasks/phx_media_library.purge_deleted.ex", :callback_info_missing},
+  {"lib/mix/tasks/phx_media_library.purge_deleted.ex", :unknown_function}
 ]

@@ -55,6 +55,7 @@ defmodule PhxMediaLibrary.Media do
     field(:checksum, :string)
     field(:checksum_algorithm, :string, default: "sha256")
     field(:metadata, :map, default: %{})
+    field(:deleted_at, :utc_datetime)
 
     # Polymorphic association
     field(:mediable_type, :string)
@@ -64,7 +65,7 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @required_fields ~w(uuid collection_name name file_name mime_type disk size mediable_type mediable_id)a
-  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm metadata)a
+  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm metadata deleted_at)a
 
   @doc false
   def changeset(media, attrs) do
@@ -76,6 +77,9 @@ defmodule PhxMediaLibrary.Media do
 
   @doc """
   Query media for a given model, optionally filtered by collection.
+
+  By default, soft-deleted records are excluded when soft deletes are
+  enabled. Pass `include_trashed: true` to include them.
   """
   @spec for_model(Ecto.Schema.t(), atom() | nil) :: [t()]
   def for_model(model, collection_name \\ nil) do
@@ -94,6 +98,8 @@ defmodule PhxMediaLibrary.Media do
       else
         query
       end
+
+    query = exclude_trashed(query)
 
     Config.repo().all(query)
   end
@@ -146,11 +152,56 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
-  Delete a media item and all its files.
+  Check whether a media item has been soft-deleted.
   """
-  @spec delete(t()) :: :ok | {:error, term()}
-  def delete(%__MODULE__{} = media) do
-    Telemetry.span([:phx_media_library, :delete], %{media: media}, fn ->
+  @spec trashed?(t()) :: boolean()
+  def trashed?(%__MODULE__{deleted_at: nil}), do: false
+  def trashed?(%__MODULE__{deleted_at: %DateTime{}}), do: true
+
+  @doc """
+  Soft-delete a media item by setting `deleted_at`.
+
+  When soft deletes are enabled globally (`config :phx_media_library,
+  soft_deletes: true`), this is called automatically by `delete/1`
+  instead of permanently removing the record. Files are **not** removed
+  from storage until `permanently_delete/1` is called.
+
+  Returns `{:ok, media}` with the updated record, or `{:error, changeset}`.
+  """
+  @spec soft_delete(t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def soft_delete(%__MODULE__{} = media) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    media
+    |> Ecto.Changeset.change(deleted_at: now)
+    |> Config.repo().update()
+  end
+
+  @doc """
+  Restore a soft-deleted media item by clearing `deleted_at`.
+
+  Returns `{:ok, media}` with the restored record, or `{:error, changeset}`.
+  """
+  @spec restore(t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def restore(%__MODULE__{} = media) do
+    media
+    |> Ecto.Changeset.change(deleted_at: nil)
+    |> Config.repo().update()
+  end
+
+  @doc """
+  Permanently delete a media item and all its files from storage.
+
+  This always performs a hard delete regardless of the soft deletes
+  configuration. Use this for:
+  - Permanently removing soft-deleted items
+  - Force-deleting when soft deletes are enabled
+
+  See also `delete/1` which respects the soft deletes configuration.
+  """
+  @spec permanently_delete(t()) :: :ok | {:error, term()}
+  def permanently_delete(%__MODULE__{} = media) do
+    Telemetry.span([:phx_media_library, :delete], %{media: media, permanent: true}, fn ->
       # Delete all files (original + conversions)
       :ok = delete_files(media)
 
@@ -161,8 +212,27 @@ defmodule PhxMediaLibrary.Media do
           {:error, _} = error -> error
         end
 
-      {result, %{media: media}}
+      {result, %{media: media, permanent: true}}
     end)
+  end
+
+  @doc """
+  Delete a media item.
+
+  When soft deletes are enabled (`config :phx_media_library, soft_deletes: true`),
+  this sets the `deleted_at` timestamp instead of removing the record and files.
+  Use `permanently_delete/1` to force a hard delete.
+
+  When soft deletes are disabled (the default), this permanently removes
+  the record and all associated files from storage.
+  """
+  @spec delete(t()) :: :ok | {:ok, t()} | {:error, term()}
+  def delete(%__MODULE__{} = media) do
+    if soft_deletes_enabled?() do
+      soft_delete(media)
+    else
+      permanently_delete(media)
+    end
   end
 
   @doc """
@@ -216,6 +286,35 @@ defmodule PhxMediaLibrary.Media do
   @spec has_conversion?(t(), atom()) :: boolean()
   def has_conversion?(%__MODULE__{generated_conversions: conversions}, name) do
     Map.get(conversions, to_string(name), false)
+  end
+
+  @doc """
+  Returns whether soft deletes are enabled globally.
+  """
+  @spec soft_deletes_enabled?() :: boolean()
+  def soft_deletes_enabled? do
+    Application.get_env(:phx_media_library, :soft_deletes, false)
+  end
+
+  @doc """
+  Adds a `WHERE deleted_at IS NULL` clause to the query when soft deletes
+  are enabled. Returns the query unchanged otherwise.
+  """
+  @spec exclude_trashed(Ecto.Query.t()) :: Ecto.Query.t()
+  def exclude_trashed(query) do
+    if soft_deletes_enabled?() do
+      where(query, [m], is_nil(m.deleted_at))
+    else
+      query
+    end
+  end
+
+  @doc """
+  Adds a `WHERE deleted_at IS NOT NULL` clause to only return trashed items.
+  """
+  @spec only_trashed(Ecto.Query.t()) :: Ecto.Query.t()
+  def only_trashed(query) do
+    where(query, [m], not is_nil(m.deleted_at))
   end
 
   # Private functions

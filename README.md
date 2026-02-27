@@ -106,6 +106,9 @@ end
 | **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
 | **Remote URLs** | `add_from_url/3` with scheme validation, custom headers, timeout, download telemetry |
 | **Storage** | Local disk, S3, in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
+| **Streaming uploads** | Files streamed to storage in 64 KB chunks — never loaded entirely into memory |
+| **Direct S3 uploads** | `presigned_upload_url/3` + `complete_external_upload/4` for client-to-S3 without proxying |
+| **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2`, query scoping, and purge Mix task |
 | **Async processing** | Task (default) or Oban adapter with persistence, retries, and `process_sync/2` |
 | **LiveView** | Drop-in `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers |
 | **Security** | Content-based MIME detection (50+ formats via magic bytes), SHA-256 checksums |
@@ -114,14 +117,14 @@ end
 | **Errors** | Tagged tuples + structured exceptions (`Error`, `StorageError`, `ValidationError`) |
 | **Queries** | `media_query/2` returns composable `Ecto.Query` |
 | **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` components |
-| **Mix tasks** | Install, regenerate conversions, clean orphans, generate migrations |
+| **Mix tasks** | Install, regenerate conversions, clean orphans, purge deleted, generate migrations |
 
 ## Installation
 
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.4.0"},
+    {:phx_media_library, "~> 0.5.0"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},

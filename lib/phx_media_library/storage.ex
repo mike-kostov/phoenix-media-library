@@ -45,6 +45,12 @@ defmodule PhxMediaLibrary.Storage do
           disposition: String.t()
         ]
 
+  @type presigned_opts :: [
+          expires_in: pos_integer(),
+          content_type: String.t(),
+          content_length_range: {non_neg_integer(), pos_integer()}
+        ]
+
   @doc "Store content at the given path."
   @callback put(path(), content(), opts()) :: :ok | {:error, term()}
 
@@ -63,5 +69,25 @@ defmodule PhxMediaLibrary.Storage do
   @doc "Get the full filesystem path (local storage only)."
   @callback path(path(), opts()) :: String.t() | nil
 
-  @optional_callbacks [path: 2]
+  @doc """
+  Generate a presigned URL for direct client-to-storage uploads.
+
+  Returns `{:ok, url, fields}` where `url` is the upload endpoint and
+  `fields` is a map of form fields (for POST-based uploads) or an empty
+  map (for PUT-based uploads).
+
+  Only applicable to remote storage backends (e.g. S3). Local storage
+  adapters do not need to implement this callback.
+
+  ## Options
+
+  - `:expires_in` — URL expiration in seconds (default: adapter-specific)
+  - `:content_type` — expected content type of the upload
+  - `:content_length_range` — `{min, max}` byte range tuple for upload size validation
+
+  """
+  @callback presigned_upload_url(path(), presigned_opts(), opts()) ::
+              {:ok, String.t(), map()} | {:error, term()}
+
+  @optional_callbacks [path: 2, presigned_upload_url: 3]
 end

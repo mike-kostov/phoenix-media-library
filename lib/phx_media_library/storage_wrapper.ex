@@ -53,4 +53,31 @@ defmodule PhxMediaLibrary.StorageWrapper do
   def url(%__MODULE__{adapter: adapter, config: config}, path, opts \\ []) do
     adapter.url(path, Keyword.merge(config, opts))
   end
+
+  @doc """
+  Generate a presigned upload URL for direct client-to-storage uploads.
+
+  Returns `{:ok, url, fields}` if the adapter supports presigned URLs,
+  or `{:error, :not_supported}` if it doesn't.
+  """
+  def presigned_upload_url(
+        %__MODULE__{adapter: adapter, config: config},
+        path,
+        presigned_opts \\ []
+      ) do
+    Code.ensure_loaded(adapter)
+
+    if function_exported?(adapter, :presigned_upload_url, 3) do
+      Telemetry.span(
+        [:phx_media_library, :storage],
+        %{operation: :presigned_upload_url, path: path, adapter: adapter},
+        fn ->
+          result = adapter.presigned_upload_url(path, presigned_opts, config)
+          {result, %{operation: :presigned_upload_url, path: path, adapter: adapter}}
+        end
+      )
+    else
+      {:error, :not_supported}
+    end
+  end
 end
