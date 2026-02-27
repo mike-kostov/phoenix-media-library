@@ -169,6 +169,12 @@ defmodule PhxMediaLibrary.MediaAdder do
     disk = opts[:disk] || adder.disk || get_default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
 
+    # Read file content once — used for both storage and checksum
+    file_content = File.read!(file_info.path)
+
+    # Compute checksum before storage for integrity verification
+    checksum = Media.compute_checksum(file_content, "sha256")
+
     # Build media attributes
     attrs = %{
       uuid: uuid,
@@ -181,14 +187,16 @@ defmodule PhxMediaLibrary.MediaAdder do
       custom_properties: adder.custom_properties,
       mediable_type: get_mediable_type(adder.model),
       mediable_id: adder.model.id,
-      order_column: get_next_order(adder.model, collection_name)
+      order_column: get_next_order(adder.model, collection_name),
+      checksum: checksum,
+      checksum_algorithm: "sha256"
     }
 
     # Determine storage path
     storage_path = PathGenerator.for_new_media(attrs)
 
     # Store the file
-    with :ok <- StorageWrapper.put(storage, storage_path, File.read!(file_info.path)),
+    with :ok <- StorageWrapper.put(storage, storage_path, file_content),
          {:ok, media} <- insert_media(attrs) do
       # Handle single file collections
       maybe_cleanup_collection(adder.model, collection_name, media)
@@ -256,11 +264,21 @@ defmodule PhxMediaLibrary.MediaAdder do
   end
 
   defp get_mediable_type(model) do
-    model.__struct__
-    |> Module.split()
-    |> List.last()
-    |> Macro.underscore()
-    |> Kernel.<>("s")
+    if function_exported?(model.__struct__, :__media_type__, 0) do
+      model.__struct__.__media_type__()
+    else
+      # Fallback for schemas that don't `use PhxMediaLibrary.HasMedia`:
+      # derive from Ecto table name if available, otherwise fall back to
+      # underscored module name (without naive pluralization).
+      if function_exported?(model.__struct__, :__schema__, 1) do
+        model.__struct__.__schema__(:source)
+      else
+        model.__struct__
+        |> Module.split()
+        |> List.last()
+        |> Macro.underscore()
+      end
+    end
   end
 
   defp get_collection_config(model, collection_name) do
@@ -302,10 +320,17 @@ defmodule PhxMediaLibrary.MediaAdder do
         |> Enum.each(&Media.delete/1)
 
       %Collection{max_files: max} when is_integer(max) ->
-        model
-        |> Media.for_model(collection_name)
-        |> Enum.drop(max)
-        |> Enum.each(&Media.delete/1)
+        all_media = Media.for_model(model, collection_name)
+
+        if length(all_media) > max do
+          # Items are ordered by order_column ASC (oldest first).
+          # Keep the newest `max` items, delete the oldest excess.
+          excess_count = length(all_media) - max
+
+          all_media
+          |> Enum.take(excess_count)
+          |> Enum.each(&Media.delete/1)
+        end
 
       _ ->
         :ok

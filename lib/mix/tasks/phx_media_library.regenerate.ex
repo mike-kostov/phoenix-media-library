@@ -120,45 +120,48 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
 
   defp process_single(media, filter_conversions, dry_run?, _processor, index, total) do
     progress = "#{String.pad_leading("#{index}", String.length("#{total}"))} / #{total}"
-
-    # Get conversions for this media item
-    conversions = get_conversions_for_media(media)
-
-    # Filter if specific conversions requested
-    conversions =
-      if filter_conversions != [] do
-        Enum.filter(conversions, &(to_string(&1.name) in filter_conversions))
-      else
-        conversions
-      end
+    conversions = conversions_for_media(media, filter_conversions)
 
     if conversions == [] do
       Mix.shell().info("[#{progress}] #{media.file_name} - no conversions to process")
     else
-      conversion_names = Enum.map(conversions, &to_string(&1.name)) |> Enum.join(", ")
+      run_or_report(media, conversions, dry_run?, progress)
+    end
+  end
 
-      if dry_run? do
-        Mix.shell().info(
-          "[#{progress}] #{media.file_name} - would regenerate: #{conversion_names}"
-        )
-      else
-        Mix.shell().info("[#{progress}] #{media.file_name} - regenerating: #{conversion_names}")
+  defp conversions_for_media(media, filter_conversions) do
+    conversions = get_conversions_for_media(media)
 
-        case PhxMediaLibrary.Conversions.process(media, conversions) do
-          :ok ->
-            :ok
+    if filter_conversions != [] do
+      Enum.filter(conversions, &(to_string(&1.name) in filter_conversions))
+    else
+      conversions
+    end
+  end
 
-          {:error, reason} ->
-            Mix.shell().error("  #{IO.ANSI.red()}Error: #{inspect(reason)}#{IO.ANSI.reset()}")
-        end
-      end
+  defp run_or_report(media, conversions, dry_run?, progress) do
+    conversion_names = Enum.map_join(conversions, ", ", &to_string(&1.name))
+
+    if dry_run? do
+      Mix.shell().info("[#{progress}] #{media.file_name} - would regenerate: #{conversion_names}")
+    else
+      do_regenerate(media, conversions, conversion_names, progress)
+    end
+  end
+
+  defp do_regenerate(media, conversions, conversion_names, progress) do
+    Mix.shell().info("[#{progress}] #{media.file_name} - regenerating: #{conversion_names}")
+
+    case PhxMediaLibrary.Conversions.process(media, conversions) do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        Mix.shell().error("  #{IO.ANSI.red()}Error: #{inspect(reason)}#{IO.ANSI.reset()}")
     end
   end
 
   defp get_conversions_for_media(media) do
-    # Try to get the model module and its conversions
-    # This is a simplified version - in practice you'd need to
-    # look up the actual model module from mediable_type
     media.mediable_type
     |> get_model_module()
     |> get_conversions_from_module(media.collection_name)
@@ -175,9 +178,16 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
   end
 
   @spec get_model_module(String.t()) :: module() | nil
-  defp get_model_module(_mediable_type) do
-    # This would need to be implemented based on your app's conventions
-    # For now, return nil to indicate we can't determine the module
-    nil
+  defp get_model_module(mediable_type) do
+    alias PhxMediaLibrary.Workers.ProcessConversions
+
+    if Code.ensure_loaded?(ProcessConversions) do
+      case ProcessConversions.find_model_module(mediable_type) do
+        {:ok, module} -> module
+        :error -> nil
+      end
+    else
+      nil
+    end
   end
 end

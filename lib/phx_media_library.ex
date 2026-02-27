@@ -55,7 +55,9 @@ defmodule PhxMediaLibrary do
 
   """
 
-  alias PhxMediaLibrary.{Media, MediaAdder}
+  alias PhxMediaLibrary.{Config, Media, MediaAdder}
+
+  import Ecto.Query, only: [from: 2, where: 3]
 
   @doc """
   Start adding media to a model from a file path or upload.
@@ -144,6 +146,48 @@ defmodule PhxMediaLibrary do
   end
 
   @doc """
+  Returns an `Ecto.Query` for all media belonging to a model, optionally
+  filtered by collection.
+
+  This is useful for composing queries with Ecto — you can add further
+  filters, selects, limits, or use it with `Repo.all/1`, `Repo.one/1`, etc.
+
+  ## Examples
+
+      # All media for a post
+      PhxMediaLibrary.media_query(post)
+      |> Repo.all()
+
+      # Only images
+      PhxMediaLibrary.media_query(post, :images)
+      |> Repo.all()
+
+      # Compose with further constraints
+      PhxMediaLibrary.media_query(post, :images)
+      |> where([m], m.mime_type == "image/png")
+      |> Repo.all()
+
+  """
+  @spec media_query(Ecto.Schema.t(), atom() | nil) :: Ecto.Query.t()
+  def media_query(model, collection_name \\ nil) do
+    mediable_type = get_mediable_type(model)
+    mediable_id = model.id
+
+    query =
+      from(m in Media,
+        where: m.mediable_type == ^mediable_type,
+        where: m.mediable_id == ^mediable_id,
+        order_by: [asc: m.order_column, asc: m.inserted_at]
+      )
+
+    if collection_name do
+      where(query, [m], m.collection_name == ^to_string(collection_name))
+    else
+      query
+    end
+  end
+
+  @doc """
   Get all media for a model, optionally filtered by collection.
 
   ## Examples
@@ -153,7 +197,11 @@ defmodule PhxMediaLibrary do
 
   """
   @spec get_media(Ecto.Schema.t(), atom() | nil) :: [Media.t()]
-  defdelegate get_media(model, collection_name \\ nil), to: Media, as: :for_model
+  def get_media(model, collection_name \\ nil) do
+    model
+    |> media_query(collection_name)
+    |> Config.repo().all()
+  end
 
   @doc """
   Get the first media item for a model in a collection.
@@ -221,6 +269,25 @@ defmodule PhxMediaLibrary do
   defdelegate delete(media), to: Media
 
   @doc """
+  Verify the integrity of a stored media file by comparing its stored
+  checksum against a freshly computed one.
+
+  Returns `:ok` if the checksums match, `{:error, :checksum_mismatch}` if
+  they differ, or `{:error, :no_checksum}` if no checksum was stored.
+
+  ## Examples
+
+      case PhxMediaLibrary.verify_integrity(media) do
+        :ok -> IO.puts("File is intact")
+        {:error, :checksum_mismatch} -> IO.puts("File has been corrupted!")
+        {:error, :no_checksum} -> IO.puts("No checksum stored for this media")
+      end
+
+  """
+  @spec verify_integrity(Media.t()) :: :ok | {:error, :checksum_mismatch | :no_checksum | term()}
+  defdelegate verify_integrity(media), to: Media
+
+  @doc """
   Delete all media in a collection for a model.
   """
   @spec clear_collection(Ecto.Schema.t(), atom()) :: :ok
@@ -242,5 +309,24 @@ defmodule PhxMediaLibrary do
     |> Enum.each(&delete/1)
 
     :ok
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
+
+  defp get_mediable_type(model) do
+    if function_exported?(model.__struct__, :__media_type__, 0) do
+      model.__struct__.__media_type__()
+    else
+      if function_exported?(model.__struct__, :__schema__, 1) do
+        model.__struct__.__schema__(:source)
+      else
+        model.__struct__
+        |> Module.split()
+        |> List.last()
+        |> Macro.underscore()
+      end
+    end
   end
 end

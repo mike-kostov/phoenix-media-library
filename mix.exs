@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.1.1"
+  @version "0.2.0"
   @source_url "https://github.com/mike-kostov/phx_media_library"
 
   def project do
@@ -20,7 +20,10 @@ defmodule PhxMediaLibrary.MixProject do
 
       # Docs
       name: "PhxMediaLibrary",
-      docs: docs()
+      docs: docs(),
+
+      # Dialyzer
+      dialyzer: dialyzer()
     ]
   end
 
@@ -38,9 +41,11 @@ defmodule PhxMediaLibrary.MixProject do
     [
       # === Required ===
       {:ecto_sql, "~> 3.12"},
-      {:image, "~> 0.54"},
       {:req, "~> 0.5"},
       {:mime, "~> 2.0"},
+
+      # === Optional: Image processing (libvips) ===
+      {:image, "~> 0.54", optional: true},
 
       # === Optional: S3 Storage ===
       {:ex_aws, "~> 2.5", optional: true},
@@ -61,9 +66,20 @@ defmodule PhxMediaLibrary.MixProject do
     ]
   end
 
+  defp dialyzer do
+    [
+      ignore_warnings: ".dialyzer_ignore.exs"
+    ]
+  end
+
   defp aliases do
     [
-      precommit: ["format", "credo --strict", "dialyzer", "test"]
+      precommit: [
+        "format",
+        "credo --strict",
+        "dialyzer",
+        "cmd --cd . sh -c 'MIX_ENV=test mix test'"
+      ]
     ]
   end
 

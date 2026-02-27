@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.Fixtures do
   Test fixtures for PhxMediaLibrary tests.
   """
 
-  alias PhxMediaLibrary.{TestRepo, Media}
+  alias PhxMediaLibrary.{Media, TestRepo}
 
   @fixtures_path Path.expand("fixtures", __DIR__)
 

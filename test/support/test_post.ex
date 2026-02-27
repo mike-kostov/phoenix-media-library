@@ -12,6 +12,10 @@ defmodule PhxMediaLibrary.TestPost do
     field(:body, :string)
 
     has_media()
+    has_media(:images)
+    has_media(:documents)
+    has_media(:avatar)
+    has_media(:gallery)
 
     timestamps(type: :utc_datetime)
   end

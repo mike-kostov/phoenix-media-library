@@ -141,28 +141,34 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
 
     # Find orphaned files
     orphaned = MapSet.difference(storage_files, db_paths)
-
-    if MapSet.size(orphaned) == 0 do
-      Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
-    else
-      Mix.shell().info("  Found #{MapSet.size(orphaned)} orphaned file(s):")
-
-      Enum.each(orphaned, fn path ->
-        full_path = Path.join(root, path)
-
-        if force? do
-          File.rm!(full_path)
-          Mix.shell().info("    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{path}")
-        else
-          Mix.shell().info("    #{path}")
-        end
-      end)
-    end
+    report_orphaned_files(orphaned, root, force?)
   end
 
+  defp report_orphaned_files(orphaned, _root, _force?) when map_size(orphaned) == 0 do
+    Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
+  end
+
+  defp report_orphaned_files(orphaned, root, force?) do
+    Mix.shell().info("  Found #{MapSet.size(orphaned)} orphaned file(s):")
+
+    Enum.each(orphaned, fn path ->
+      delete_or_report_file(path, root, force?)
+    end)
+  end
+
+  defp delete_or_report_file(path, root, true = _force?) do
+    full_path = Path.join(root, path)
+    File.rm!(full_path)
+    Mix.shell().info("    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{path}")
+  end
+
+  defp delete_or_report_file(path, _root, false = _force?) do
+    Mix.shell().info("    #{path}")
+  end
+
+  # S3 cleanup requires ExAws.S3.list_objects_v2 — planned for Milestone 3.
   defp clean_s3_disk(_disk_name, _config, _repo, _force?) do
     Mix.shell().info("  S3 cleanup not yet implemented")
-    # TODO: Implement S3 cleanup using ExAws.S3.list_objects_v2
   end
 
   defp clean_orphaned_records(disks, force?) do
@@ -175,38 +181,43 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
     Enum.each(disks, fn disk_name ->
       Mix.shell().info("Disk: #{disk_name}")
 
-      _config = PhxMediaLibrary.Config.disk_config(disk_name)
       storage = PhxMediaLibrary.Config.storage_adapter(disk_name)
 
-      # Get all media records for this disk
       media_items =
         from(m in PhxMediaLibrary.Media, where: m.disk == ^to_string(disk_name))
         |> repo.all()
 
-      orphaned =
-        Enum.filter(media_items, fn media ->
-          path = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
-          not PhxMediaLibrary.StorageWrapper.exists?(storage, path)
-        end)
-
-      if orphaned == [] do
-        Mix.shell().info("  #{IO.ANSI.green()}No orphaned records found#{IO.ANSI.reset()}")
-      else
-        Mix.shell().info("  Found #{length(orphaned)} orphaned record(s):")
-
-        Enum.each(orphaned, fn media ->
-          if force? do
-            repo.delete!(media)
-
-            Mix.shell().info(
-              "    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{media.file_name} (#{media.id})"
-            )
-          else
-            Mix.shell().info("    #{media.file_name} (#{media.id})")
-          end
-        end)
-      end
+      orphaned = find_orphaned_records(media_items, storage)
+      report_orphaned_records(orphaned, repo, force?)
     end)
+  end
+
+  defp find_orphaned_records(media_items, storage) do
+    Enum.filter(media_items, fn media ->
+      path = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
+      not PhxMediaLibrary.StorageWrapper.exists?(storage, path)
+    end)
+  end
+
+  defp report_orphaned_records([], _repo, _force?) do
+    Mix.shell().info("  #{IO.ANSI.green()}No orphaned records found#{IO.ANSI.reset()}")
+  end
+
+  defp report_orphaned_records(orphaned, repo, force?) do
+    Mix.shell().info("  Found #{length(orphaned)} orphaned record(s):")
+    Enum.each(orphaned, &delete_or_report_record(&1, repo, force?))
+  end
+
+  defp delete_or_report_record(media, repo, true = _force?) do
+    repo.delete!(media)
+
+    Mix.shell().info(
+      "    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{media.file_name} (#{media.id})"
+    )
+  end
+
+  defp delete_or_report_record(media, _repo, false = _force?) do
+    Mix.shell().info("    #{media.file_name} (#{media.id})")
   end
 
   defp get_all_paths(media) do

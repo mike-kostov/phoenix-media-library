@@ -99,28 +99,32 @@ defmodule PhxMediaLibrary.Conversions do
 
   defp maybe_generate_responsive_for_conversions(media, results) do
     if Config.responsive_images_enabled?() do
-      # Get fresh media with updated conversions
-      media = Config.repo().reload!(media)
-
-      successful_conversions =
-        results
-        |> Enum.filter(&match?({:ok, _}, &1))
-        |> Enum.map(fn {:ok, name} -> name end)
-
-      # Generate responsive images for each successful conversion
-      responsive_data =
-        Enum.reduce(successful_conversions, media.responsive_images, fn conversion_name, acc ->
-          case ResponsiveImages.generate(media, conversion_name) do
-            {:ok, data} -> Map.merge(acc, data)
-            _ -> acc
-          end
-        end)
-
-      # Update media with responsive image data
-      media
-      |> Ecto.Changeset.change(responsive_images: responsive_data)
-      |> Config.repo().update()
+      generate_responsive_for_conversions(media, results)
     end
+  end
+
+  defp generate_responsive_for_conversions(media, results) do
+    # Get fresh media with updated conversions
+    media = Config.repo().reload!(media)
+    conversion_names = successful_conversion_names(results)
+
+    responsive_data =
+      Enum.reduce(conversion_names, media.responsive_images, fn conversion_name, acc ->
+        case ResponsiveImages.generate(media, conversion_name) do
+          {:ok, data} -> Map.merge(acc, data)
+          _ -> acc
+        end
+      end)
+
+    media
+    |> Ecto.Changeset.change(responsive_images: responsive_data)
+    |> Config.repo().update()
+  end
+
+  defp successful_conversion_names(results) do
+    results
+    |> Enum.filter(&match?({:ok, _}, &1))
+    |> Enum.map(fn {:ok, name} -> name end)
   end
 
   defp temp_file_path(path) do

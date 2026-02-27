@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
   Generates URLs for media files.
   """
 
-  alias PhxMediaLibrary.{Media, Config, PathGenerator, StorageWrapper}
+  alias PhxMediaLibrary.{Config, Media, PathGenerator, StorageWrapper}
 
   @doc """
   Generate a URL for a media item.

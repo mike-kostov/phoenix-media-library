@@ -9,7 +9,8 @@ config :phx_media_library, PhxMediaLibrary.TestRepo,
   hostname: "localhost",
   database: "phx_media_library_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
-  pool_size: 10
+  pool_size: 10,
+  priv: "priv/repo"
 
 config :phx_media_library,
   repo: PhxMediaLibrary.TestRepo,

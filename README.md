@@ -8,13 +8,18 @@ A robust, Ecto-backed media management library for Elixir and Phoenix, inspired 
 
 ## Features
 
-- **Associate files with Ecto schemas** - Polymorphic media associations
-- **Collections** - Organize media into named collections with validation
-- **Image conversions** - Generate thumbnails, previews, and custom sizes
-- **Responsive images** - Automatic srcset generation for optimal loading
-- **Multiple storage backends** - Local filesystem, S3, or custom adapters
-- **Async processing** - Background conversion processing with Oban support
-- **Phoenix components** - Ready-to-use view helpers for templates
+- **Associate files with Ecto schemas** — Polymorphic media associations via `has_media()` macro
+- **Declarative DSL** — Define collections and conversions with a clean macro syntax
+- **Collections** — Organize media into named collections with MIME validation, file limits, and single-file mode
+- **Image conversions** — Generate thumbnails, previews, and custom sizes (optional — works without libvips)
+- **Responsive images** — Automatic srcset generation for optimal loading
+- **Multiple storage backends** — Local filesystem, S3, in-memory (for tests), or custom adapters
+- **Async processing** — Background conversion processing with Task (default) or Oban
+- **LiveView components** — Drop-in `<.media_upload>` and `<.media_gallery>` components that eliminate upload boilerplate
+- **LiveUpload helpers** — `use PhxMediaLibrary.LiveUpload` for collection-aware uploads with one line
+- **Checksum integrity** — SHA-256 computed on upload, verifiable at any time
+- **Composable queries** — `media_query/2` returns an `Ecto.Query` for further composition
+- **Phoenix view helpers** — `<.media_img>`, `<.responsive_img>`, and `<.picture>` components
 
 ## Installation
 
@@ -23,18 +28,23 @@ Add `phx_media_library` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.1.0"},
+    {:phx_media_library, "~> 0.2.0"},
 
-    # Optional: For S3 storage
+    # Optional: Image processing (requires libvips)
+    {:image, "~> 0.54"},
+
+    # Optional: S3 storage
     {:ex_aws, "~> 2.5"},
     {:ex_aws_s3, "~> 2.5"},
     {:sweet_xml, "~> 0.7"},
 
-    # Optional: For async processing with Oban
+    # Optional: Async processing with Oban
     {:oban, "~> 2.18"}
   ]
 end
 ```
+
+> **Note:** The `:image` dependency (libvips) is **optional**. PhxMediaLibrary works for file storage (PDFs, CSVs, documents) without it. Image conversions and responsive images require `:image` to be installed. If it's missing, you'll get clear error messages guiding you to install it.
 
 ## Configuration
 
@@ -118,6 +128,41 @@ This generates the `media` table migration with all required fields.
 
 ### 2. Add to your Ecto schema
 
+PhxMediaLibrary supports two styles for defining collections and conversions. You can use either — or mix them.
+
+#### Declarative DSL (recommended)
+
+```elixir
+defmodule MyApp.Post do
+  use Ecto.Schema
+  use PhxMediaLibrary.HasMedia
+
+  schema "posts" do
+    field :title, :string
+
+    has_media()          # injects has_many :media (all media for this model)
+    has_media(:images)   # injects has_many :images (scoped to "images" collection)
+    has_media(:avatar)   # injects has_many :avatar (scoped to "avatar" collection)
+
+    timestamps()
+  end
+
+  media_collections do
+    collection :images, max_files: 20
+    collection :documents, accepts: ~w(application/pdf text/plain)
+    collection :avatar, single_file: true, fallback_url: "/images/default.png"
+  end
+
+  media_conversions do
+    convert :thumb, width: 150, height: 150, fit: :cover
+    convert :preview, width: 800, quality: 85
+    convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
+  end
+end
+```
+
+#### Function-based approach
+
 ```elixir
 defmodule MyApp.Post do
   use Ecto.Schema
@@ -129,7 +174,6 @@ defmodule MyApp.Post do
     timestamps()
   end
 
-  # Define collections for organizing media
   def media_collections do
     [
       collection(:images),
@@ -138,7 +182,6 @@ defmodule MyApp.Post do
     ]
   end
 
-  # Define image conversions
   def media_conversions do
     [
       conversion(:thumb, width: 150, height: 150, fit: :cover),
@@ -148,25 +191,39 @@ defmodule MyApp.Post do
 end
 ```
 
+The `has_media()` macro injects a polymorphic `has_many :media` association so you can use standard Ecto preloading:
+
+```elixir
+post = Repo.get!(Post, id) |> Repo.preload([:media, :images, :avatar])
+```
+
+Collection-scoped variants like `has_media(:images)` add a scoped `has_many` filtered by both model type and collection name.
+
 ### 3. Add media to your models
 
 ```elixir
 # From a file path
-post
-|> PhxMediaLibrary.add("/path/to/image.jpg")
-|> PhxMediaLibrary.to_collection(:images)
+{:ok, media} =
+  post
+  |> PhxMediaLibrary.add("/path/to/image.jpg")
+  |> PhxMediaLibrary.to_collection(:images)
 
-# From a Phoenix upload
-post
-|> PhxMediaLibrary.add(upload)
-|> PhxMediaLibrary.using_filename("custom-name.jpg")
-|> PhxMediaLibrary.with_custom_properties(%{"alt" => "My image"})
-|> PhxMediaLibrary.to_collection(:images)
+# With custom filename and metadata
+{:ok, media} =
+  post
+  |> PhxMediaLibrary.add(upload)
+  |> PhxMediaLibrary.using_filename("custom-name.jpg")
+  |> PhxMediaLibrary.with_custom_properties(%{"alt" => "My image"})
+  |> PhxMediaLibrary.to_collection(:images)
 
 # From a URL
-post
-|> PhxMediaLibrary.add_from_url("https://example.com/image.jpg")
-|> PhxMediaLibrary.to_collection(:images)
+{:ok, media} =
+  post
+  |> PhxMediaLibrary.add_from_url("https://example.com/image.jpg")
+  |> PhxMediaLibrary.to_collection(:images)
+
+# Bang version raises on error
+media = PhxMediaLibrary.to_collection!(adder, :images)
 ```
 
 ### 4. Retrieve media
@@ -181,75 +238,241 @@ PhxMediaLibrary.get_first_media(post, :images)
 # Get URLs
 PhxMediaLibrary.get_first_media_url(post, :images)
 PhxMediaLibrary.get_first_media_url(post, :images, :thumb)
-PhxMediaLibrary.get_first_media_url(post, :images, fallback: "/default.jpg")
+PhxMediaLibrary.get_first_media_url(post, :avatar, fallback: "/default.jpg")
 
 # Get URL for a specific media item
 PhxMediaLibrary.url(media)
 PhxMediaLibrary.url(media, :thumb)
+
+# Composable Ecto queries
+PhxMediaLibrary.media_query(post, :images)
+|> where([m], m.mime_type == "image/png")
+|> limit(5)
+|> Repo.all()
 ```
+
+## LiveView Components
+
+PhxMediaLibrary ships with drop-in LiveView components that eliminate 150+ lines of upload boilerplate.
+
+### Setup
+
+Add to your `my_app_web.ex`:
+
+```elixir
+defp html_helpers do
+  quote do
+    # ... existing imports
+    import PhxMediaLibrary.Components
+    import PhxMediaLibrary.ViewHelpers
+  end
+end
+```
+
+### Upload + Gallery in a LiveView
+
+```elixir
+defmodule MyAppWeb.PostLive.Edit do
+  use MyAppWeb, :live_view
+  use PhxMediaLibrary.LiveUpload
+
+  def mount(%{"id" => id}, _session, socket) do
+    post = Posts.get_post!(id)
+
+    {:ok,
+     socket
+     |> assign(:post, post)
+     |> allow_media_upload(:images, model: post, collection: :images)
+     |> stream_existing_media(:media, post, :images)}
+  end
+
+  def handle_event("validate", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("save_media", _params, socket) do
+    case consume_media(socket, :images, socket.assigns.post, :images, notify: self()) do
+      {:ok, media_items} ->
+        {:noreply,
+         socket
+         |> stream_media_items(:media, media_items)
+         |> put_flash(:info, "Uploaded #{length(media_items)} file(s)")}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Upload failed: #{inspect(reason)}")}
+    end
+  end
+
+  def handle_event("delete_media", %{"id" => id}, socket) do
+    case delete_media_by_id(id, notify: self()) do
+      :ok -> {:noreply, stream_delete_by_dom_id(socket, :media, "media-#{id}")}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, inspect(reason))}
+    end
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :images, ref)}
+  end
+
+  # React to media lifecycle events
+  def handle_info({:media_added, media_items}, socket) do
+    {:noreply, assign(socket, :media_count, length(media_items))}
+  end
+
+  def handle_info({:media_removed, _media}, socket) do
+    {:noreply, socket}
+  end
+end
+```
+
+### Template
+
+```heex
+<form phx-change="validate" phx-submit="save_media">
+  <.media_upload
+    upload={@uploads.images}
+    id="post-images-upload"
+    label="Upload Images"
+    sublabel="JPG, PNG, WebP up to 10MB"
+  />
+
+  <button type="submit">Upload</button>
+</form>
+
+<.media_gallery
+  media={@streams.media}
+  id="post-gallery"
+>
+  <:item :let={{id, media}}>
+    <.media_img media={media} conversion={:thumb} class="rounded-lg" />
+  </:item>
+  <:empty>
+    <p>No images yet. Upload some above!</p>
+  </:empty>
+</.media_gallery>
+```
+
+### `<.media_upload>` Features
+
+- Drag-and-drop with visual feedback (`.MediaDropZone` JS hook)
+- Live image previews via `<.live_img_preview>`
+- Upload progress bars per entry
+- Per-entry error display and cancel buttons
+- Full-size and compact layouts
+- Dark mode support
+- Fully customizable via attrs, slots, and CSS classes
+
+### `<.media_gallery>` Features
+
+- Stream-powered grid (2–6 configurable columns)
+- Image thumbnails with delete-on-hover
+- Document type icons (PDF, spreadsheet, archive, etc.)
+- `:item` and `:empty` slots for custom rendering
+
+### `<.media_upload_button>`
+
+A compact inline variant for embedding upload triggers within forms or tight layouts.
+
+### `PhxMediaLibrary.LiveUpload` Helpers
+
+`use PhxMediaLibrary.LiveUpload` imports these functions into your LiveView:
+
+| Function | Purpose |
+|----------|---------|
+| `allow_media_upload/3` | Wraps `allow_upload/3` with collection-aware defaults (accept types, max entries, max file size) |
+| `consume_media/5` | Consumes uploads and persists via `PhxMediaLibrary.add/2 \|> to_collection/2` |
+| `stream_existing_media/4` | Loads existing media into a LiveView stream |
+| `stream_media_items/3` | Inserts newly created media into a stream |
+| `delete_media_by_id/2` | Deletes a media record and its files |
+| `media_upload_errors/1` | Human-readable error strings for an upload |
+| `media_entry_errors/2` | Human-readable error strings for an entry |
+| `has_upload_entries?/1` | Whether the upload has any entries |
+| `image_entry?/1` | Whether an entry is an image (for conditional previews) |
+| `translate_upload_error/1` | Extensible error atom → string translation |
+
+### Event Notifications
+
+Both `consume_media/5` and `delete_media_by_id/2` accept a `:notify` option. When set to a pid (e.g. `self()`), lifecycle messages are sent to that process:
+
+- `{:media_added, [Media.t()]}` — after successful upload
+- `{:media_error, reason}` — when upload fails
+- `{:media_removed, Media.t()}` — after successful deletion
+
+Handle them in your LiveView via `handle_info/2`.
 
 ## Collections
 
-Collections help organize media and apply validation rules.
+Collections organize media and apply validation rules.
 
 ```elixir
-def media_collections do
-  [
-    # Basic collection
-    collection(:images),
+media_collections do
+  # Basic collection
+  collection :images
 
-    # With MIME type validation
-    collection(:documents, accepts: ~w(application/pdf application/msword)),
+  # MIME type validation
+  collection :documents, accepts: ~w(application/pdf application/msword)
 
-    # Single file only (replaces existing)
-    collection(:avatar, single_file: true),
+  # Single file only (replaces existing on new upload)
+  collection :avatar, single_file: true
 
-    # Limit number of files
-    collection(:gallery, max_files: 10),
+  # Limit number of files (oldest excess is removed)
+  collection :gallery, max_files: 10
 
-    # Custom storage disk
-    collection(:backups, disk: :s3),
+  # Custom storage disk
+  collection :backups, disk: :s3
 
-    # Fallback URL when empty
-    collection(:profile_photo, single_file: true, fallback_url: "/images/default-avatar.png")
-  ]
+  # Fallback URL when collection is empty
+  collection :profile_photo, single_file: true, fallback_url: "/images/default-avatar.png"
 end
 ```
 
 ## Conversions
 
-Conversions automatically generate derived images when media is added.
+Conversions automatically generate derived images when media is added. Requires the `:image` dependency.
 
 ```elixir
-def media_conversions do
-  [
-    # Simple resize
-    conversion(:thumb, width: 150, height: 150),
+media_conversions do
+  # Simple resize
+  convert :thumb, width: 150, height: 150
 
-    # Resize with fit mode
-    conversion(:square, width: 300, height: 300, fit: :cover),
+  # Resize with fit mode
+  convert :square, width: 300, height: 300, fit: :cover
 
-    # Width only (maintains aspect ratio)
-    conversion(:preview, width: 800),
+  # Width only (maintains aspect ratio)
+  convert :preview, width: 800
 
-    # With quality setting
-    conversion(:optimized, width: 1200, quality: 80),
+  # With quality setting
+  convert :optimized, width: 1200, quality: 80
 
-    # Convert format
-    conversion(:webp_thumb, width: 150, format: :webp),
+  # Convert format
+  convert :webp_thumb, width: 150, format: :webp
 
-    # Only for specific collections
-    conversion(:thumb, width: 150, collections: [:images, :gallery])
-  ]
+  # Only for specific collections
+  convert :banner, width: 1200, collections: [:images, :gallery]
 end
 ```
 
 ### Fit Options
 
-- `:contain` - Resize to fit within dimensions, maintaining aspect ratio
-- `:cover` - Resize to cover dimensions, cropping if necessary
-- `:fill` - Stretch to fill dimensions exactly
-- `:crop` - Crop to exact dimensions from center
+| Mode | Behaviour |
+|------|-----------|
+| `:contain` | Fit within dimensions, maintaining aspect ratio |
+| `:cover` | Cover dimensions, cropping if necessary |
+| `:fill` | Stretch to fill dimensions exactly |
+| `:crop` | Crop to exact dimensions from center |
+
+## Checksum & Integrity Verification
+
+SHA-256 checksums are computed automatically during upload and stored alongside each media record.
+
+```elixir
+# Verify a file hasn't been tampered with or corrupted
+case PhxMediaLibrary.verify_integrity(media) do
+  :ok -> IO.puts("File is intact")
+  {:error, :checksum_mismatch} -> IO.puts("File has been corrupted!")
+  {:error, :no_checksum} -> IO.puts("No checksum stored for this media")
+end
+```
 
 ## Responsive Images
 
@@ -264,29 +487,14 @@ post
 
 # Get srcset attribute
 PhxMediaLibrary.srcset(media)
-# => "uploads/posts/1/responsive/image-320.jpg 320w, uploads/posts/1/responsive/image-640.jpg 640w, ..."
-
-# Get optimal URL for a specific width
-PhxMediaLibrary.Media.url_for_width(media, 800)
+# => "uploads/posts/1/responsive/image-320.jpg 320w, ..."
 ```
 
 ## View Helpers
 
-Add the view helpers to your Phoenix application:
+For standard (non-LiveView) templates, PhxMediaLibrary provides rendering components.
 
-```elixir
-# In your my_app_web.ex
-def html_helpers do
-  quote do
-    # ... existing imports
-    import PhxMediaLibrary.ViewHelpers
-  end
-end
-```
-
-### Available Components
-
-#### Simple Image
+### Simple Image
 
 ```heex
 <.media_img media={@media} class="rounded-lg" />
@@ -294,7 +502,7 @@ end
 <.media_img media={@media} conversion={:thumb} alt="Product image" />
 ```
 
-#### Responsive Image
+### Responsive Image
 
 ```heex
 <.responsive_img
@@ -303,17 +511,9 @@ end
   class="w-full h-auto"
   alt="Hero image"
 />
-
-<.responsive_img
-  media={@media}
-  conversion={:preview}
-  sizes="100vw"
-  loading="eager"
-  placeholder={true}
-/>
 ```
 
-#### Picture Element (Art Direction)
+### Picture Element (Art Direction)
 
 ```heex
 <.picture
@@ -326,70 +526,40 @@ end
 />
 ```
 
-#### Manual srcset
-
-```heex
-<img
-  src={PhxMediaLibrary.url(@media)}
-  srcset={PhxMediaLibrary.srcset(@media)}
-  sizes="100vw"
-  alt="My image"
-/>
-```
-
 ## Mix Tasks
 
 ### Install
 
-Generate the media table migration:
-
 ```bash
 mix phx_media_library.install
-
-# Options
-mix phx_media_library.install --no-migration    # Skip migration
-mix phx_media_library.install --table my_media  # Custom table name
 ```
 
 ### Regenerate Conversions
 
-Regenerate conversions for existing media (useful after changing conversion settings):
-
 ```bash
-# Regenerate a specific conversion
 mix phx_media_library.regenerate --conversion thumb
-
-# Regenerate all conversions
-mix phx_media_library.regenerate --all
-
-# For a specific collection
-mix phx_media_library.regenerate --conversion thumb --collection images
+mix phx_media_library.regenerate --collection images
+mix phx_media_library.regenerate --dry-run
 ```
 
 ### Regenerate Responsive Images
 
 ```bash
 mix phx_media_library.regenerate_responsive
-
-# For specific collection
 mix phx_media_library.regenerate_responsive --collection images
 ```
 
 ### Clean Orphaned Files
 
-Remove files that exist on disk but have no database record:
-
 ```bash
-# Dry run - see what would be deleted
+# Dry run — see what would be deleted
 mix phx_media_library.clean
 
-# Actually delete orphaned files
+# Actually delete
 mix phx_media_library.clean --force
 ```
 
 ### Generate Custom Migration
-
-Add custom fields to the media table:
 
 ```bash
 mix phx_media_library.gen.migration add_blurhash_field
@@ -398,7 +568,7 @@ mix phx_media_library.gen.migration add_blurhash_field
 ## Deleting Media
 
 ```elixir
-# Delete a single media item
+# Delete a single media item (removes files from storage too)
 PhxMediaLibrary.delete(media)
 
 # Clear all media in a collection
@@ -465,7 +635,7 @@ case PhxMediaLibrary.to_collection(adder, :images) do
   {:ok, media} ->
     # Success
   {:error, :invalid_mime_type} ->
-    # File type not accepted
+    # File type not accepted by collection
   {:error, :file_not_found} ->
     # Source file doesn't exist
   {:error, changeset} ->
@@ -491,6 +661,12 @@ config :phx_media_library,
   ]
 ```
 
+Don't forget to start the memory storage agent in your `test_helper.exs`:
+
+```elixir
+{:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
+```
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -503,7 +679,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

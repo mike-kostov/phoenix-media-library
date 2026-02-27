@@ -17,6 +17,8 @@ defmodule PhxMediaLibrary.Media do
   - `mediable_type` - The type of the associated model (e.g., "posts")
   - `mediable_id` - The ID of the associated model
   - `order_column` - For ordering media within a collection
+  - `checksum` - SHA-256 (or other algorithm) hash of the file contents
+  - `checksum_algorithm` - Algorithm used for the checksum (e.g., "sha256")
 
   """
 
@@ -42,6 +44,8 @@ defmodule PhxMediaLibrary.Media do
     field(:generated_conversions, :map, default: %{})
     field(:responsive_images, :map, default: %{})
     field(:order_column, :integer)
+    field(:checksum, :string)
+    field(:checksum_algorithm, :string, default: "sha256")
 
     # Polymorphic association
     field(:mediable_type, :string)
@@ -51,7 +55,7 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @required_fields ~w(uuid collection_name name file_name mime_type disk size mediable_type mediable_id)a
-  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column)a
+  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm)a
 
   @doc false
   def changeset(media, attrs) do
@@ -148,6 +152,51 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  Verify the integrity of a stored media file by comparing its checksum
+  against the stored value.
+
+  Returns `:ok` if the checksums match, `{:error, :checksum_mismatch}` if
+  they don't, or `{:error, :no_checksum}` if no checksum was stored.
+  """
+  @spec verify_integrity(t()) :: :ok | {:error, :checksum_mismatch | :no_checksum | term()}
+  def verify_integrity(%__MODULE__{checksum: nil}), do: {:error, :no_checksum}
+  def verify_integrity(%__MODULE__{checksum_algorithm: nil}), do: {:error, :no_checksum}
+
+  def verify_integrity(%__MODULE__{} = media) do
+    storage = Config.storage_adapter(media.disk)
+    relative = PathGenerator.relative_path(media, nil)
+
+    with {:ok, content} <- StorageWrapper.get(storage, relative) do
+      computed = compute_checksum(content, media.checksum_algorithm)
+
+      if computed == media.checksum do
+        :ok
+      else
+        {:error, :checksum_mismatch}
+      end
+    end
+  end
+
+  @doc """
+  Compute a checksum for binary content using the given algorithm.
+
+  Supported algorithms: `"sha256"` (default), `"md5"`, `"sha1"`.
+  """
+  @spec compute_checksum(binary(), String.t()) :: String.t()
+  def compute_checksum(content, algorithm \\ "sha256") do
+    hash_algorithm =
+      case algorithm do
+        "sha256" -> :sha256
+        "sha1" -> :sha
+        "md5" -> :md5
+        other -> raise "Unsupported checksum algorithm: #{inspect(other)}"
+      end
+
+    :crypto.hash(hash_algorithm, content)
+    |> Base.encode16(case: :lower)
+  end
+
+  @doc """
   Check if a conversion has been generated.
   """
   @spec has_conversion?(t(), atom()) :: boolean()
@@ -159,11 +208,21 @@ defmodule PhxMediaLibrary.Media do
 
   defp get_mediable_info(model) do
     type =
-      model.__struct__
-      |> Module.split()
-      |> List.last()
-      |> Macro.underscore()
-      |> then(&(&1 <> "s"))
+      if function_exported?(model.__struct__, :__media_type__, 0) do
+        model.__struct__.__media_type__()
+      else
+        # Fallback for schemas that don't `use PhxMediaLibrary.HasMedia`:
+        # derive from Ecto table name if available, otherwise fall back to
+        # underscored module name (without naive pluralization).
+        if function_exported?(model.__struct__, :__schema__, 1) do
+          model.__struct__.__schema__(:source)
+        else
+          model.__struct__
+          |> Module.split()
+          |> List.last()
+          |> Macro.underscore()
+        end
+      end
 
     {type, model.id}
   end

@@ -6,7 +6,7 @@ defmodule PhxMediaLibrary.AsyncProcessor do
   For production apps with persistence and retry requirements, use the Oban adapter.
   """
 
-  alias PhxMediaLibrary.{Media, Conversion}
+  alias PhxMediaLibrary.{Conversion, Media}
 
   @doc """
   Process conversions asynchronously.

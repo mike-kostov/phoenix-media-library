@@ -40,7 +40,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   """
 
-  alias PhxMediaLibrary.{Media, Config, PathGenerator, UrlGenerator}
+  alias PhxMediaLibrary.{Config, Media, PathGenerator, UrlGenerator}
 
   @type responsive_data :: %{
           String.t() => [
@@ -61,61 +61,23 @@ defmodule PhxMediaLibrary.ResponsiveImages do
   def generate(%Media{} = media, conversion \\ nil) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-    widths = Config.responsive_image_widths()
-
-    # Get the source image path
     source_path = get_source_path(media, conversion)
 
     with {:ok, image} <- processor.open(source_path),
          {:ok, {orig_width, orig_height}} <- processor.dimensions(image) do
-      # Filter widths to only those smaller than original
-      target_widths = Enum.filter(widths, &(&1 < orig_width))
-
-      # Generate variants
       variants =
-        target_widths
-        |> Enum.map(
-          &generate_variant(
-            media,
-            image,
-            &1,
-            orig_width,
-            orig_height,
-            conversion,
-            processor,
-            storage
-          )
+        generate_variants(media, image, orig_width, orig_height, conversion, processor, storage)
+
+      data =
+        build_responsive_data(
+          media,
+          variants,
+          orig_width,
+          orig_height,
+          conversion,
+          image,
+          processor
         )
-        |> Enum.filter(&match?({:ok, _}, &1))
-        |> Enum.map(fn {:ok, variant} -> variant end)
-
-      # Add original as largest variant
-      original_variant = %{
-        "width" => orig_width,
-        "height" => orig_height,
-        "path" => PathGenerator.relative_path(media, conversion)
-      }
-
-      all_variants = variants ++ [original_variant]
-
-      # Generate tiny placeholder if enabled
-      placeholder =
-        if Config.tiny_placeholders_enabled?() do
-          case generate_placeholder(image, processor) do
-            {:ok, placeholder_data} -> placeholder_data
-            _ -> nil
-          end
-        end
-
-      # Build the responsive data structure
-      key = conversion_key(conversion)
-
-      data = %{
-        key => %{
-          "variants" => all_variants,
-          "placeholder" => placeholder
-        }
-      }
 
       {:ok, data}
     end
@@ -126,20 +88,8 @@ defmodule PhxMediaLibrary.ResponsiveImages do
   """
   @spec generate_all(Media.t()) :: {:ok, responsive_data()} | {:error, term()}
   def generate_all(%Media{} = media) do
-    # Generate for original
     with {:ok, original_data} <- generate(media, nil) do
-      # Generate for each conversion
-      conversion_data =
-        media.generated_conversions
-        |> Map.keys()
-        |> Enum.map(fn conversion_name ->
-          case generate(media, conversion_name) do
-            {:ok, data} -> data
-            _ -> %{}
-          end
-        end)
-        |> Enum.reduce(%{}, &Map.merge/2)
-
+      conversion_data = generate_conversion_data(media)
       {:ok, Map.merge(original_data, conversion_data)}
     end
   end
@@ -268,6 +218,75 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       end
 
     Path.join(base_path, filename)
+  end
+
+  defp generate_variants(media, image, orig_width, orig_height, conversion, processor, storage) do
+    Config.responsive_image_widths()
+    |> Enum.filter(&(&1 < orig_width))
+    |> Enum.map(
+      &generate_variant(
+        media,
+        image,
+        &1,
+        orig_width,
+        orig_height,
+        conversion,
+        processor,
+        storage
+      )
+    )
+    |> Enum.filter(&match?({:ok, _}, &1))
+    |> Enum.map(fn {:ok, variant} -> variant end)
+  end
+
+  defp build_responsive_data(
+         media,
+         variants,
+         orig_width,
+         orig_height,
+         conversion,
+         image,
+         processor
+       ) do
+    original_variant = %{
+      "width" => orig_width,
+      "height" => orig_height,
+      "path" => PathGenerator.relative_path(media, conversion)
+    }
+
+    all_variants = variants ++ [original_variant]
+    placeholder = maybe_generate_placeholder(image, processor)
+    key = conversion_key(conversion)
+
+    %{
+      key => %{
+        "variants" => all_variants,
+        "placeholder" => placeholder
+      }
+    }
+  end
+
+  defp maybe_generate_placeholder(image, processor) do
+    if Config.tiny_placeholders_enabled?() do
+      case generate_placeholder(image, processor) do
+        {:ok, placeholder_data} -> placeholder_data
+        _ -> nil
+      end
+    end
+  end
+
+  defp generate_conversion_data(media) do
+    media.generated_conversions
+    |> Map.keys()
+    |> Enum.map(&generate_single_conversion_data(media, &1))
+    |> Enum.reduce(%{}, &Map.merge/2)
+  end
+
+  defp generate_single_conversion_data(media, conversion_name) do
+    case generate(media, conversion_name) do
+      {:ok, data} -> data
+      _ -> %{}
+    end
   end
 
   defp get_source_path(media, nil) do

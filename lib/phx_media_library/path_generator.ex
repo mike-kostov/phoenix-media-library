@@ -6,7 +6,7 @@ defmodule PhxMediaLibrary.PathGenerator do
   `{mediable_type}/{mediable_id}/{uuid}/{conversion}/{filename}`
   """
 
-  alias PhxMediaLibrary.{Media, Config}
+  alias PhxMediaLibrary.{Config, Media}
 
   @doc """
   Generate a path for new media (before it has an ID).
@@ -46,8 +46,11 @@ defmodule PhxMediaLibrary.PathGenerator do
     storage = Config.storage_adapter(disk)
     relative = relative_path(media, conversion)
 
-    # Check if the adapter implements the optional path/2 callback
-    if :path in Keyword.keys(storage.adapter.__info__(:functions)) do
+    # Ensure the adapter module is loaded before checking for the optional
+    # path/2 callback. function_exported?/3 does not auto-load modules.
+    Code.ensure_loaded(storage.adapter)
+
+    if function_exported?(storage.adapter, :path, 2) do
       storage.adapter.path(relative, storage.config)
     else
       nil

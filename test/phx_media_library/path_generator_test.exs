@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.PathGeneratorTest do
   use ExUnit.Case, async: true
 
-  alias PhxMediaLibrary.{PathGenerator, Media}
+  alias PhxMediaLibrary.{Media, PathGenerator}
 
   describe "for_new_media/1" do
     test "generates path from attributes" do
