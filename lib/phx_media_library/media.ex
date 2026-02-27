@@ -26,7 +26,14 @@ defmodule PhxMediaLibrary.Media do
   import Ecto.Changeset
   import Ecto.Query
 
-  alias PhxMediaLibrary.{Config, PathGenerator, ResponsiveImages, StorageWrapper, UrlGenerator}
+  alias PhxMediaLibrary.{
+    Config,
+    PathGenerator,
+    ResponsiveImages,
+    StorageWrapper,
+    Telemetry,
+    UrlGenerator
+  }
 
   @type t :: %__MODULE__{}
 
@@ -141,14 +148,19 @@ defmodule PhxMediaLibrary.Media do
   """
   @spec delete(t()) :: :ok | {:error, term()}
   def delete(%__MODULE__{} = media) do
-    # Delete all files (original + conversions)
-    :ok = delete_files(media)
+    Telemetry.span([:phx_media_library, :delete], %{media: media}, fn ->
+      # Delete all files (original + conversions)
+      :ok = delete_files(media)
 
-    # Delete database record
-    case Config.repo().delete(media) do
-      {:ok, _} -> :ok
-      {:error, _} = error -> error
-    end
+      # Delete database record
+      result =
+        case Config.repo().delete(media) do
+          {:ok, _} -> :ok
+          {:error, _} = error -> error
+        end
+
+      {result, %{media: media}}
+    end)
   end
 
   @doc """

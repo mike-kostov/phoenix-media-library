@@ -258,37 +258,47 @@ end
 
 ---
 
-## Milestone 3 — Production-Ready
+## Milestone 3a — Error Handling & Validation Hardening (v0.3.0) ✅
 
-**Goal**: Handle the real-world edge cases that production apps encounter.
+**Goal**: Establish consistent error handling, add production-critical validations, and fix N+1 batch operations.
 
-### 3.1 — File Size Validation
+### 3.1 — Robust Error Handling
 
-- [ ] Add `:max_size` option to collection configuration
-- [ ] Validate file size before storage (not after)
-- [ ] Return clear error: `{:error, {:file_too_large, size, max_size}}`
-- [ ] Integrate with LiveView upload's `max_file_size` option automatically
+- [x] Custom exception structs: `PhxMediaLibrary.Error`, `PhxMediaLibrary.StorageError`, `PhxMediaLibrary.ValidationError`
+- [x] Consistent error tuples across all operations
+- [x] Provide `!` bang versions for key functions (e.g., `add!/2`, `to_collection!/3`)
+- [x] Telemetry events for monitoring:
+  - `[:phx_media_library, :add, :start | :stop | :exception]`
+  - `[:phx_media_library, :delete, :start | :stop | :exception]`
+  - `[:phx_media_library, :conversion, :start | :stop | :exception]`
+  - `[:phx_media_library, :storage, :start | :stop | :exception]`
+- [x] Logger integration for debugging
 
-### 3.2 — Content-Based MIME Type Detection
+### 3.2 — File Size Validation
 
-- [ ] Detect MIME type from file content (magic bytes), not just extension
-- [ ] Use as primary detection, fall back to extension
-- [ ] Reject files where content doesn't match extension (configurable)
-- [ ] Consider using `:file_info` or a small NIF for detection
+- [x] Add `:max_size` option to collection configuration
+- [x] Validate file size before storage (not after)
+- [x] Return clear error: `{:error, {:file_too_large, size, max_size}}`
+- [x] Integrate with LiveView upload's `max_file_size` option automatically
 
-### 3.3 — Streaming Upload Support
+### 3.3 — Content-Based MIME Type Detection
 
-- [ ] Replace `File.read!` in `MediaAdder` with streaming
-- [ ] Support `{:stream, enumerable}` through the full pipeline
-- [ ] Stream directly from upload to storage for large files
-- [ ] Compute checksum during streaming (not as a separate pass)
+- [x] `PhxMediaLibrary.MimeDetector` behaviour for pluggable detection
+- [x] Default implementation using magic bytes for common types (images, PDF, video, audio, zip)
+- [x] Use as primary detection, fall back to extension
+- [x] Reject files where content doesn't match extension (configurable via `:verify_content_type` collection option, default `true`)
 
 ### 3.4 — Batch Operations
 
-- [ ] `clear_collection/2` — single query delete + batch file removal
-- [ ] `clear_media/1` — single query delete + batch file removal
-- [ ] `reorder_media/2` — update order_column for multiple items in one transaction
-- [ ] `bulk_add/3` — add multiple files at once efficiently
+- [x] `clear_collection/2` — single query delete + batch file removal (fix N+1)
+- [x] `clear_media/1` — single query delete + batch file removal (fix N+1)
+- [x] `reorder/3` — `PhxMediaLibrary.reorder(post, :images, [id3, id1, id2])` using single transaction
+- [x] `move_to/2` — move a single media item to a position
+- [x] Emit `:media_reordered` Telemetry event
+
+## Milestone 3b — Advanced Features (v0.4.0)
+
+**Goal**: Add soft deletes, streaming, and direct S3 uploads for large-scale production use.
 
 ### 3.5 — Soft Deletes
 
@@ -298,14 +308,15 @@ end
 - [ ] Scoping: all queries exclude soft-deleted by default
 - [ ] `restore/1` to undelete
 - [ ] Mix task to permanently delete old soft-deleted media
-- [ ] Make soft deletes opt-in (not everyone needs them)
+- [ ] Make soft deletes opt-in via config (not everyone needs them)
+- [ ] Provide `PhxMediaLibrary.SoftDeletes` module users explicitly opt into
 
-### 3.6 — Reordering API
+### 3.6 — Streaming Upload Support (scoped)
 
-- [ ] `PhxMediaLibrary.reorder(post, :images, [id3, id1, id2])` — set order by ID list
-- [ ] `PhxMediaLibrary.move_to(media, position)` — move a single item
-- [ ] Integrate with `<.media_gallery>` drag-and-drop component
-- [ ] Emit `:media_reordered` event for LiveView integration
+- [ ] Replace `File.read!` in `MediaAdder` with streaming from file to storage
+- [ ] Compute checksum during streaming (not as a separate pass)
+- [ ] Add `put_stream/3` callback to `PhxMediaLibrary.Storage` behaviour
+- [ ] **Deferred to M4**: Full `{:stream, enumerable}` pipeline support
 
 ### 3.7 — Direct S3 Upload (Presigned URLs)
 
@@ -313,14 +324,7 @@ end
 - [ ] Integrate with Phoenix LiveView's external upload mechanism
 - [ ] Skip server as intermediary for large files
 - [ ] Still create Media record and trigger conversions after upload completes
-- [ ] Provide `<.media_upload>` variant that uses external uploads automatically when disk is S3
-
-### 3.8 — Robust Error Handling
-
-- [ ] Custom exception structs: `PhxMediaLibrary.Error`, `PhxMediaLibrary.StorageError`, etc.
-- [ ] Consistent error tuples across all operations
-- [ ] Telemetry events for monitoring (upload started/completed/failed, conversion processed, etc.)
-- [ ] Logger integration for debugging
+- [ ] **Deferred to M4**: `<.media_upload>` variant that auto-detects S3 and uses external uploads
 
 ---
 
@@ -413,12 +417,12 @@ Active bugs or problems in the current codebase.
 - [x] **`String.to_existing_atom/1` in `Config.disk_config/1`** — crashes if atom doesn't exist yet. (Fixed — now iterates disk keys and compares strings)
 - [x] **No integration tests** — core `to_collection/3` path is untested against a real database. (Fixed in Milestone 2.2 — 56 integration tests)
 - [x] **`has_media()` macro is a no-op** — doesn't inject any association. (Fixed in Milestone 2.4 — injects polymorphic `has_many`)
-- [ ] **`clear_collection/2` and `clear_media/1` are N+1** — fetch all, then delete one-by-one. (See Milestone 3.4)
+- [x] **`clear_collection/2` and `clear_media/1` are N+1** — fetch all, then delete one-by-one. (Fixed in Milestone 3.4 — single `delete_all` query with batch file removal)
 - [x] **`PathGenerator.full_path/2` uses `Keyword.keys(__info__(:functions))`** — fragile way to check for optional callback implementation. (Fixed — now uses `Code.ensure_loaded/1` + `function_exported?/3`)
 - [x] **`max_files` cleanup deletes newest items instead of oldest** — `Enum.drop(max)` on ascending-ordered list removes the newest item. (Fixed — now keeps newest `max` items, deletes oldest excess)
-- [ ] **No file size validation** — collections can't limit upload size. (See Milestone 3.1)
-- [ ] **MIME detection is extension-only** — no content-based verification. (See Milestone 3.2)
-- [ ] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (See Milestone 3.3)
+- [x] **No file size validation** — collections can't limit upload size. (Fixed in Milestone 3.2 — `:max_size` collection option, validated before storage)
+- [x] **MIME detection is extension-only** — no content-based verification. (Fixed in Milestone 3.3 — `MimeDetector` behaviour with magic-bytes default, `:verify_content_type` collection option)
+- [ ] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (See Milestone 3b/3.6)
 
 ---
 

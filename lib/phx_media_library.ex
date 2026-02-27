@@ -55,9 +55,17 @@ defmodule PhxMediaLibrary do
 
   """
 
-  alias PhxMediaLibrary.{Config, Media, MediaAdder}
+  alias PhxMediaLibrary.{
+    Config,
+    Error,
+    Media,
+    MediaAdder,
+    PathGenerator,
+    StorageWrapper,
+    Telemetry
+  }
 
-  import Ecto.Query, only: [from: 2, where: 3]
+  import Ecto.Query, only: [from: 2, where: 3, exclude: 2]
 
   @doc """
   Start adding media to a model from a file path or upload.
@@ -136,12 +144,27 @@ defmodule PhxMediaLibrary do
 
   @doc """
   Same as `to_collection/3` but raises on error.
+
+  Raises `PhxMediaLibrary.Error` if the operation fails.
   """
   @spec to_collection!(MediaAdder.t(), atom(), keyword()) :: Media.t()
   def to_collection!(adder, collection_name, opts \\ []) do
     case to_collection(adder, collection_name, opts) do
-      {:ok, media} -> media
-      {:error, reason} -> raise "Failed to add media: #{inspect(reason)}"
+      {:ok, media} ->
+        media
+
+      {:error, %{message: message} = error} ->
+        raise Error,
+          message: "Failed to add media to collection #{inspect(collection_name)}: #{message}",
+          reason: :add_failed,
+          metadata: %{collection: collection_name, original_error: error}
+
+      {:error, reason} ->
+        raise Error,
+          message:
+            "Failed to add media to collection #{inspect(collection_name)}: #{inspect(reason)}",
+          reason: :add_failed,
+          metadata: %{collection: collection_name, original_error: reason}
     end
   end
 
@@ -289,31 +312,190 @@ defmodule PhxMediaLibrary do
 
   @doc """
   Delete all media in a collection for a model.
-  """
-  @spec clear_collection(Ecto.Schema.t(), atom()) :: :ok
-  def clear_collection(model, collection_name) do
-    model
-    |> get_media(collection_name)
-    |> Enum.each(&delete/1)
 
-    :ok
+  Deletes files from storage for each item, then removes all matching
+  database records in a single query. This is significantly more efficient
+  than deleting one-by-one for large collections.
+
+  ## Examples
+
+      PhxMediaLibrary.clear_collection(post, :images)
+
+  """
+  @spec clear_collection(Ecto.Schema.t(), atom()) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def clear_collection(model, collection_name) do
+    media_items = get_media(model, collection_name)
+
+    Telemetry.span(
+      [:phx_media_library, :batch],
+      %{operation: :clear_collection, count: length(media_items)},
+      fn ->
+        # Delete files from storage for each item
+        Enum.each(media_items, &delete_files/1)
+
+        # Delete all matching records in a single query
+        {count, _} =
+          model
+          |> media_query(collection_name)
+          |> exclude(:order_by)
+          |> Config.repo().delete_all()
+
+        {{:ok, count}, %{operation: :clear_collection, count: count}}
+      end
+    )
   end
 
   @doc """
   Delete all media for a model.
-  """
-  @spec clear_media(Ecto.Schema.t()) :: :ok
-  def clear_media(model) do
-    model
-    |> get_media()
-    |> Enum.each(&delete/1)
 
-    :ok
+  Deletes files from storage for each item, then removes all matching
+  database records in a single query.
+
+  ## Examples
+
+      PhxMediaLibrary.clear_media(post)
+
+  """
+  @spec clear_media(Ecto.Schema.t()) :: {:ok, non_neg_integer()} | {:error, term()}
+  def clear_media(model) do
+    media_items = get_media(model)
+
+    Telemetry.span(
+      [:phx_media_library, :batch],
+      %{operation: :clear_media, count: length(media_items)},
+      fn ->
+        # Delete files from storage for each item
+        Enum.each(media_items, &delete_files/1)
+
+        # Delete all matching records in a single query
+        {count, _} =
+          model
+          |> media_query()
+          |> exclude(:order_by)
+          |> Config.repo().delete_all()
+
+        {{:ok, count}, %{operation: :clear_media, count: count}}
+      end
+    )
+  end
+
+  @doc """
+  Reorder media items in a collection by a list of IDs.
+
+  Sets the `order_column` for each media record according to its position
+  in the given ID list. Uses a single database transaction with individual
+  updates for correctness.
+
+  IDs not present in the collection are silently ignored. Media items in
+  the collection whose IDs are not in the list keep their current order
+  but are shifted after the explicitly ordered items.
+
+  ## Examples
+
+      # Set explicit order: id3 first, id1 second, id2 third
+      PhxMediaLibrary.reorder(post, :images, [id3, id1, id2])
+
+  """
+  @spec reorder(Ecto.Schema.t(), atom(), [String.t()]) ::
+          {:ok, non_neg_integer()} | {:error, term()}
+  def reorder(model, collection_name, ordered_ids) when is_list(ordered_ids) do
+    Telemetry.span(
+      [:phx_media_library, :batch],
+      %{operation: :reorder, count: length(ordered_ids)},
+      fn ->
+        result = do_reorder_transaction(model, collection_name, ordered_ids)
+
+        case result do
+          {:ok, count} ->
+            Telemetry.event(
+              [:phx_media_library, :reorder],
+              %{count: count},
+              %{model: model, collection: collection_name}
+            )
+
+            {{:ok, count}, %{operation: :reorder, count: count}}
+
+          {:error, reason} ->
+            {{:error, reason}, %{operation: :reorder, error: reason}}
+        end
+      end
+    )
+  end
+
+  @doc """
+  Move a single media item to a specific position within its collection.
+
+  Shifts other items' `order_column` values to make room, then sets the
+  target item's position. Position is 1-based.
+
+  ## Examples
+
+      PhxMediaLibrary.move_to(media, 1)   # move to first position
+      PhxMediaLibrary.move_to(media, 3)   # move to third position
+
+  """
+  @spec move_to(Media.t(), pos_integer()) :: {:ok, Media.t()} | {:error, term()}
+  def move_to(%Media{} = media, position) when is_integer(position) and position >= 1 do
+    # Get all items in the same collection, ordered
+    siblings =
+      from(m in Media,
+        where: m.mediable_type == ^media.mediable_type,
+        where: m.mediable_id == ^media.mediable_id,
+        where: m.collection_name == ^media.collection_name,
+        order_by: [asc: m.order_column, asc: m.inserted_at]
+      )
+      |> Config.repo().all()
+
+    # Remove the target from the list and reinsert at position
+    others = Enum.reject(siblings, &(&1.id == media.id))
+    clamped_position = min(position, length(others) + 1)
+    reordered = List.insert_at(others, clamped_position - 1, media)
+
+    ordered_ids = Enum.map(reordered, & &1.id)
+
+    # Reuse reorder logic — we need the model info from the media record
+    Config.repo().transaction(fn ->
+      ordered_ids
+      |> Enum.with_index(1)
+      |> Enum.each(fn {id, pos} ->
+        from(m in Media, where: m.id == ^id)
+        |> Config.repo().update_all(set: [order_column: pos])
+      end)
+    end)
+
+    # Return the updated media
+    case Config.repo().get(Media, media.id) do
+      nil -> {:error, :not_found}
+      updated -> {:ok, updated}
+    end
   end
 
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp do_reorder_transaction(model, collection_name, ordered_ids) do
+    mediable_type = get_mediable_type(model)
+    collection_str = to_string(collection_name)
+
+    Config.repo().transaction(fn ->
+      ordered_ids
+      |> Enum.with_index(1)
+      |> Enum.reduce(0, fn {id, position}, acc ->
+        {count, _} =
+          from(m in Media,
+            where: m.id == ^id,
+            where: m.mediable_type == ^mediable_type,
+            where: m.mediable_id == ^model.id,
+            where: m.collection_name == ^collection_str
+          )
+          |> Config.repo().update_all(set: [order_column: position])
+
+        acc + count
+      end)
+    end)
+  end
 
   defp get_mediable_type(model) do
     if function_exported?(model.__struct__, :__media_type__, 0) do
@@ -328,5 +510,34 @@ defmodule PhxMediaLibrary do
         |> Macro.underscore()
       end
     end
+  end
+
+  # Delete all files (original + conversions + responsive) from storage
+  # for a media item, without touching the database record.
+  defp delete_files(%Media{disk: disk} = media) do
+    storage = Config.storage_adapter(disk)
+
+    # Delete original
+    original_path = PathGenerator.relative_path(media, nil)
+    StorageWrapper.delete(storage, original_path)
+
+    # Delete conversions
+    media.generated_conversions
+    |> Map.keys()
+    |> Enum.each(fn conversion ->
+      conversion_path = PathGenerator.relative_path(media, conversion)
+      StorageWrapper.delete(storage, conversion_path)
+    end)
+
+    # Delete responsive image variants
+    media.responsive_images
+    |> Map.values()
+    |> List.flatten()
+    |> Enum.each(fn
+      %{"path" => path} -> StorageWrapper.delete(storage, path)
+      _ -> :ok
+    end)
+
+    :ok
   end
 end

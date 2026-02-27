@@ -102,7 +102,9 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:accepts` - List of accepted MIME types
   - `:single_file` - Only keep one file in collection (default: false)
   - `:max_files` - Maximum number of files to keep
+  - `:max_size` - Maximum file size in bytes (e.g. `10_000_000` for 10 MB)
   - `:fallback_url` - URL to use when collection is empty
+  - `:verify_content_type` - Verify file content matches declared MIME type (default: true)
 
   ## Conversion Options
 

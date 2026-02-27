@@ -174,7 +174,7 @@ defmodule PhxMediaLibrary.LiveUpload do
       opts
       |> maybe_put_accept(collection_config)
       |> maybe_put_max_entries(collection_config)
-      |> maybe_put_max_file_size()
+      |> maybe_put_max_file_size(collection_config)
 
     Phoenix.LiveView.allow_upload(socket, name, upload_opts)
   end
@@ -474,7 +474,12 @@ defmodule PhxMediaLibrary.LiveUpload do
     Keyword.put_new(opts, :max_entries, 20)
   end
 
-  defp maybe_put_max_file_size(opts) do
+  defp maybe_put_max_file_size(opts, %Collection{max_size: max_size})
+       when is_integer(max_size) and max_size > 0 do
+    Keyword.put_new(opts, :max_file_size, max_size)
+  end
+
+  defp maybe_put_max_file_size(opts, _collection) do
     Keyword.put_new(opts, :max_file_size, 10_000_000)
   end
 

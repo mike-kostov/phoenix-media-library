@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.3.0"
   @source_url "https://github.com/mike-kostov/phx_media_library"
 
   def project do
@@ -43,6 +43,7 @@ defmodule PhxMediaLibrary.MixProject do
       {:ecto_sql, "~> 3.12"},
       {:req, "~> 0.5"},
       {:mime, "~> 2.0"},
+      {:telemetry, "~> 1.0"},
 
       # === Optional: Image processing (libvips) ===
       {:image, "~> 0.54", optional: true},

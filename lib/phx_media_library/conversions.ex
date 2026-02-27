@@ -9,7 +9,8 @@ defmodule PhxMediaLibrary.Conversions do
     Media,
     PathGenerator,
     ResponsiveImages,
-    StorageWrapper
+    StorageWrapper,
+    Telemetry
   }
 
   @doc """
@@ -62,18 +63,31 @@ defmodule PhxMediaLibrary.Conversions do
   end
 
   defp process_conversion(media, image, %Conversion{} = conversion, processor, storage) do
-    with {:ok, converted} <- processor.apply_conversion(image, conversion),
-         conversion_path <- PathGenerator.relative_path(media, conversion.name),
-         temp_path <- temp_file_path(conversion_path),
-         {:ok, _} <- save_image(processor, converted, temp_path, conversion),
-         {:ok, content} <- File.read(temp_path),
-         :ok <- StorageWrapper.put(storage, conversion_path, content) do
-      File.rm(temp_path)
-      {:ok, conversion.name}
-    else
-      error ->
-        {:error, {conversion.name, error}}
-    end
+    telemetry_metadata = %{media: media, conversion: conversion.name}
+
+    Telemetry.span([:phx_media_library, :conversion], telemetry_metadata, fn ->
+      result =
+        with {:ok, converted} <- processor.apply_conversion(image, conversion),
+             conversion_path <- PathGenerator.relative_path(media, conversion.name),
+             temp_path <- temp_file_path(conversion_path),
+             {:ok, _} <- save_image(processor, converted, temp_path, conversion),
+             {:ok, content} <- File.read(temp_path),
+             :ok <- StorageWrapper.put(storage, conversion_path, content) do
+          File.rm(temp_path)
+          {:ok, conversion.name}
+        else
+          error ->
+            {:error, {conversion.name, error}}
+        end
+
+      stop_metadata =
+        case result do
+          {:ok, name} -> %{conversion: name}
+          {:error, reason} -> %{error: reason}
+        end
+
+      {result, stop_metadata}
+    end)
   end
 
   defp save_image(processor, image, path, conversion) do

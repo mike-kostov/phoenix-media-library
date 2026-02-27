@@ -212,7 +212,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
     test "to_collection! raises on error" do
       post = create_post!()
 
-      assert_raise RuntimeError, ~r/Failed to add media/, fn ->
+      assert_raise PhxMediaLibrary.Error, ~r/Failed to add media/, fn ->
         post
         |> PhxMediaLibrary.add("/nonexistent/file.txt")
         |> PhxMediaLibrary.to_collection!(:documents)
@@ -856,7 +856,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
         |> PhxMediaLibrary.to_collection(:documents)
 
       # Clear only images
-      assert :ok = PhxMediaLibrary.clear_collection(post, :images)
+      assert {:ok, 3} = PhxMediaLibrary.clear_collection(post, :images)
 
       assert PhxMediaLibrary.get_media(post, :images) == []
       # Documents should remain
@@ -878,7 +878,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
         |> PhxMediaLibrary.to_collection(collection)
       end
 
-      assert :ok = PhxMediaLibrary.clear_media(post)
+      assert {:ok, 2} = PhxMediaLibrary.clear_media(post)
 
       assert PhxMediaLibrary.get_media(post) == []
     end
@@ -1245,6 +1245,562 @@ defmodule PhxMediaLibrary.IntegrationTest do
         assert length(media_items) == 1
         assert hd(media_items).id == media_id
       end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # File size validation (3.2)
+  # ---------------------------------------------------------------------------
+
+  describe "file size validation" do
+    test "rejects file that exceeds collection max_size" do
+      post = create_post!()
+
+      # :small_files collection has max_size: 1_000
+      large_content = String.duplicate("x", 2_000)
+      path = create_temp_file(large_content, "big.txt")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      assert {:error, {:file_too_large, 2_000, 1_000}} = result
+    end
+
+    test "accepts file within collection max_size" do
+      post = create_post!()
+
+      small_content = String.duplicate("x", 500)
+      path = create_temp_file(small_content, "small.txt")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      assert {:ok, media} = result
+      assert media.size == 500
+    end
+
+    test "accepts file exactly at max_size boundary" do
+      post = create_post!()
+
+      exact_content = String.duplicate("x", 1_000)
+      path = create_temp_file(exact_content, "exact.txt")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      assert {:ok, media} = result
+      assert media.size == 1_000
+    end
+
+    test "collections without max_size accept any file size" do
+      post = create_post!()
+
+      large_content = String.duplicate("x", 100_000)
+      path = create_temp_file(large_content, "large.jpg")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      assert {:ok, _media} = result
+    end
+
+    test "file size validation runs before storage (no file written on reject)" do
+      post = create_post!()
+
+      large_content = String.duplicate("x", 2_000)
+      path = create_temp_file(large_content, "toobig.txt")
+
+      {:error, {:file_too_large, _, _}} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      # No media should have been persisted
+      assert PhxMediaLibrary.get_media(post, :small_files) == []
+    end
+
+    test "to_collection! raises PhxMediaLibrary.Error on file size violation" do
+      post = create_post!()
+
+      large_content = String.duplicate("x", 2_000)
+      path = create_temp_file(large_content, "toobig.txt")
+
+      assert_raise PhxMediaLibrary.Error, ~r/Failed to add media/, fn ->
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection!(:small_files)
+      end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Content-based MIME detection (3.3)
+  # ---------------------------------------------------------------------------
+
+  describe "content-based MIME type detection" do
+    test "detects MIME type from file content, not just extension" do
+      post = create_post!()
+
+      # Write PNG magic bytes to a file with .jpg extension
+      png_data =
+        <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+          0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+          0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+          0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xFE,
+          0xD4, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82>>
+
+      path = create_temp_file(png_data, "actually_png.jpg")
+
+      # :images collection has no MIME type restrictions, so this should succeed
+      # but the stored MIME type should be image/png (detected from content)
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      assert media.mime_type == "image/png"
+    end
+
+    test "rejects file whose content doesn't match collection accepts" do
+      post = create_post!()
+
+      # Write PNG magic bytes but try to add to :documents (accepts: pdf, text/plain)
+      png_data = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00>>
+      path = create_temp_file(png_data, "fake_doc.pdf")
+
+      # Content-based detection will detect image/png, which won't match
+      # the :documents collection accepts list
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:documents)
+
+      assert {:error, {:invalid_mime_type, "image/png", _accepts}} = result
+    end
+
+    test "verify_content_type: false skips content verification" do
+      post = create_post!()
+
+      # Write PNG data to a file — :unverified collection has verify_content_type: false
+      png_data = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00>>
+      path = create_temp_file(png_data, "anything.bin")
+
+      # Should succeed because verification is disabled
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:unverified)
+
+      # Content-based detection still sets the correct MIME type
+      assert media.mime_type == "image/png"
+    end
+
+    test "plain text files pass through to extension-based detection" do
+      post = create_post!()
+
+      # Plain text content — magic bytes won't match anything
+      path = create_temp_file("Hello, this is a plain text document.", "readme.txt")
+
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      # Falls back to extension-based detection
+      assert media.mime_type == "text/plain"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Reordering (3.4)
+  # ---------------------------------------------------------------------------
+
+  describe "reorder/3" do
+    test "reorders media items by ID list" do
+      post = create_post!()
+
+      ids =
+        for i <- 1..3 do
+          path = create_temp_file("image #{i}", "img_#{i}.jpg")
+
+          {:ok, media} =
+            post
+            |> PhxMediaLibrary.add(path)
+            |> PhxMediaLibrary.using_filename("img_#{i}.jpg")
+            |> PhxMediaLibrary.to_collection(:images)
+
+          media.id
+        end
+
+      [id1, id2, id3] = ids
+
+      # Reorder: id3, id1, id2
+      assert {:ok, 3} = PhxMediaLibrary.reorder(post, :images, [id3, id1, id2])
+
+      reordered = PhxMediaLibrary.get_media(post, :images)
+      reordered_ids = Enum.map(reordered, & &1.id)
+
+      assert reordered_ids == [id3, id1, id2]
+    end
+
+    test "reorder ignores IDs not in the collection" do
+      post = create_post!()
+
+      path = create_temp_file("content", "file.jpg")
+
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      fake_id = Ecto.UUID.generate()
+
+      # Include a fake ID — it should be ignored (count reflects actual updates)
+      assert {:ok, count} = PhxMediaLibrary.reorder(post, :images, [fake_id, media.id])
+      assert count == 1
+
+      [remaining] = PhxMediaLibrary.get_media(post, :images)
+      assert remaining.id == media.id
+    end
+
+    test "reorder with empty list is a no-op" do
+      post = create_post!()
+
+      assert {:ok, 0} = PhxMediaLibrary.reorder(post, :images, [])
+    end
+  end
+
+  describe "move_to/2" do
+    test "moves a media item to the first position" do
+      post = create_post!()
+
+      ids =
+        for i <- 1..3 do
+          path = create_temp_file("image #{i}", "img_#{i}.jpg")
+
+          {:ok, media} =
+            post
+            |> PhxMediaLibrary.add(path)
+            |> PhxMediaLibrary.using_filename("img_#{i}.jpg")
+            |> PhxMediaLibrary.to_collection(:images)
+
+          media.id
+        end
+
+      [_id1, _id2, id3] = ids
+
+      # Move the last item to position 1
+      last_media = TestRepo.get!(Media, id3)
+      assert {:ok, updated} = PhxMediaLibrary.move_to(last_media, 1)
+      assert updated.order_column == 1
+
+      # Verify ordering
+      reordered = PhxMediaLibrary.get_media(post, :images)
+      assert hd(reordered).id == id3
+    end
+
+    test "moves a media item to the last position" do
+      post = create_post!()
+
+      ids =
+        for i <- 1..3 do
+          path = create_temp_file("image #{i}", "img_#{i}.jpg")
+
+          {:ok, media} =
+            post
+            |> PhxMediaLibrary.add(path)
+            |> PhxMediaLibrary.using_filename("img_#{i}.jpg")
+            |> PhxMediaLibrary.to_collection(:images)
+
+          media.id
+        end
+
+      [id1, _id2, _id3] = ids
+
+      # Move the first item to position 3
+      first_media = TestRepo.get!(Media, id1)
+      assert {:ok, updated} = PhxMediaLibrary.move_to(first_media, 3)
+      assert updated.order_column == 3
+
+      # Verify it's last
+      reordered = PhxMediaLibrary.get_media(post, :images)
+      assert List.last(reordered).id == id1
+    end
+
+    test "clamps position to collection size" do
+      post = create_post!()
+
+      path = create_temp_file("only item", "solo.jpg")
+
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      # Position 999 should clamp to 1 (only 1 item)
+      assert {:ok, updated} = PhxMediaLibrary.move_to(media, 999)
+      assert updated.order_column == 1
+    end
+
+    test "moves to middle position" do
+      post = create_post!()
+
+      ids =
+        for i <- 1..4 do
+          path = create_temp_file("image #{i}", "img_#{i}.jpg")
+
+          {:ok, media} =
+            post
+            |> PhxMediaLibrary.add(path)
+            |> PhxMediaLibrary.using_filename("img_#{i}.jpg")
+            |> PhxMediaLibrary.to_collection(:images)
+
+          media.id
+        end
+
+      [id1, _id2, _id3, id4] = ids
+
+      # Move id4 (last) to position 2
+      last_media = TestRepo.get!(Media, id4)
+      assert {:ok, _updated} = PhxMediaLibrary.move_to(last_media, 2)
+
+      reordered = PhxMediaLibrary.get_media(post, :images)
+      reordered_ids = Enum.map(reordered, & &1.id)
+
+      # id4 should now be at index 1 (position 2)
+      assert Enum.at(reordered_ids, 0) == id1
+      assert Enum.at(reordered_ids, 1) == id4
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Telemetry events (3.1)
+  # ---------------------------------------------------------------------------
+
+  describe "telemetry events" do
+    setup do
+      test_pid = self()
+
+      :telemetry.attach_many(
+        "integration-test-handler-#{System.unique_integer([:positive])}",
+        [
+          [:phx_media_library, :add, :start],
+          [:phx_media_library, :add, :stop],
+          [:phx_media_library, :delete, :start],
+          [:phx_media_library, :delete, :stop],
+          [:phx_media_library, :batch, :start],
+          [:phx_media_library, :batch, :stop],
+          [:phx_media_library, :storage, :start],
+          [:phx_media_library, :storage, :stop]
+        ],
+        fn event_name, measurements, metadata, _config ->
+          send(test_pid, {:telemetry, event_name, measurements, metadata})
+        end,
+        nil
+      )
+
+      :ok
+    end
+
+    test "emits :add start and stop events on successful upload" do
+      post = create_post!()
+      path = create_temp_file("telemetry test", "telem.txt")
+
+      {:ok, _media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      assert_received {:telemetry, [:phx_media_library, :add, :start], %{system_time: _},
+                       metadata}
+
+      assert metadata.collection == :images
+      assert metadata.source_type == :path
+
+      assert_received {:telemetry, [:phx_media_library, :add, :stop], %{duration: duration},
+                       stop_metadata}
+
+      assert duration > 0
+      assert %PhxMediaLibrary.Media{} = stop_metadata.media
+    end
+
+    test "emits :storage events during upload" do
+      post = create_post!()
+      path = create_temp_file("storage telemetry", "stor.txt")
+
+      {:ok, _media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      assert_received {:telemetry, [:phx_media_library, :storage, :start], _, %{operation: :put}}
+      assert_received {:telemetry, [:phx_media_library, :storage, :stop], _, %{operation: :put}}
+    end
+
+    test "emits :delete events when deleting media" do
+      post = create_post!()
+      path = create_temp_file("delete me", "del.txt")
+
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+
+      # Drain add/storage events
+      flush_mailbox()
+
+      :ok = PhxMediaLibrary.delete(media)
+
+      assert_received {:telemetry, [:phx_media_library, :delete, :start], _, %{media: _}}
+      assert_received {:telemetry, [:phx_media_library, :delete, :stop], %{duration: _}, _}
+    end
+
+    test "emits :batch events for clear_collection" do
+      post = create_post!()
+
+      for i <- 1..2 do
+        path = create_temp_file("item #{i}", "item_#{i}.txt")
+
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:images)
+      end
+
+      # Drain add events
+      flush_mailbox()
+
+      {:ok, 2} = PhxMediaLibrary.clear_collection(post, :images)
+
+      assert_received {:telemetry, [:phx_media_library, :batch, :start], _,
+                       %{operation: :clear_collection}}
+
+      assert_received {:telemetry, [:phx_media_library, :batch, :stop], _,
+                       %{operation: :clear_collection, count: 2}}
+    end
+
+    test "emits :batch events for reorder" do
+      post = create_post!()
+
+      ids =
+        for i <- 1..2 do
+          path = create_temp_file("image #{i}", "img_#{i}.jpg")
+
+          {:ok, media} =
+            post
+            |> PhxMediaLibrary.add(path)
+            |> PhxMediaLibrary.to_collection(:images)
+
+          media.id
+        end
+
+      # Drain add events
+      flush_mailbox()
+
+      [id1, id2] = ids
+      {:ok, 2} = PhxMediaLibrary.reorder(post, :images, [id2, id1])
+
+      assert_received {:telemetry, [:phx_media_library, :batch, :start], _,
+                       %{operation: :reorder}}
+
+      assert_received {:telemetry, [:phx_media_library, :batch, :stop], _,
+                       %{operation: :reorder, count: 2}}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Error struct integration (3.1)
+  # ---------------------------------------------------------------------------
+
+  describe "structured error handling" do
+    test "to_collection! raises PhxMediaLibrary.Error with metadata" do
+      post = create_post!()
+
+      error =
+        assert_raise PhxMediaLibrary.Error, fn ->
+          post
+          |> PhxMediaLibrary.add("/nonexistent/file.txt")
+          |> PhxMediaLibrary.to_collection!(:images)
+        end
+
+      assert error.reason == :add_failed
+      assert error.metadata.collection == :images
+    end
+
+    test "file size violation returns tagged tuple (not exception)" do
+      post = create_post!()
+
+      large_content = String.duplicate("x", 2_000)
+      path = create_temp_file(large_content, "big.txt")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:small_files)
+
+      assert {:error, {:file_too_large, actual_size, max_size}} = result
+      assert actual_size == 2_000
+      assert max_size == 1_000
+    end
+
+    test "MIME type violation returns tagged tuple (not exception)" do
+      post = create_post!()
+
+      # PNG data going into :documents (accepts only pdf + text/plain)
+      png_data = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00>>
+      path = create_temp_file(png_data, "fake.pdf")
+
+      result =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:documents)
+
+      assert {:error, {:invalid_mime_type, "image/png", _accepted}} = result
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Collection config for new fields (3.2 / 3.3)
+  # ---------------------------------------------------------------------------
+
+  describe "collection config" do
+    test "max_size is accessible via get_media_collection" do
+      config = PhxMediaLibrary.TestPost.get_media_collection(:small_files)
+
+      assert config.name == :small_files
+      assert config.max_size == 1_000
+      assert config.accepts == ~w(text/plain)
+    end
+
+    test "verify_content_type defaults to true" do
+      config = PhxMediaLibrary.TestPost.get_media_collection(:images)
+
+      assert config.verify_content_type == true
+    end
+
+    test "verify_content_type can be set to false" do
+      config = PhxMediaLibrary.TestPost.get_media_collection(:unverified)
+
+      assert config.verify_content_type == false
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Helpers
+  # ---------------------------------------------------------------------------
+
+  defp flush_mailbox do
+    receive do
+      _ -> flush_mailbox()
+    after
+      10 -> :ok
     end
   end
 end

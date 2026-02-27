@@ -9,7 +9,15 @@ defmodule PhxMediaLibrary.MediaAdder do
   functions in `PhxMediaLibrary` which delegate here.
   """
 
-  alias PhxMediaLibrary.{Collection, Config, Media, PathGenerator, StorageWrapper}
+  alias PhxMediaLibrary.{
+    Collection,
+    Config,
+    Media,
+    MimeDetector,
+    PathGenerator,
+    StorageWrapper,
+    Telemetry
+  }
 
   defstruct [
     :model,
@@ -73,13 +81,33 @@ defmodule PhxMediaLibrary.MediaAdder do
   """
   @spec to_collection(t(), atom(), keyword()) :: {:ok, Media.t()} | {:error, term()}
   def to_collection(%__MODULE__{} = adder, collection_name, opts \\ []) do
-    with {:ok, file_info} <- resolve_source(adder),
-         {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
-         {:ok, media} <- store_and_persist(adder, collection_name, file_info, opts) do
-      # Trigger async conversion processing
-      maybe_process_conversions(adder.model, media, collection_name)
-      {:ok, media}
-    end
+    telemetry_metadata = %{
+      collection: collection_name,
+      source_type: source_type(adder.source),
+      model: adder.model
+    }
+
+    Telemetry.span([:phx_media_library, :add], telemetry_metadata, fn ->
+      result =
+        with {:ok, file_info} <- resolve_source(adder),
+             {:ok, file_info, file_content} <- read_and_detect_mime(file_info),
+             {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
+             :ok <- maybe_verify_content_type(adder, collection_name, file_info, file_content),
+             {:ok, media} <-
+               store_and_persist(adder, collection_name, file_info, file_content, opts) do
+          # Trigger async conversion processing
+          maybe_process_conversions(adder.model, media, collection_name)
+          {:ok, media}
+        end
+
+      stop_metadata =
+        case result do
+          {:ok, media} -> %{media: media}
+          {:error, reason} -> %{error: reason}
+        end
+
+      {result, stop_metadata}
+    end)
   end
 
   # Private functions
@@ -152,25 +180,67 @@ defmodule PhxMediaLibrary.MediaAdder do
         # No explicit collection config - allow any file
         {:ok, :no_config}
 
-      %Collection{accepts: accepts} = config when is_list(accepts) and accepts != [] ->
-        if file_info.mime_type in accepts do
+      %Collection{} = config ->
+        with :ok <- validate_mime_type(config, file_info),
+             :ok <- validate_file_size(config, file_info) do
           {:ok, config}
-        else
-          {:error, {:invalid_mime_type, file_info.mime_type, accepts}}
         end
-
-      config ->
-        {:ok, config}
     end
   end
 
-  defp store_and_persist(%__MODULE__{} = adder, collection_name, file_info, opts) do
+  defp validate_mime_type(%Collection{accepts: accepts}, file_info)
+       when is_list(accepts) and accepts != [] do
+    if file_info.mime_type in accepts do
+      :ok
+    else
+      {:error, {:invalid_mime_type, file_info.mime_type, accepts}}
+    end
+  end
+
+  defp validate_mime_type(_config, _file_info), do: :ok
+
+  defp validate_file_size(%Collection{max_size: max_size}, file_info)
+       when is_integer(max_size) and max_size > 0 do
+    if file_info.size <= max_size do
+      :ok
+    else
+      {:error, {:file_too_large, file_info.size, max_size}}
+    end
+  end
+
+  defp validate_file_size(_config, _file_info), do: :ok
+
+  # Read file content and upgrade MIME type using content-based detection.
+  # This reads the file once; the content is then threaded through the rest
+  # of the pipeline to avoid a second read.
+  defp read_and_detect_mime(file_info) do
+    file_content = File.read!(file_info.path)
+    detected_mime = MimeDetector.detect_with_fallback(file_content, file_info.filename)
+    {:ok, %{file_info | mime_type: detected_mime}, file_content}
+  end
+
+  # Verify that file content matches the declared MIME type, if the
+  # collection has `verify_content_type: true` (the default).
+  defp maybe_verify_content_type(
+         %__MODULE__{model: model},
+         collection_name,
+         file_info,
+         file_content
+       ) do
+    case get_collection_config(model, collection_name) do
+      %Collection{verify_content_type: false} ->
+        :ok
+
+      _ ->
+        # verify_content_type defaults to true when nil or true
+        MimeDetector.verify(file_content, file_info.filename, file_info.mime_type)
+    end
+  end
+
+  defp store_and_persist(%__MODULE__{} = adder, collection_name, file_info, file_content, opts) do
     uuid = generate_uuid()
     disk = opts[:disk] || adder.disk || get_default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
-
-    # Read file content once — used for both storage and checksum
-    file_content = File.read!(file_info.path)
 
     # Compute checksum before storage for integrity verification
     checksum = Media.compute_checksum(file_content, "sha256")
@@ -376,4 +446,10 @@ defmodule PhxMediaLibrary.MediaAdder do
     File.write!(path, content)
     path
   end
+
+  defp source_type({:url, _}), do: :url
+  defp source_type(%Plug.Upload{}), do: :upload
+  defp source_type(%{path: _, filename: _}), do: :upload_entry
+  defp source_type(path) when is_binary(path), do: :path
+  defp source_type(_), do: :unknown
 end

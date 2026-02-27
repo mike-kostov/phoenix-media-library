@@ -7,6 +7,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-27
+
+### Added
+
+- **Milestone 3a complete** (529 tests passing: 325 unit + 17 Oban worker + 28 new M3a + 159 integration)
+- **`PhxMediaLibrary.Error`** — Base exception struct with `:message`, `:reason`, and `:metadata` fields. Used by `to_collection!/3` and other bang functions
+- **`PhxMediaLibrary.StorageError`** — Exception for storage operation failures with `:operation`, `:path`, `:adapter`, and `:reason` fields. Auto-generates descriptive messages from context
+- **`PhxMediaLibrary.ValidationError`** — Exception for pre-storage validation failures with `:field`, `:value`, and `:constraint` fields. Human-readable default messages for `:file_too_large`, `:invalid_mime_type`, and `:content_type_mismatch` reasons with automatic byte formatting (bytes/KB/MB)
+- **Telemetry integration** — `PhxMediaLibrary.Telemetry` module emitting `:telemetry.span/3` events for all key operations:
+  - `[:phx_media_library, :add, :start | :stop | :exception]` — media addition lifecycle
+  - `[:phx_media_library, :delete, :start | :stop | :exception]` — media deletion lifecycle
+  - `[:phx_media_library, :conversion, :start | :stop | :exception]` — image conversion processing
+  - `[:phx_media_library, :storage, :start | :stop | :exception]` — storage adapter operations (put/get/delete/exists?)
+  - `[:phx_media_library, :batch, :start | :stop | :exception]` — batch operations (clear, reorder)
+  - `[:phx_media_library, :reorder]` — standalone event after successful reorder
+  - All spans include `duration` in stop measurements and debug-level Logger output
+- **`Telemetry.event/3`** — Standalone event emitter for one-shot notifications (e.g. `:media_reordered`)
+- **`:max_size` collection option** — Maximum file size in bytes. Validated before storage (not after). Returns `{:error, {:file_too_large, actual_size, max_size}}`. Automatically derived into LiveView upload's `:max_file_size` via `allow_media_upload/3`
+- **`:verify_content_type` collection option** — When `true` (default), verifies that file content matches its declared MIME type. Set to `false` to skip verification for collections that accept arbitrary content
+- **`PhxMediaLibrary.MimeDetector` behaviour** — Pluggable content-based MIME type detection. Configurable via `:mime_detector` application env
+- **`PhxMediaLibrary.MimeDetector.Default`** — Built-in magic-bytes detector supporting 50+ file formats:
+  - Images: JPEG, PNG, GIF, WebP, BMP, TIFF, ICO, AVIF, HEIC/HEIF, SVG
+  - Documents: PDF, RTF, Microsoft Office (legacy compound binary)
+  - Audio: MP3 (ID3v2 + frame sync), OGG, FLAC, WAV, AIFF, AAC, MIDI, M4A
+  - Video: MP4/M4V (ftyp brand detection for isom/iso2/mp41/mp42/dash/qt/3gp/3g2), AVI, MKV/WebM, FLV, QuickTime
+  - Archives: ZIP, GZIP, BZIP2, 7-Zip, RAR, XZ, TAR (ustar at offset 257), Zstandard
+  - Other: WASM, SQLite, ELF, Mach-O (32/64-bit, both endiannesses), PE (EXE/DLL), XML
+- **`MimeDetector.detect_with_fallback/2`** — Detects from content, falls back to extension via `MIME.from_path/1`
+- **`MimeDetector.verify/3`** — Compares detected content type against declared type. Returns `:ok` or `{:error, {:content_type_mismatch, detected, declared}}`
+- **Content-based MIME detection in upload pipeline** — `MediaAdder` now reads file content once, detects MIME type from magic bytes (primary) with extension fallback, then validates against collection accepts. Catches executables disguised as images, etc.
+- **`PhxMediaLibrary.reorder/3`** — Reorder media items by ID list: `PhxMediaLibrary.reorder(post, :images, [id3, id1, id2])`. Uses a single database transaction. IDs not in the collection are silently ignored. Emits `:batch` and `:reorder` Telemetry events
+- **`PhxMediaLibrary.move_to/2`** — Move a single media item to a specific 1-based position: `PhxMediaLibrary.move_to(media, 1)`. Clamps to collection size. Re-numbers all siblings in the collection
+- **`:telemetry` dependency** — Added `{:telemetry, "~> 1.0"}` as a required dependency
+
+### Changed
+
+- **`clear_collection/2` now returns `{:ok, count}`** — Previously returned `:ok`. Now uses a single `delete_all` query instead of N+1 individual deletes. Files are still deleted from storage individually before the batch DB delete. Emits `[:phx_media_library, :batch]` Telemetry events
+- **`clear_media/1` now returns `{:ok, count}`** — Same batch optimization and return type change as `clear_collection/2`
+- **`to_collection!/3` raises `PhxMediaLibrary.Error`** — Previously raised `RuntimeError`. Now raises a structured `PhxMediaLibrary.Error` with `:reason` set to `:add_failed` and `:metadata` containing `:collection` and `:original_error`
+- **MIME type detection is now content-based** — `MediaAdder` detects MIME from file content (magic bytes) as primary, falling back to extension. Previously relied solely on file extension via `MIME.from_path/1`
+- **`StorageWrapper` emits Telemetry events** — All storage operations (put/get/delete/exists?) are now wrapped in `Telemetry.span/3`, providing timing and operation metadata
+- **`Conversions.process_conversion/5` emits Telemetry events** — Each individual conversion is wrapped in a `[:phx_media_library, :conversion]` span
+- **`Media.delete/1` emits Telemetry events** — Wrapped in a `[:phx_media_library, :delete]` span
+- **`MediaAdder.to_collection/3` emits Telemetry events** — Wrapped in a `[:phx_media_library, :add]` span with `:collection`, `:source_type`, and `:model` metadata
+- **`allow_media_upload/3` derives `:max_file_size` from collection** — When a collection has `:max_size` configured, it's automatically passed as `:max_file_size` to `Phoenix.LiveView.allow_upload/3`. Falls back to 10 MB default
+
+### Fixed
+
+- **`clear_collection/2` was N+1** — Fetched all media, then deleted one-by-one. Now deletes files from storage, then removes all DB records in a single `delete_all` query with `Ecto.Query.exclude(:order_by)` to satisfy Ecto's `delete_all` constraints
+- **`clear_media/1` was N+1** — Same fix as `clear_collection/2`
+- **`MediaAdder` read file content twice** — Previously `File.read!` happened in `store_and_persist` for both storage and checksum. Now reads once in `read_and_detect_mime/1` and threads the content through the pipeline
+
 ## [0.2.0] - 2026-02-27
 
 ### Added
@@ -128,7 +180,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `mix phx_media_library.clean` - Find and remove orphaned files
   - `mix phx_media_library.gen.migration` - Generate custom migrations
 
-[Unreleased]: https://github.com/mike-kostov/phx_media_library/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mike-kostov/phx_media_library/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mike-kostov/phx_media_library/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/mike-kostov/phx_media_library/releases/tag/v0.1.0
