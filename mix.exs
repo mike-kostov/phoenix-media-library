@@ -109,7 +109,28 @@ defmodule PhxMediaLibrary.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      extras: ["README.md", "CHANGELOG.md"]
+      extras: [
+        "README.md",
+        "guides/getting-started.md",
+        "guides/collections-and-conversions.md",
+        "guides/liveview.md",
+        "guides/storage.md",
+        "guides/error-handling.md",
+        "guides/telemetry.md",
+        "guides/advanced.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        Guides: [
+          "guides/getting-started.md",
+          "guides/collections-and-conversions.md",
+          "guides/liveview.md",
+          "guides/storage.md",
+          "guides/error-handling.md",
+          "guides/telemetry.md",
+          "guides/advanced.md"
+        ]
+      ]
     ]
   end
 end
