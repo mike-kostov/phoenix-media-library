@@ -10,8 +10,10 @@ The guiding principle: *every feature should reduce repetitive work for the deve
 
 - [Vision](#vision)
 - [Milestone 1 — Killer DX: LiveView Media Component](#milestone-1--killer-dx-liveview-media-component)
-- [Milestone 2 — Make the Core Solid](#milestone-2--make-the-core-solid)
-- [Milestone 3 — Production-Ready](#milestone-3--production-ready)
+- [Milestone 2 — Make the Core Solid ✅](#milestone-2--make-the-core-solid-)
+- [Milestone 3a — Error Handling & Validation Hardening (v0.3.0) ✅](#milestone-3a--error-handling--validation-hardening-v030-)
+- [Milestone 3b — Remote URLs, Metadata & Oban Enhancements (v0.4.0) ✅](#milestone-3b--remote-urls-metadata--oban-enhancements-v040-)
+- [Milestone 3c — Production Hardening](#milestone-3c--production-hardening)
 - [Milestone 4 — Best-in-Class](#milestone-4--best-in-class)
 - [Design Decisions](#design-decisions)
 - [Known Issues](#known-issues)
@@ -296,7 +298,38 @@ end
 - [x] `move_to/2` — move a single media item to a position
 - [x] Emit `:media_reordered` Telemetry event
 
-## Milestone 3b — Advanced Features (v0.4.0)
+## Milestone 3b — Remote URLs, Metadata & Oban Enhancements (v0.4.0) ✅
+
+**Goal**: Enhance remote URL support, add automatic metadata extraction, and improve Oban integration.
+
+### 3b.1 — Remote URL Sources (Enhanced)
+
+- [x] URL validation — only `http`/`https` schemes accepted; descriptive `{:error, {:invalid_url, reason}}` tuples for `ftp://`, `file://`, missing host, non-string
+- [x] Custom request headers — `add_from_url/3` accepts `:headers` option for authenticated downloads
+- [x] Download timeout — `:timeout` option sets a receive timeout for slow servers
+- [x] Download telemetry — `[:phx_media_library, :download, :start | :stop | :exception]` events with URL, size, and MIME type metadata
+- [x] Source URL tracking — original URL automatically stored in `custom_properties["source_url"]`
+- [x] Broader success codes — downloads now accept any 2xx status code (200–299), not just 200
+
+### 3b.2 — Automatic Metadata Extraction
+
+- [x] `PhxMediaLibrary.MetadataExtractor` behaviour with `extract/3` callback
+- [x] `PhxMediaLibrary.MetadataExtractor.Default` — image dimensions/EXIF via `:image`, type classification, format normalization for 50+ MIME types
+- [x] `metadata` JSON column on Media schema (separate from `custom_properties`)
+- [x] New migration `add_metadata_to_media` + install task updated to include `metadata` from the start
+- [x] Auto-extraction in `to_collection/3` pipeline (after MIME detection, before storage)
+- [x] `without_metadata/1` — opt-out per-upload
+- [x] Global disable via `config :phx_media_library, extract_metadata: false`
+- [x] Custom extractor via `config :phx_media_library, metadata_extractor: MyModule`
+- [x] Non-fatal — extraction failures log a warning but never block the upload
+- [x] Every extracted metadata includes `"extracted_at"` ISO 8601 timestamp
+
+### 3b.3 — Oban Conversion Queuing (Enhanced)
+
+- [x] `process_sync/2` — synchronous processing callback on `AsyncProcessor.Oban` for immediate conversions
+- [x] Enhanced documentation — full setup walkthrough, queue sizing guidance, retry behaviour docs
+
+## Milestone 3c — Production Hardening
 
 **Goal**: Add soft deletes, streaming, and direct S3 uploads for large-scale production use.
 
@@ -422,7 +455,7 @@ Active bugs or problems in the current codebase.
 - [x] **`max_files` cleanup deletes newest items instead of oldest** — `Enum.drop(max)` on ascending-ordered list removes the newest item. (Fixed — now keeps newest `max` items, deletes oldest excess)
 - [x] **No file size validation** — collections can't limit upload size. (Fixed in Milestone 3.2 — `:max_size` collection option, validated before storage)
 - [x] **MIME detection is extension-only** — no content-based verification. (Fixed in Milestone 3.3 — `MimeDetector` behaviour with magic-bytes default, `:verify_content_type` collection option)
-- [ ] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (See Milestone 3b/3.6)
+- [ ] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (See Milestone 3c/3.6)
 
 ---
 
@@ -440,5 +473,5 @@ Ideas and suggestions that don't have a home yet.
 - **Pre-signed download URLs** — for private files with expiring access
 - **Zip download** — download all media in a collection as a zip archive
 - **Duplicate detection** — use checksums to detect and optionally prevent duplicate uploads
-- **Image metadata extraction** — EXIF data, GPS coordinates, camera info
+- ~~**Image metadata extraction** — EXIF data, GPS coordinates, camera info~~ (Done in Milestone 3b.2)
 - **Auto-rotation** — fix EXIF orientation on upload

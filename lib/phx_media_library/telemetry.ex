@@ -90,6 +90,26 @@ defmodule PhxMediaLibrary.Telemetry do
 
     Metadata: `%{operation: atom(), path: String.t(), adapter: module(), kind: atom(), reason: term(), stacktrace: list()}`
 
+  ### Remote Downloads
+
+  - `[:phx_media_library, :download, :start]` — emitted when a remote URL download begins.
+
+    Measurements: `%{system_time: integer()}`
+
+    Metadata: `%{url: String.t()}`
+
+  - `[:phx_media_library, :download, :stop]` — emitted when a remote URL download completes.
+
+    Measurements: `%{duration: integer()}`
+
+    Metadata: `%{url: String.t(), size: integer(), mime_type: String.t()}`
+
+  - `[:phx_media_library, :download, :exception]` — emitted when a remote URL download fails.
+
+    Measurements: `%{duration: integer()}`
+
+    Metadata: `%{url: String.t(), error: term(), kind: atom(), reason: term(), stacktrace: list()}`
+
   ### Batch Operations
 
   - `[:phx_media_library, :batch, :start]` — emitted when a batch operation begins.

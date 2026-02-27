@@ -113,6 +113,83 @@ Add custom fields to the media table:
 mix phx_media_library.gen.migration add_blurhash_field
 ```
 
+## Oban Setup for Async Conversions
+
+By default, PhxMediaLibrary uses `Task.Supervisor` for background conversion
+processing. This is fine for development but doesn't survive restarts or
+support retries. For production, use the Oban adapter.
+
+### 1. Add Oban to your dependencies
+
+```elixir
+# mix.exs
+{:oban, "~> 2.18"}
+```
+
+### 2. Configure Oban with a `:media` queue
+
+```elixir
+# config/config.exs
+config :my_app, Oban,
+  repo: MyApp.Repo,
+  queues: [default: 10, media: 10]
+```
+
+Adjust concurrency based on your server capacity:
+
+```elixir
+# Low-traffic app
+queues: [media: 5]
+
+# High-traffic app with beefy servers
+queues: [media: 20]
+```
+
+### 3. Tell PhxMediaLibrary to use the Oban adapter
+
+```elixir
+# config/config.exs
+config :phx_media_library,
+  async_processor: PhxMediaLibrary.AsyncProcessor.Oban
+```
+
+### 4. Start Oban in your supervision tree
+
+```elixir
+# lib/my_app/application.ex
+children = [
+  MyApp.Repo,
+  {Oban, Application.fetch_env!(:my_app, Oban)},
+  # ...
+]
+```
+
+### How It Works
+
+When media is uploaded and conversions are defined, PhxMediaLibrary enqueues an
+Oban job with the media ID, conversion names, and the `mediable_type`. The
+`PhxMediaLibrary.Workers.ProcessConversions` worker then:
+
+1. Looks up the media record from the database
+2. Discovers the originating Ecto schema module from the `mediable_type`
+3. Retrieves the full `Conversion` definitions (width, height, quality, fit, etc.)
+4. Processes each conversion and updates the media record
+
+### Retry Behaviour
+
+The worker is configured with `max_attempts: 3`. Failed jobs use Oban's default
+exponential backoff. You can monitor failed jobs via `Oban.Web` or your own
+telemetry handlers.
+
+### Synchronous Processing
+
+If you need conversions to complete immediately (e.g. generating a thumbnail
+before returning a response), call `process_sync/2` directly:
+
+```elixir
+PhxMediaLibrary.AsyncProcessor.Oban.process_sync(media, conversions)
+```
+
 ## Testing
 
 ### In-Memory Storage

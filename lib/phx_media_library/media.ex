@@ -19,6 +19,7 @@ defmodule PhxMediaLibrary.Media do
   - `order_column` - For ordering media within a collection
   - `checksum` - SHA-256 (or other algorithm) hash of the file contents
   - `checksum_algorithm` - Algorithm used for the checksum (e.g., "sha256")
+  - `metadata` - Automatically extracted file metadata (dimensions, duration, EXIF, etc.)
 
   """
 
@@ -53,6 +54,7 @@ defmodule PhxMediaLibrary.Media do
     field(:order_column, :integer)
     field(:checksum, :string)
     field(:checksum_algorithm, :string, default: "sha256")
+    field(:metadata, :map, default: %{})
 
     # Polymorphic association
     field(:mediable_type, :string)
@@ -62,7 +64,7 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @required_fields ~w(uuid collection_name name file_name mime_type disk size mediable_type mediable_id)a
-  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm)a
+  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm metadata)a
 
   @doc false
   def changeset(media, attrs) do

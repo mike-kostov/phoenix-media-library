@@ -13,6 +13,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     Collection,
     Config,
     Media,
+    MetadataExtractor,
     MimeDetector,
     PathGenerator,
     StorageWrapper,
@@ -25,10 +26,11 @@ defmodule PhxMediaLibrary.MediaAdder do
     :custom_filename,
     :custom_properties,
     :generate_responsive,
+    :extract_metadata,
     :disk
   ]
 
-  @type source :: Path.t() | {:url, String.t()} | map()
+  @type source :: Path.t() | {:url, String.t()} | {:url, String.t(), keyword()} | map()
 
   @type t :: %__MODULE__{
           model: Ecto.Schema.t(),
@@ -36,6 +38,7 @@ defmodule PhxMediaLibrary.MediaAdder do
           custom_filename: String.t() | nil,
           custom_properties: map(),
           generate_responsive: boolean(),
+          extract_metadata: boolean(),
           disk: atom() | nil
         }
 
@@ -48,7 +51,8 @@ defmodule PhxMediaLibrary.MediaAdder do
       model: model,
       source: source,
       custom_properties: %{},
-      generate_responsive: false
+      generate_responsive: false,
+      extract_metadata: MetadataExtractor.enabled?()
     }
   end
 
@@ -77,6 +81,25 @@ defmodule PhxMediaLibrary.MediaAdder do
   end
 
   @doc """
+  Disable automatic metadata extraction for this media.
+
+  By default, PhxMediaLibrary extracts metadata (dimensions, EXIF, etc.)
+  from uploaded files. Use this to skip extraction for a specific upload.
+
+  ## Examples
+
+      post
+      |> PhxMediaLibrary.add(upload)
+      |> PhxMediaLibrary.without_metadata()
+      |> PhxMediaLibrary.to_collection(:images)
+
+  """
+  @spec without_metadata(t()) :: t()
+  def without_metadata(%__MODULE__{} = adder) do
+    %{adder | extract_metadata: false}
+  end
+
+  @doc """
   Finalize and persist the media.
   """
   @spec to_collection(t(), atom(), keyword()) :: {:ok, Media.t()} | {:error, term()}
@@ -93,8 +116,9 @@ defmodule PhxMediaLibrary.MediaAdder do
              {:ok, file_info, file_content} <- read_and_detect_mime(file_info),
              {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
              :ok <- maybe_verify_content_type(adder, collection_name, file_info, file_content),
+             {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
              {:ok, media} <-
-               store_and_persist(adder, collection_name, file_info, file_content, opts) do
+               store_and_persist(adder, collection_name, file_info, file_content, metadata, opts) do
           # Trigger async conversion processing
           maybe_process_conversions(adder.model, media, collection_name)
           {:ok, media}
@@ -114,8 +138,11 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp resolve_source(%__MODULE__{source: source, custom_filename: custom_filename}) do
     case source do
+      {:url, url, url_opts} ->
+        download_from_url(url, custom_filename, url_opts)
+
       {:url, url} ->
-        download_from_url(url, custom_filename)
+        download_from_url(url, custom_filename, [])
 
       path when is_binary(path) ->
         resolve_file_path(path, custom_filename)
@@ -133,9 +160,63 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  defp download_from_url(url, custom_filename) do
-    case Req.get(url, decode_body: false) do
-      {:ok, %{status: 200, body: body, headers: headers}} ->
+  defp download_from_url(url, custom_filename, url_opts) do
+    with :ok <- validate_url(url) do
+      req_opts = build_req_opts(url_opts)
+
+      Telemetry.span(
+        [:phx_media_library, :download],
+        %{url: url},
+        fn -> execute_download(url, custom_filename, req_opts) end
+      )
+    end
+  end
+
+  defp execute_download(url, custom_filename, req_opts) do
+    result = do_download(url, custom_filename, req_opts)
+
+    stop_metadata =
+      case result do
+        {:ok, info} -> %{url: url, size: info.size, mime_type: info.mime_type}
+        {:error, reason} -> %{url: url, error: reason}
+      end
+
+    {result, stop_metadata}
+  end
+
+  defp validate_url(url) when is_binary(url) do
+    uri = URI.parse(url)
+
+    cond do
+      uri.scheme not in ["http", "https"] ->
+        {:error, {:invalid_url, :unsupported_scheme, uri.scheme}}
+
+      is_nil(uri.host) or uri.host == "" ->
+        {:error, {:invalid_url, :missing_host}}
+
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_url(_), do: {:error, {:invalid_url, :not_a_string}}
+
+  defp build_req_opts(url_opts) do
+    base = [decode_body: false, redirect: true, max_redirects: 5]
+
+    # Allow custom headers (e.g. for authenticated URLs)
+    headers = Keyword.get(url_opts, :headers, [])
+    timeout = Keyword.get(url_opts, :timeout)
+
+    opts = if headers != [], do: Keyword.put(base, :headers, headers), else: base
+    opts = if timeout, do: Keyword.put(opts, :receive_timeout, timeout), else: opts
+
+    opts
+  end
+
+  defp do_download(url, custom_filename, req_opts) do
+    case Req.get(url, req_opts) do
+      {:ok, %{status: status, body: body, headers: headers}} when status in 200..299 ->
         filename = custom_filename || filename_from_url(url, headers)
         mime_type = get_content_type(headers) || MIME.from_path(filename)
 
@@ -147,7 +228,8 @@ defmodule PhxMediaLibrary.MediaAdder do
            filename: filename,
            mime_type: mime_type,
            size: byte_size(body),
-           temp: true
+           temp: true,
+           source_url: url
          }}
 
       {:ok, %{status: status}} ->
@@ -237,7 +319,23 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  defp store_and_persist(%__MODULE__{} = adder, collection_name, file_info, file_content, opts) do
+  # Extract metadata from the file if enabled
+  defp maybe_extract_metadata(%__MODULE__{extract_metadata: false}, _file_info) do
+    {:ok, %{}}
+  end
+
+  defp maybe_extract_metadata(%__MODULE__{}, file_info) do
+    MetadataExtractor.extract_metadata(file_info.path, file_info.mime_type)
+  end
+
+  defp store_and_persist(
+         %__MODULE__{} = adder,
+         collection_name,
+         file_info,
+         file_content,
+         metadata,
+         opts
+       ) do
     uuid = generate_uuid()
     disk = opts[:disk] || adder.disk || get_default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
@@ -246,6 +344,16 @@ defmodule PhxMediaLibrary.MediaAdder do
     checksum = Media.compute_checksum(file_content, "sha256")
 
     # Build media attributes
+    # Merge source URL into custom_properties if present
+    custom_props =
+      case file_info do
+        %{source_url: url} when is_binary(url) ->
+          Map.put(adder.custom_properties, "source_url", url)
+
+        _ ->
+          adder.custom_properties
+      end
+
     attrs = %{
       uuid: uuid,
       collection_name: to_string(collection_name),
@@ -254,7 +362,8 @@ defmodule PhxMediaLibrary.MediaAdder do
       mime_type: file_info.mime_type,
       disk: to_string(disk),
       size: file_info.size,
-      custom_properties: adder.custom_properties,
+      custom_properties: custom_props,
+      metadata: metadata,
       mediable_type: get_mediable_type(adder.model),
       mediable_id: adder.model.id,
       order_column: get_next_order(adder.model, collection_name),
@@ -447,6 +556,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     path
   end
 
+  defp source_type({:url, _, _}), do: :url
   defp source_type({:url, _}), do: :url
   defp source_type(%Plug.Upload{}), do: :upload
   defp source_type(%{path: _, filename: _}), do: :upload_entry

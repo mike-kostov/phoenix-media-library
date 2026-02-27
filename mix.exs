@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.3.0"
+  @version "0.4.0"
   @source_url "https://github.com/mike-kostov/phx_media_library"
 
   def project do
@@ -100,7 +100,7 @@ defmodule PhxMediaLibrary.MixProject do
         "GitHub" => @source_url,
         "Changelog" => "#{@source_url}/blob/main/CHANGELOG.md"
       },
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
+      files: ~w(lib guides .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
     ]
   end
 

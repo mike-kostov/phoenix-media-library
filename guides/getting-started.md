@@ -9,7 +9,7 @@ Add `phx_media_library` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.3.0"},
+    {:phx_media_library, "~> 0.4.0"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
@@ -209,9 +209,21 @@ Collection-scoped variants like `has_media(:images)` add a scoped `has_many` fil
   |> PhxMediaLibrary.add_from_url("https://example.com/image.jpg")
   |> PhxMediaLibrary.to_collection(:images)
 
+# From an authenticated URL
+{:ok, media} =
+  post
+  |> PhxMediaLibrary.add_from_url("https://api.example.com/files/123.pdf",
+       headers: [{"Authorization", "Bearer my-token"}],
+       timeout: 15_000)
+  |> PhxMediaLibrary.to_collection(:documents)
+
 # Bang version raises on error
 media = PhxMediaLibrary.to_collection!(adder, :images)
 ```
+
+> URL downloads validate the scheme (`http`/`https` only), reject `ftp://` and
+> `file://` URLs, and automatically store the source URL in
+> `custom_properties["source_url"]`.
 
 ## Retrieve Media
 
@@ -238,6 +250,50 @@ PhxMediaLibrary.media_query(post, :images)
 |> Repo.all()
 ```
 
+## Metadata Extraction
+
+PhxMediaLibrary automatically extracts metadata from uploaded files and stores
+it in the `metadata` field:
+
+```elixir
+{:ok, media} =
+  post
+  |> PhxMediaLibrary.add("/path/to/photo.jpg")
+  |> PhxMediaLibrary.to_collection(:images)
+
+media.metadata
+# => %{
+#   "type" => "image",
+#   "format" => "jpeg",
+#   "width" => 1920,
+#   "height" => 1080,
+#   "has_alpha" => false,
+#   "exif" => %{"orientation" => 1, ...},
+#   "extracted_at" => "2026-02-27T16:00:00Z"
+# }
+```
+
+Image dimensions and EXIF data require the optional `:image` dependency.
+Without it, you still get type classification and format detection.
+
+To skip extraction for a specific upload:
+
+```elixir
+post
+|> PhxMediaLibrary.add(upload)
+|> PhxMediaLibrary.without_metadata()
+|> PhxMediaLibrary.to_collection(:images)
+```
+
+Or disable globally:
+
+```elixir
+config :phx_media_library, extract_metadata: false
+```
+
+See the [Collections & Conversions](collections-and-conversions.md) guide for
+details on custom extractors and supported metadata fields.
+
 ## Delete Media
 
 ```elixir
@@ -253,9 +309,9 @@ PhxMediaLibrary.delete(media)
 
 ## Next Steps
 
-- [Collections & Conversions](collections-and-conversions.md) — Validation rules, image processing, responsive images
+- [Collections & Conversions](collections-and-conversions.md) — Validation rules, image processing, responsive images, metadata extraction
 - [LiveView Integration](liveview.md) — Drop-in upload and gallery components
 - [Storage](storage.md) — Multiple backends, custom adapters
 - [Error Handling](error-handling.md) — Tagged tuples, custom exceptions, MIME detection
-- [Telemetry](telemetry.md) — Monitoring and observability events
-- [Advanced Usage](advanced.md) — Reordering, mix tasks, view helpers, testing
+- [Telemetry](telemetry.md) — Monitoring and observability events (including download events)
+- [Advanced Usage](advanced.md) — Reordering, mix tasks, Oban setup, testing strategies

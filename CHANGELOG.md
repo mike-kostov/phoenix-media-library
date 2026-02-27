@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-02-27
+
+### Added
+
+- **Milestone 3b complete** (653 tests passing: up from 529 in v0.3.0)
+
+#### 3b.1 — Remote URL Sources (Enhanced)
+
+- **URL validation** — `add_from_url/3` now validates URL scheme (only `http`/`https` allowed), rejects missing hosts, and returns descriptive `{:error, {:invalid_url, reason}}` tuples for `ftp://`, `file://`, or malformed URLs
+- **Custom request headers** — `add_from_url/3` accepts `:headers` option for authenticated downloads (e.g. `headers: [{"Authorization", "Bearer token"}]`)
+- **Download timeout** — `:timeout` option sets a receive timeout for slow servers
+- **Download telemetry** — New `[:phx_media_library, :download, :start | :stop | :exception]` events with URL, size, and MIME type metadata
+- **Source URL tracking** — When media is added from a URL, the original URL is automatically stored in `custom_properties["source_url"]`
+- **Broader success codes** — Downloads now accept any 2xx status code (200–299), not just 200
+
+#### 3b.2 — Automatic Metadata Extraction
+
+- **`PhxMediaLibrary.MetadataExtractor`** — New behaviour for extracting file metadata with `extract/3` callback
+- **`PhxMediaLibrary.MetadataExtractor.Default`** — Default implementation that:
+  - Extracts image dimensions (`width`, `height`), alpha channel presence, and EXIF data via the `:image` library (when available)
+  - Classifies files into type categories: `"image"`, `"video"`, `"audio"`, `"document"`, `"other"`
+  - Normalizes MIME subtypes to human-friendly format names (e.g. `"quicktime"` → `"mov"`, `"svg+xml"` → `"svg"`)
+  - Sanitizes EXIF data for JSON serialization (handles binaries, tuples, atoms)
+  - Gracefully falls back when `:image` is not installed — no crash, just base metadata
+- **`metadata` field on `Media` schema** — New `:map` field (default `%{}`) storing extracted metadata; persisted as a JSON column
+- **New migration** — `add_metadata_to_media` migration adds the `metadata` column
+- **Install task updated** — `mix phx_media_library.install` now generates migrations with `metadata`, `checksum`, and `checksum_algorithm` columns included from the start
+- **Auto-extraction in pipeline** — `to_collection/3` automatically extracts metadata after MIME detection and before storage
+- **`without_metadata/1`** — New builder function to skip extraction for a specific upload: `PhxMediaLibrary.without_metadata(adder)`
+- **Global disable** — `config :phx_media_library, extract_metadata: false` disables extraction globally
+- **Custom extractor** — `config :phx_media_library, metadata_extractor: MyApp.MetadataExtractor` to use your own implementation
+- **Non-fatal extraction** — Extraction failures are logged as warnings but never block the upload; media is stored with an empty metadata map
+- **Timestamp tracking** — Extracted metadata includes `"extracted_at"` ISO 8601 timestamp
+
+#### 3b.3 — Oban Conversion Queuing (Enhanced)
+
+- **`process_sync/2`** — Added synchronous processing callback to `PhxMediaLibrary.AsyncProcessor.Oban`, delegating to `Conversions.process/2` for immediate conversions without queueing
+- **Enhanced documentation** — Oban adapter now documents full setup flow (deps, queue config, PhxMediaLibrary config), queue sizing guidance, and retry behaviour (max 3 attempts with exponential backoff)
+
+### Changed
+
+- **`MediaAdder` struct** — Added `:extract_metadata` field (default: `true` from `MetadataExtractor.enabled?/0`)
+- **`MediaAdder.to_collection/3`** — Pipeline now includes metadata extraction step between content-type verification and storage
+- **`store_and_persist/6`** — Accepts metadata map parameter and includes it in media attributes
+- **`resolve_source/1`** — Now handles `{:url, url, opts}` three-element tuple for URL sources with options
+- **`source_type/1`** — Handles `{:url, _, _}` pattern for URL sources with options
+- **`Media` schema** — Added `metadata` field to `@optional_fields` in changeset
+
 ## [0.3.0] - 2026-02-27
 
 ### Added

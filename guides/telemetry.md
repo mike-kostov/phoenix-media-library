@@ -49,6 +49,16 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :batch, :stop]` | `%{duration: integer()}` | `%{operation: atom(), count: integer()}` |
 | `[:phx_media_library, :batch, :exception]` | `%{duration: integer()}` | `%{operation: atom(), count: integer(), kind: atom(), reason: term(), stacktrace: list()}` |
 
+### Remote Downloads
+
+Emitted when media is added from a URL via `add_from_url/3`.
+
+| Event | Measurements | Metadata |
+|-------|-------------|----------|
+| `[:phx_media_library, :download, :start]` | `%{system_time: integer()}` | `%{url: String.t()}` |
+| `[:phx_media_library, :download, :stop]` | `%{duration: integer()}` | `%{url: String.t(), size: integer(), mime_type: String.t()}` |
+| `[:phx_media_library, :download, :exception]` | `%{duration: integer()}` | `%{url: String.t(), error: term(), kind: atom(), reason: term(), stacktrace: list()}` |
+
 ### Reorder
 
 | Event | Measurements | Metadata |
@@ -66,14 +76,16 @@ Attach handlers in your application's `start/2` callback:
 # lib/my_app/application.ex
 def start(_type, _args) do
   :telemetry.attach_many(
-    "my-app-media-handler",
-    [
-      [:phx_media_library, :add, :stop],
-      [:phx_media_library, :add, :exception],
-      [:phx_media_library, :delete, :stop],
-      [:phx_media_library, :storage, :stop],
-      [:phx_media_library, :batch, :stop]
-    ],
+  "my-app-media-handler",
+  [
+    [:phx_media_library, :add, :stop],
+    [:phx_media_library, :add, :exception],
+    [:phx_media_library, :delete, :stop],
+    [:phx_media_library, :storage, :stop],
+    [:phx_media_library, :batch, :stop],
+    [:phx_media_library, :download, :stop],
+    [:phx_media_library, :download, :exception]
+  ],
     &MyApp.TelemetryHandler.handle_event/4,
     nil
   )
@@ -129,6 +141,19 @@ defmodule MyApp.TelemetryHandler do
     ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
     Logger.info("[Media] Batch #{metadata.operation} (#{metadata.count} items) in #{ms}ms")
   end
+
+  def handle_event([:phx_media_library, :download, :stop], measurements, metadata, _config) do
+    ms = System.convert_time_unit(measurements.duration, :native, :millisecond)
+
+    Logger.info(
+      "[Media] Downloaded #{metadata.url} " <>
+        "(#{metadata.size} bytes, #{metadata.mime_type}) in #{ms}ms"
+    )
+  end
+
+  def handle_event([:phx_media_library, :download, :exception], _measurements, metadata, _config) do
+    Logger.error("[Media] Download failed for #{metadata.url}: #{inspect(metadata.error)}")
+  end
 end
 ```
 
@@ -166,6 +191,9 @@ defmodule MyAppWeb.Telemetry do
         unit: {:native, :millisecond},
         tags: [:operation, :adapter]
       ),
+      summary("phx_media_library.download.stop.duration",
+        unit: {:native, :millisecond}
+      ),
 
       # Counters
       counter("phx_media_library.add.stop.duration",
@@ -175,6 +203,8 @@ defmodule MyAppWeb.Telemetry do
         tags: [:collection]
       ),
       counter("phx_media_library.delete.stop.duration"),
+      counter("phx_media_library.download.stop.duration"),
+      counter("phx_media_library.download.exception.duration"),
 
       # Batch sizes
       summary("phx_media_library.batch.stop.duration",

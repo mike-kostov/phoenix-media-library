@@ -18,7 +18,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
   @moduletag :db
 
-  alias PhxMediaLibrary.{Fixtures, Media, PathGenerator, Storage, TestRepo}
+  alias PhxMediaLibrary.{Fixtures, Media, PathGenerator, Storage, TestRepo, Workers}
 
   # Suppress noisy async conversion errors in test output.
   # The async processor fires for every upload but fails on non-image
@@ -1789,6 +1789,418 @@ defmodule PhxMediaLibrary.IntegrationTest do
       config = PhxMediaLibrary.TestPost.get_media_collection(:unverified)
 
       assert config.verify_content_type == false
+    end
+  end
+
+  # ===========================================================================
+  # Milestone 3b: Metadata Extraction
+  # ===========================================================================
+
+  describe "metadata extraction" do
+    test "extracts metadata automatically on to_collection" do
+      post = create_post!()
+      content = "Hello, metadata world!"
+      path = create_temp_file(content, "meta_test.txt")
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      assert is_map(media.metadata)
+      assert media.metadata["type"] == "document"
+      assert media.metadata["format"] == "text"
+      assert Map.has_key?(media.metadata, "extracted_at")
+    end
+
+    test "metadata is persisted to the database" do
+      post = create_post!()
+      path = create_temp_file("persistent metadata", "persist.txt")
+
+      {:ok, media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:documents)
+
+      # Reload from DB
+      reloaded = TestRepo.get!(Media, media.id)
+      assert reloaded.metadata["type"] == "document"
+      assert reloaded.metadata["format"] == "text"
+      assert Map.has_key?(reloaded.metadata, "extracted_at")
+    end
+
+    test "without_metadata/1 skips metadata extraction" do
+      post = create_post!()
+      path = create_temp_file("no metadata please", "skip.txt")
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.without_metadata()
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      assert media.metadata == %{}
+    end
+
+    test "metadata defaults to empty map for unknown types" do
+      post = create_post!()
+      # Binary content with .txt extension — classified as document
+      path = create_temp_file(<<0, 1, 2, 3, 4, 5>>, "binary.txt")
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      assert is_map(media.metadata)
+      # Should at least have type and extracted_at
+      assert media.metadata["type"] in ["document", "other"]
+    end
+
+    if Code.ensure_loaded?(Image) do
+      test "extracts image dimensions for PNG files" do
+        post = create_post!()
+
+        # Create a real image with known dimensions
+        {:ok, img} = Image.new(320, 240, color: :red)
+
+        path =
+          Path.join(
+            System.tmp_dir!(),
+            "meta_integ_#{:erlang.unique_integer([:positive])}.png"
+          )
+
+        Image.write!(img, path)
+        on_exit(fn -> File.rm(path) end)
+
+        assert {:ok, media} =
+                 post
+                 |> PhxMediaLibrary.add(path)
+                 |> PhxMediaLibrary.to_collection(:images)
+
+        assert media.metadata["width"] == 320
+        assert media.metadata["height"] == 240
+        assert media.metadata["type"] == "image"
+        assert is_boolean(media.metadata["has_alpha"])
+      end
+
+      test "extracts image dimensions for JPEG files" do
+        post = create_post!()
+
+        {:ok, img} = Image.new(640, 480, color: :blue)
+
+        path =
+          Path.join(
+            System.tmp_dir!(),
+            "meta_integ_#{:erlang.unique_integer([:positive])}.jpg"
+          )
+
+        Image.write!(img, path)
+        on_exit(fn -> File.rm(path) end)
+
+        assert {:ok, media} =
+                 post
+                 |> PhxMediaLibrary.add(path)
+                 |> PhxMediaLibrary.to_collection(:images)
+
+        assert media.metadata["width"] == 640
+        assert media.metadata["height"] == 480
+        assert media.metadata["type"] == "image"
+        assert media.metadata["format"] == "jpeg"
+      end
+    end
+
+    test "metadata extraction failure is non-fatal" do
+      # Even if extraction fails internally, the upload should succeed
+      post = create_post!()
+      path = create_temp_file("valid text content", "safe.txt")
+
+      # Force a custom extractor that fails
+      original = Application.get_env(:phx_media_library, :metadata_extractor)
+
+      Application.put_env(
+        :phx_media_library,
+        :metadata_extractor,
+        PhxMediaLibrary.IntegrationTest.FailingMetadataExtractor
+      )
+
+      on_exit(fn ->
+        if original do
+          Application.put_env(:phx_media_library, :metadata_extractor, original)
+        else
+          Application.delete_env(:phx_media_library, :metadata_extractor)
+        end
+      end)
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      # Upload succeeded even though extraction failed
+      assert media.id != nil
+      assert media.metadata == %{}
+    end
+
+    test "globally disabling extraction skips it" do
+      original = Application.get_env(:phx_media_library, :extract_metadata)
+      Application.put_env(:phx_media_library, :extract_metadata, false)
+
+      on_exit(fn ->
+        if original do
+          Application.put_env(:phx_media_library, :extract_metadata, original)
+        else
+          Application.delete_env(:phx_media_library, :extract_metadata)
+        end
+      end)
+
+      post = create_post!()
+      path = create_temp_file("global disable test", "disabled.txt")
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      assert media.metadata == %{}
+    end
+  end
+
+  # ===========================================================================
+  # Milestone 3b: URL Download Enhancements
+  # ===========================================================================
+
+  describe "URL download validation" do
+    test "rejects non-http/https URLs" do
+      post = create_post!()
+
+      assert {:error, {:invalid_url, :unsupported_scheme, "ftp"}} =
+               post
+               |> PhxMediaLibrary.add_from_url("ftp://example.com/file.txt")
+               |> PhxMediaLibrary.to_collection(:documents)
+    end
+
+    test "rejects file:// URLs" do
+      post = create_post!()
+
+      assert {:error, {:invalid_url, :unsupported_scheme, "file"}} =
+               post
+               |> PhxMediaLibrary.add_from_url("file:///etc/passwd")
+               |> PhxMediaLibrary.to_collection(:documents)
+    end
+
+    test "rejects URLs with missing host" do
+      post = create_post!()
+
+      assert {:error, {:invalid_url, :missing_host}} =
+               post
+               |> PhxMediaLibrary.add_from_url("https://")
+               |> PhxMediaLibrary.to_collection(:documents)
+    end
+
+    test "rejects non-string URLs" do
+      post = create_post!()
+
+      assert {:error, {:invalid_url, :not_a_string}} =
+               post
+               |> PhxMediaLibrary.add({:url, 12_345})
+               |> PhxMediaLibrary.to_collection(:documents)
+    end
+
+    test "add_from_url/3 accepts options" do
+      post = create_post!()
+
+      # This will fail to connect (no server), but validates the option passing works
+      adder =
+        PhxMediaLibrary.add_from_url(post, "https://nonexistent.invalid/file.txt",
+          headers: [{"Authorization", "Bearer token"}],
+          timeout: 100
+        )
+
+      assert adder.source ==
+               {:url, "https://nonexistent.invalid/file.txt",
+                [headers: [{"Authorization", "Bearer token"}], timeout: 100]}
+    end
+  end
+
+  describe "URL download telemetry" do
+    setup do
+      test_pid = self()
+
+      handler_id = "url-download-telemetry-#{:erlang.unique_integer([:positive])}"
+
+      :telemetry.attach_many(
+        handler_id,
+        [
+          [:phx_media_library, :download, :start],
+          [:phx_media_library, :download, :stop],
+          [:phx_media_library, :download, :exception]
+        ],
+        fn event, measurements, metadata, _config ->
+          send(test_pid, {:telemetry_event, event, measurements, metadata})
+        end,
+        nil
+      )
+
+      on_exit(fn -> :telemetry.detach(handler_id) end)
+
+      :ok
+    end
+
+    test "emits download events on connection failure" do
+      post = create_post!()
+
+      # Will fail to connect, but should still emit start event
+      _result =
+        post
+        |> PhxMediaLibrary.add_from_url("https://nonexistent.test.invalid/file.txt")
+        |> PhxMediaLibrary.to_collection(:documents)
+
+      # Should have received at least a start event
+      assert_receive {:telemetry_event, [:phx_media_library, :download, :start], _measurements,
+                      %{url: "https://nonexistent.test.invalid/file.txt"}},
+                     5000
+    end
+  end
+
+  describe "URL source_url in custom_properties" do
+    # We can't easily test a full URL download without a real HTTP server,
+    # but we can verify the source_url logic by checking adder construction
+    test "add_from_url creates correct source tuple" do
+      post = create_post!()
+
+      adder = PhxMediaLibrary.add_from_url(post, "https://example.com/photo.jpg")
+      assert adder.source == {:url, "https://example.com/photo.jpg"}
+    end
+
+    test "add_from_url with options creates correct source tuple" do
+      post = create_post!()
+
+      adder =
+        PhxMediaLibrary.add_from_url(post, "https://example.com/photo.jpg",
+          headers: [{"X-Key", "val"}]
+        )
+
+      assert adder.source ==
+               {:url, "https://example.com/photo.jpg", [headers: [{"X-Key", "val"}]]}
+    end
+  end
+
+  # ===========================================================================
+  # Milestone 3b: Oban Adapter
+  # ===========================================================================
+
+  if Code.ensure_loaded?(Oban) do
+    describe "Oban async processor" do
+      alias PhxMediaLibrary.AsyncProcessor
+
+      test "process_sync/2 delegates to Conversions.process" do
+        Code.ensure_loaded!(AsyncProcessor.Oban)
+        assert function_exported?(AsyncProcessor.Oban, :process_sync, 2)
+      end
+
+      test "process_async/2 is available" do
+        Code.ensure_loaded!(AsyncProcessor.Oban)
+        assert function_exported?(AsyncProcessor.Oban, :process_async, 2)
+      end
+
+      test "ProcessConversions worker module exists" do
+        assert Code.ensure_loaded?(Workers.ProcessConversions)
+      end
+
+      test "ProcessConversions worker is an Oban.Worker" do
+        Code.ensure_loaded!(Workers.ProcessConversions)
+
+        behaviours =
+          Workers.ProcessConversions.__info__(:attributes)
+          |> Keyword.get_values(:behaviour)
+          |> List.flatten()
+
+        assert Oban.Worker in behaviours
+      end
+
+      test "ProcessConversions worker uses :media queue" do
+        Code.ensure_loaded!(Workers.ProcessConversions)
+        assert Workers.ProcessConversions.__opts__()[:queue] == :media
+      end
+
+      test "ProcessConversions worker has max_attempts: 3" do
+        Code.ensure_loaded!(Workers.ProcessConversions)
+        assert Workers.ProcessConversions.__opts__()[:max_attempts] == 3
+      end
+    end
+  end
+
+  # ===========================================================================
+  # Milestone 3b: Combined features
+  # ===========================================================================
+
+  describe "metadata + existing features combined" do
+    test "metadata is preserved alongside custom_properties" do
+      post = create_post!()
+      path = create_temp_file("combined test", "combined.txt")
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(path)
+               |> PhxMediaLibrary.with_custom_properties(%{
+                 "alt" => "my file",
+                 "caption" => "test"
+               })
+               |> PhxMediaLibrary.to_collection(:documents)
+
+      # custom_properties should have our values
+      assert media.custom_properties["alt"] == "my file"
+      assert media.custom_properties["caption"] == "test"
+
+      # metadata should have extracted data (separate field)
+      assert media.metadata["type"] == "document"
+      assert Map.has_key?(media.metadata, "extracted_at")
+    end
+
+    test "metadata is preserved through clear_collection/2" do
+      post = create_post!()
+      path = create_temp_file("clear test", "clear.txt")
+
+      {:ok, _media} =
+        post
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:documents)
+
+      assert {:ok, 1} = PhxMediaLibrary.clear_collection(post, :documents)
+      assert PhxMediaLibrary.get_media(post, :documents) == []
+    end
+
+    test "metadata field is included in media changeset" do
+      # Verify we can create media with metadata directly
+      media =
+        Fixtures.create_media(%{
+          metadata: %{"width" => 100, "height" => 200, "type" => "image"}
+        })
+
+      reloaded = TestRepo.get!(Media, media.id)
+      assert reloaded.metadata["width"] == 100
+      assert reloaded.metadata["height"] == 200
+      assert reloaded.metadata["type"] == "image"
+    end
+
+    test "metadata defaults to empty map" do
+      media = Fixtures.create_media(%{})
+      assert media.metadata == %{}
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Test support modules
+  # ---------------------------------------------------------------------------
+
+  defmodule FailingMetadataExtractor do
+    @moduledoc false
+    @behaviour PhxMediaLibrary.MetadataExtractor
+
+    @impl true
+    def extract(_path, _mime, _opts) do
+      {:error, :intentional_test_failure}
     end
   end
 

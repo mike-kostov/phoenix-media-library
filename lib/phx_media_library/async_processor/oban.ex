@@ -4,15 +4,43 @@ if Code.ensure_loaded?(Oban) do
     Oban-based async processor for reliable background processing.
 
     Requires `oban` as a dependency and proper Oban configuration in your app.
+    Unlike the default `Task`-based processor, Oban jobs are persisted to the
+    database, survive application restarts, and support automatic retries with
+    configurable backoff.
 
-    ## Configuration
+    ## Setup
 
-        config :phx_media_library,
-          async_processor: PhxMediaLibrary.AsyncProcessor.Oban
+    1. Add `:oban` to your dependencies and configure it:
 
-        # In your Oban config, add the queue:
-        config :my_app, Oban,
-          queues: [media: 10]
+           # mix.exs
+           {:oban, "~> 2.18"}
+
+           # config/config.exs
+           config :my_app, Oban,
+             repo: MyApp.Repo,
+             queues: [media: 10]
+
+    2. Tell PhxMediaLibrary to use the Oban adapter:
+
+           config :phx_media_library,
+             async_processor: PhxMediaLibrary.AsyncProcessor.Oban
+
+    ## Queue Configuration
+
+    The worker uses the `:media` queue by default. Adjust concurrency to
+    match your server's CPU/memory capacity:
+
+        # Low-traffic app
+        queues: [media: 5]
+
+        # High-traffic app with beefy servers
+        queues: [media: 20]
+
+    ## Retry Behaviour
+
+    The `ProcessConversions` worker is configured with `max_attempts: 3`.
+    Failed jobs use Oban's default exponential backoff. You can monitor
+    failed jobs via Oban's built-in dashboard or `Oban.Web`.
 
     ## How It Works
 
@@ -28,7 +56,7 @@ if Code.ensure_loaded?(Oban) do
 
     @behaviour PhxMediaLibrary.AsyncProcessor
 
-    alias PhxMediaLibrary.Workers.ProcessConversions
+    alias PhxMediaLibrary.{Conversions, Workers.ProcessConversions}
 
     @impl true
     def process_async(media, conversions) do
@@ -43,6 +71,23 @@ if Code.ensure_loaded?(Oban) do
       |> Oban.insert()
 
       :ok
+    end
+
+    @doc """
+    Process conversions synchronously, bypassing the Oban queue.
+
+    Useful for tests or situations where you need conversions to complete
+    before continuing (e.g. generating a thumbnail before returning a
+    response).
+
+    ## Examples
+
+        PhxMediaLibrary.AsyncProcessor.Oban.process_sync(media, conversions)
+
+    """
+    @impl true
+    def process_sync(media, conversions) do
+      Conversions.process(media, conversions)
     end
   end
 

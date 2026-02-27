@@ -106,6 +106,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
           add :generated_conversions, :map, default: %{}
           add :responsive_images, :map, default: %{}
           add :order_column, :integer
+          add :checksum, :string
+          add :checksum_algorithm, :string, default: "sha256"
+          add :metadata, :map, default: %{}
 
           # Polymorphic association
           add :mediable_type, :string, null: false
@@ -118,6 +121,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
         create index(:#{table}, [:mediable_type, :mediable_id])
         create index(:#{table}, [:collection_name])
         create index(:#{table}, [:mediable_type, :mediable_id, :collection_name])
+        create index(:#{table}, [:checksum])
       end
     end
     """

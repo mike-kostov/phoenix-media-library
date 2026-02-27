@@ -48,6 +48,22 @@ defmodule PhxMediaLibrary.MediaAdderTest do
       assert adder.source == {:url, "https://example.com/image.jpg"}
     end
 
+    test "accepts URL tuple with options as source" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+      opts = [headers: [{"Authorization", "Bearer token"}], timeout: 5000]
+      adder = MediaAdder.new(model, {:url, "https://example.com/image.jpg", opts})
+
+      assert adder.source == {:url, "https://example.com/image.jpg", opts}
+    end
+
+    test "initializes extract_metadata based on global config" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+      adder = MediaAdder.new(model, "/path/to/file.jpg")
+
+      # Default is true (from MetadataExtractor.enabled?/0)
+      assert adder.extract_metadata == true
+    end
+
     test "accepts Plug.Upload as source" do
       model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
 
@@ -192,6 +208,53 @@ defmodule PhxMediaLibrary.MediaAdderTest do
     end
   end
 
+  describe "without_metadata/1" do
+    test "disables metadata extraction" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+
+      adder =
+        model
+        |> MediaAdder.new("/path/to/file.jpg")
+        |> MediaAdder.without_metadata()
+
+      assert adder.extract_metadata == false
+    end
+
+    test "preserves other fields" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+
+      adder =
+        model
+        |> MediaAdder.new("/path/to/file.jpg")
+        |> MediaAdder.using_filename("custom.jpg")
+        |> MediaAdder.with_custom_properties(%{"alt" => "test"})
+        |> MediaAdder.with_responsive_images()
+        |> MediaAdder.without_metadata()
+
+      assert adder.model == model
+      assert adder.source == "/path/to/file.jpg"
+      assert adder.custom_filename == "custom.jpg"
+      assert adder.custom_properties == %{"alt" => "test"}
+      assert adder.generate_responsive == true
+      assert adder.extract_metadata == false
+    end
+
+    test "can be re-enabled by creating a new adder" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+
+      adder =
+        model
+        |> MediaAdder.new("/path/to/file.jpg")
+        |> MediaAdder.without_metadata()
+
+      assert adder.extract_metadata == false
+
+      # New adder starts with extraction enabled
+      adder2 = MediaAdder.new(model, "/path/to/other.jpg")
+      assert adder2.extract_metadata == true
+    end
+  end
+
   describe "fluent API chaining" do
     test "supports full fluent chain" do
       model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
@@ -210,6 +273,25 @@ defmodule PhxMediaLibrary.MediaAdderTest do
       assert adder.custom_filename == "my-image.jpg"
       assert adder.custom_properties == %{"alt" => "Alt text", "caption" => "Caption"}
       assert adder.generate_responsive == true
+      assert adder.extract_metadata == true
+    end
+
+    test "supports full fluent chain with metadata disabled" do
+      model = %PhxMediaLibrary.TestPost{id: Ecto.UUID.generate(), title: "Test"}
+
+      adder =
+        model
+        |> MediaAdder.new("/path/to/file.jpg")
+        |> MediaAdder.using_filename("my-image.jpg")
+        |> MediaAdder.with_custom_properties(%{"alt" => "Alt text"})
+        |> MediaAdder.with_responsive_images()
+        |> MediaAdder.without_metadata()
+
+      assert %MediaAdder{} = adder
+      assert adder.custom_filename == "my-image.jpg"
+      assert adder.custom_properties == %{"alt" => "Alt text"}
+      assert adder.generate_responsive == true
+      assert adder.extract_metadata == false
     end
 
     test "order of chained calls doesn't matter" do
@@ -221,10 +303,12 @@ defmodule PhxMediaLibrary.MediaAdderTest do
         |> MediaAdder.using_filename("name.jpg")
         |> MediaAdder.with_responsive_images()
         |> MediaAdder.with_custom_properties(%{"key" => "value"})
+        |> MediaAdder.without_metadata()
 
       adder2 =
         model
         |> MediaAdder.new("/path/to/file.jpg")
+        |> MediaAdder.without_metadata()
         |> MediaAdder.with_custom_properties(%{"key" => "value"})
         |> MediaAdder.using_filename("name.jpg")
         |> MediaAdder.with_responsive_images()
@@ -232,6 +316,7 @@ defmodule PhxMediaLibrary.MediaAdderTest do
       assert adder1.custom_filename == adder2.custom_filename
       assert adder1.custom_properties == adder2.custom_properties
       assert adder1.generate_responsive == adder2.generate_responsive
+      assert adder1.extract_metadata == adder2.extract_metadata
     end
   end
 
@@ -244,6 +329,7 @@ defmodule PhxMediaLibrary.MediaAdderTest do
       assert Map.has_key?(adder, :custom_filename)
       assert Map.has_key?(adder, :custom_properties)
       assert Map.has_key?(adder, :generate_responsive)
+      assert Map.has_key?(adder, :extract_metadata)
       assert Map.has_key?(adder, :disk)
     end
 
@@ -255,6 +341,7 @@ defmodule PhxMediaLibrary.MediaAdderTest do
       assert adder.custom_filename == nil
       assert adder.custom_properties == nil
       assert adder.generate_responsive == nil
+      assert adder.extract_metadata == nil
       assert adder.disk == nil
     end
   end

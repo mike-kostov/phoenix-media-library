@@ -89,6 +89,17 @@ defmodule PhxMediaLibrary do
   Add media from a remote URL.
 
   The file will be downloaded and stored locally before processing.
+  URL validation ensures only `http` and `https` schemes are accepted.
+
+  ## Options
+
+  - `:headers` — custom request headers (e.g. `[{"Authorization", "Bearer token"}]`)
+  - `:timeout` — download timeout in milliseconds
+
+  ## Telemetry
+
+  Downloads emit `[:phx_media_library, :download, :start | :stop | :exception]`
+  events with URL, size, and MIME type metadata.
 
   ## Examples
 
@@ -96,10 +107,19 @@ defmodule PhxMediaLibrary do
       |> PhxMediaLibrary.add_from_url("https://example.com/image.jpg")
       |> PhxMediaLibrary.to_collection(:images)
 
+      # With authentication
+      post
+      |> PhxMediaLibrary.add_from_url("https://api.example.com/file.pdf",
+           headers: [{"Authorization", "Bearer my-token"}])
+      |> PhxMediaLibrary.to_collection(:documents)
+
   """
-  @spec add_from_url(Ecto.Schema.t(), String.t()) :: MediaAdder.t()
-  def add_from_url(model, url) do
-    MediaAdder.new(model, {:url, url})
+  @spec add_from_url(Ecto.Schema.t(), String.t(), keyword()) :: MediaAdder.t()
+  def add_from_url(model, url, opts \\ []) do
+    case opts do
+      [] -> MediaAdder.new(model, {:url, url})
+      _ -> MediaAdder.new(model, {:url, url, opts})
+    end
   end
 
   @doc """
@@ -119,6 +139,23 @@ defmodule PhxMediaLibrary do
   """
   @spec with_responsive_images(MediaAdder.t()) :: MediaAdder.t()
   defdelegate with_responsive_images(adder), to: MediaAdder
+
+  @doc """
+  Disable automatic metadata extraction for this media.
+
+  By default, PhxMediaLibrary extracts metadata (dimensions, EXIF, etc.)
+  from uploaded files. Use this to skip extraction for a specific upload.
+
+  ## Examples
+
+      post
+      |> PhxMediaLibrary.add(upload)
+      |> PhxMediaLibrary.without_metadata()
+      |> PhxMediaLibrary.to_collection(:images)
+
+  """
+  @spec without_metadata(MediaAdder.t()) :: MediaAdder.t()
+  defdelegate without_metadata(adder), to: MediaAdder
 
   @doc """
   Finalize adding media to a collection.
