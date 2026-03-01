@@ -113,11 +113,41 @@ mix ecto.migrate
 
 This generates the `media` table migration with all required fields.
 
+## Tailwind CSS Setup
+
+PhxMediaLibrary ships with styled LiveView components that use Tailwind CSS
+utility classes. For Tailwind v4 to detect and include these classes in your
+CSS bundle, add the library's source path to your `assets/css/app.css`:
+
+```css
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/my_app_web";
+
+/* PhxMediaLibrary — include both paths to support Hex deps and path deps.
+   Tailwind v4 silently ignores paths that don't exist. */
+@source "../../deps/phx_media_library/lib";
+@source "../../../phx_media_library/lib";
+```
+
+> **Why two `@source` lines?** When installed from Hex, the library lives in
+> `deps/phx_media_library/lib/`. When used as a path dependency (e.g.
+> `{:phx_media_library, path: "../phx_media_library"}`), it lives outside
+> your project's `deps/` folder. Tailwind v4 silently skips any `@source`
+> path that doesn't exist, so including both ensures the classes are scanned
+> regardless of how the dependency is consumed.
+
 ## Define Your Schema
 
 PhxMediaLibrary supports two styles for defining collections and conversions. You can use either — or mix them.
 
-### Declarative DSL (recommended)
+### Declarative DSL — nested style (recommended)
+
+Nest `convert` calls inside `collection ... do ... end` blocks so it's
+immediately clear which conversions apply to which collections. Collections
+without image content (like `:documents`) omit the `do` block — no
+conversions will run for those uploads:
 
 ```elixir
 defmodule MyApp.Post do
@@ -135,14 +165,49 @@ defmodule MyApp.Post do
   end
 
   media_collections do
+    collection :images, max_files: 20 do
+      convert :thumb, width: 150, height: 150, fit: :cover
+      convert :preview, width: 800, quality: 85
+      convert :banner, width: 1200, height: 400, fit: :crop
+    end
+
+    # No conversions for documents — PDFs are stored as-is
+    collection :documents, accepts: ~w(application/pdf text/plain)
+
+    collection :avatar, single_file: true, fallback_url: "/images/default.png" do
+      convert :thumb, width: 150, height: 150, fit: :cover
+    end
+  end
+end
+```
+
+### Declarative DSL — flat style
+
+Define collections and conversions in separate blocks. **Always use the
+`:collections` option** to scope conversions explicitly — without it, a
+conversion runs for every collection (including non-image ones like
+documents, which will cause processing errors):
+
+```elixir
+defmodule MyApp.Post do
+  use Ecto.Schema
+  use PhxMediaLibrary.HasMedia
+
+  schema "posts" do
+    field :title, :string
+    has_media()
+    timestamps()
+  end
+
+  media_collections do
     collection :images, max_files: 20
     collection :documents, accepts: ~w(application/pdf text/plain)
     collection :avatar, single_file: true, fallback_url: "/images/default.png"
   end
 
   media_conversions do
-    convert :thumb, width: 150, height: 150, fit: :cover
-    convert :preview, width: 800, quality: 85
+    convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+    convert :preview, width: 800, quality: 85, collections: [:images]
     convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
   end
 end
@@ -171,8 +236,9 @@ defmodule MyApp.Post do
 
   def media_conversions do
     [
-      conversion(:thumb, width: 150, height: 150, fit: :cover),
-      conversion(:preview, width: 800, quality: 85)
+      # Always scope conversions to specific collections
+      conversion(:thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]),
+      conversion(:preview, width: 800, quality: 85, collections: [:images])
     ]
   end
 end

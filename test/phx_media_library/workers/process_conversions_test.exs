@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
 
   @moduletag :db
 
-  alias PhxMediaLibrary.{Conversion, Fixtures}
+  alias PhxMediaLibrary.{Conversion, Fixtures, ModelRegistry}
   alias PhxMediaLibrary.Workers.ProcessConversions
 
   import ExUnit.CaptureLog
@@ -14,10 +14,10 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
     Code.ensure_loaded!(PhxMediaLibrary.TestPost)
 
     # Clear the persistent_term cache for model lookups so each test
-    # gets a clean discovery
+    # gets a clean discovery. The cache now lives in ModelRegistry.
     :persistent_term.get()
     |> Enum.each(fn
-      {{ProcessConversions, :model_lookup, _} = key, _} ->
+      {{ModelRegistry, :model_lookup, _} = key, _} ->
         :persistent_term.erase(key)
 
       _ ->
@@ -210,7 +210,7 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
   end
 
   # ---------------------------------------------------------------------------
-  # find_model_module/1
+  # find_model_module/1 (delegates to ModelRegistry)
   # ---------------------------------------------------------------------------
 
   describe "find_model_module/1" do
@@ -228,8 +228,8 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
       assert {:ok, PhxMediaLibrary.TestPost} ==
                ProcessConversions.find_model_module("posts")
 
-      # Verify it's actually cached
-      cache_key = {ProcessConversions, :model_lookup, "posts"}
+      # Verify it's actually cached (cache key now lives in ModelRegistry)
+      cache_key = {ModelRegistry, :model_lookup, "posts"}
       assert :persistent_term.get(cache_key) == PhxMediaLibrary.TestPost
 
       # Second call should hit the cache and return the same result

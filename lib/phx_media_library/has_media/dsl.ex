@@ -8,6 +8,8 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
 
   ## Examples
 
+  ### Flat style (collections and conversions separate)
+
       defmodule MyApp.Post do
         use Ecto.Schema
         use PhxMediaLibrary.HasMedia
@@ -25,11 +27,49 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
         end
 
         media_conversions do
-          convert :thumb, width: 150, height: 150, fit: :cover
-          convert :preview, width: 800, quality: 85
+          convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+          convert :preview, width: 800, quality: 85, collections: [:images]
           convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
         end
       end
+
+  ### Nested style (conversions inside collections)
+
+  You can nest `convert` calls inside a `collection ... do ... end` block.
+  Each conversion is automatically scoped to the enclosing collection —
+  no need to pass `:collections` manually:
+
+      defmodule MyApp.Post do
+        use Ecto.Schema
+        use PhxMediaLibrary.HasMedia
+
+        schema "posts" do
+          field :title, :string
+          has_media()
+          timestamps()
+        end
+
+        media_collections do
+          collection :images, max_files: 20 do
+            convert :thumb, width: 150, height: 150, fit: :cover
+            convert :preview, width: 800, quality: 85
+            convert :banner, width: 1200, height: 400, fit: :crop
+          end
+
+          collection :documents, accepts: ~w(application/pdf)
+
+          collection :avatar, single_file: true do
+            convert :thumb, width: 150, height: 150, fit: :cover
+          end
+        end
+      end
+
+  The nested style makes it immediately clear which conversions apply to
+  which collections. Collections without image content (like `:documents`)
+  simply omit the `do` block — no conversions will run for those uploads.
+
+  You can also mix both styles: use nested conversions for some collections
+  and a separate `media_conversions do ... end` block for shared conversions.
 
   The DSL and function-based styles are **mutually exclusive** for each
   concern. If you use `media_collections do ... end`, don't also define
@@ -44,12 +84,33 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
   each collection. The collections are accumulated at compile time and
   injected as the `media_collections/0` function via `@before_compile`.
 
+  Collections can optionally accept a `do` block containing `convert`
+  calls. Conversions defined inside the block are automatically scoped
+  to the enclosing collection.
+
   ## Examples
+
+  Simple collections (no nested conversions):
 
       media_collections do
         collection :images, disk: :s3, max_files: 20
         collection :documents, accepts: ~w(application/pdf text/plain)
         collection :avatar, single_file: true, fallback_url: "/images/default.png"
+      end
+
+  Nested conversions (auto-scoped to the collection):
+
+      media_collections do
+        collection :images, max_files: 20 do
+          convert :thumb, width: 150, height: 150, fit: :cover
+          convert :preview, width: 800, quality: 85
+        end
+
+        collection :documents, accepts: ~w(application/pdf)
+
+        collection :avatar, single_file: true do
+          convert :thumb, width: 150, height: 150, fit: :cover
+        end
       end
 
   """
@@ -97,11 +158,19 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
   The conversions are accumulated at compile time and injected as the
   `media_conversions/0` function via `@before_compile`.
 
+  > **Important:** Always use the `:collections` option to scope conversions
+  > to the collections they apply to. Without it, the conversion runs for
+  > **every** collection — including non-image collections like documents,
+  > which will cause processing errors. If you prefer to scope conversions
+  > visually, use the nested `collection ... do convert ... end` syntax
+  > in `media_collections` instead.
+
   ## Examples
 
       media_conversions do
-        convert :thumb, width: 150, height: 150, fit: :cover
-        convert :preview, width: 800, quality: 85
+        # Scoped to specific collections — recommended
+        convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+        convert :preview, width: 800, quality: 85, collections: [:images]
         convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
       end
 

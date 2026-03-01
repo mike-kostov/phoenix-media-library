@@ -7,7 +7,44 @@ defmodule PhxMediaLibrary.HasMedia do
   There are two styles for defining collections and conversions: the
   **declarative DSL** (recommended) and the **function-based** approach.
 
-  ### Declarative DSL (recommended)
+  ### Declarative DSL — nested style (recommended)
+
+  Nest `convert` calls inside `collection ... do ... end` blocks so it's
+  immediately clear which conversions apply to which collections.
+  Collections without image content (like `:documents`) omit the `do`
+  block — no conversions will run for those uploads.
+
+      defmodule MyApp.Post do
+        use Ecto.Schema
+        use PhxMediaLibrary.HasMedia
+
+        schema "posts" do
+          field :title, :string
+          has_media()
+          timestamps()
+        end
+
+        media_collections do
+          collection :images, disk: :s3, max_files: 20 do
+            convert :thumb, width: 150, height: 150, fit: :cover
+            convert :preview, width: 800, quality: 85
+            convert :banner, width: 1200, height: 400, fit: :crop
+          end
+
+          collection :documents, accepts: ~w(application/pdf)
+
+          collection :avatar, single_file: true, fallback_url: "/images/default.png" do
+            convert :thumb, width: 150, height: 150, fit: :cover
+          end
+        end
+      end
+
+  ### Declarative DSL — flat style
+
+  Define collections and conversions in separate blocks. Always use the
+  `:collections` option to scope conversions explicitly — without it, a
+  conversion runs for **every** collection (including non-image ones like
+  documents, which will cause processing errors):
 
       defmodule MyApp.Post do
         use Ecto.Schema
@@ -26,8 +63,8 @@ defmodule PhxMediaLibrary.HasMedia do
         end
 
         media_conversions do
-          convert :thumb, width: 150, height: 150, fit: :cover
-          convert :preview, width: 800, quality: 85
+          convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+          convert :preview, width: 800, quality: 85, collections: [:images]
           convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
         end
       end
@@ -54,8 +91,9 @@ defmodule PhxMediaLibrary.HasMedia do
 
         def media_conversions do
           [
-            conversion(:thumb, width: 150, height: 150, fit: :cover),
-            conversion(:preview, width: 800, quality: 85)
+            # Always scope conversions to specific collections
+            conversion(:thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]),
+            conversion(:preview, width: 800, quality: 85, collections: [:images])
           ]
         end
       end
@@ -151,6 +189,11 @@ defmodule PhxMediaLibrary.HasMedia do
       # each `collection` / `convert` call inside the block appends to these.
       Module.register_attribute(__MODULE__, :__phx_media_collections__, accumulate: true)
       Module.register_attribute(__MODULE__, :__phx_media_conversions__, accumulate: true)
+
+      # Used by nested `collection ... do convert ... end` blocks to
+      # auto-scope conversions to the enclosing collection.
+      Module.register_attribute(__MODULE__, :__phx_media_current_collection__, [])
+      Module.put_attribute(__MODULE__, :__phx_media_current_collection__, nil)
 
       # Track whether the DSL blocks were used, so we know whether
       # to use the accumulated values or the default empty list.

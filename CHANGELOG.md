@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-03-01
+
+### Added
+
+- **Nested `collection ... do` DSL for conversions** — you can now nest `convert` calls inside a `collection ... do ... end` block within `media_collections`. Each conversion is automatically scoped to the enclosing collection — no need to pass `:collections` manually. This is now the recommended style:
+
+  ```elixir
+  media_collections do
+    collection :images, max_files: 20 do
+      convert :thumb, width: 150, height: 150, fit: :cover
+      convert :preview, width: 800, quality: 85
+    end
+
+    collection :documents, accepts: ~w(application/pdf)
+
+    collection :avatar, single_file: true do
+      convert :thumb, width: 150, height: 150, fit: :cover
+    end
+  end
+  ```
+
+  The nested and flat styles can be mixed freely. Explicit `:collections` options inside nested blocks are respected. See the updated [Collections & Conversions](guides/collections-and-conversions.md) guide for details.
+
+- **`PhxMediaLibrary.ModelRegistry`** — new always-compiled module that discovers and caches the Ecto schema module for a given `mediable_type` string. Previously this logic lived inside `PhxMediaLibrary.Workers.ProcessConversions` (which is only compiled when Oban is installed), causing warnings in the `mix phx_media_library.regenerate` task for projects without Oban. Both the Oban worker and the mix task now delegate to `ModelRegistry`.
+
+- **`PhxMediaLibrary.MediaLive` LiveComponent** — a self-contained LiveComponent that encapsulates the entire media upload + gallery lifecycle. Eliminates all upload boilerplate: no `use PhxMediaLibrary.LiveUpload`, no `handle_event` clauses, no `allow_upload`, no `consume_media`. Just drop it into any LiveView template:
+
+  ```elixir
+  <.live_component
+    module={PhxMediaLibrary.MediaLive}
+    id="post-images"
+    model={@post}
+    collection={:images}
+  />
+  ```
+
+  Features: drag-and-drop upload zone, live image previews, progress bars, error display, cancel buttons, submit button, stream-powered media gallery with delete-on-hover, dark mode support. Configurable via `max_file_size`, `max_entries`, `responsive`, `upload_label`, `upload_sublabel`, `compact`, `columns`, `conversion`, `show_gallery`, and `class` options.
+
+  Sends `{PhxMediaLibrary.MediaLive, {:uploaded, collection, media_items}}` and `{PhxMediaLibrary.MediaLive, {:deleted, collection, media}}` messages to the parent LiveView for optional reaction.
+
+- **Restructured LiveView guide** — now leads with the zero-boilerplate `MediaLive` LiveComponent approach, with a dedicated "Custom Upload UI" section documenting how to build your own form with `<.live_file_input>` for full control. Includes a clear warning about the nested form gotcha with `<.media_upload>`.
+
+- **`upload_class`, `gallery_class`, `button_class` options for `MediaLive`** — allows consumers to override the default Tailwind utility classes on the drop zone wrapper, gallery grid container, and submit button respectively. When `nil` (default), the built-in styles are used. When set, the value replaces the default classes entirely, enabling seamless integration with component libraries like daisyUI (e.g. `button_class="btn btn-primary w-full"`).
+
+### Fixed
+
+- **Eliminated noisy ExAws/S3 compile warnings in consumer projects** — `PhxMediaLibrary.Storage.S3` is now wrapped in `if Code.ensure_loaded?(ExAws.S3) do`, matching the pattern already used by `ImageProcessor.Image` and `AsyncProcessor.Oban`. Consumer projects that don't use S3 will no longer see ~15 `ExAws.S3.* is undefined` warnings during compilation.
+
+- **Eliminated `ProcessConversions.find_model_module/1 is undefined` warning** — the `mix phx_media_library.regenerate` task previously referenced `PhxMediaLibrary.Workers.ProcessConversions` which only exists when Oban is installed. The model lookup logic has been extracted into `PhxMediaLibrary.ModelRegistry` (always compiled), and the Oban worker now delegates to it. `ProcessConversions.find_model_module/1` remains as a `defdelegate` for backwards compatibility.
+
+- **Multi-file selection now works by default** — non-`single_file` collections without an explicit `max_files` now default to `max_entries: 10`, enabling the `multiple` attribute on the file input. Previously, `max_entries` was left unset, which caused Phoenix LiveView to default to 1 (single file picker). Collections with `single_file: true` still correctly limit to 1, and `max_files: N` still maps to `max_entries: N`.
+
+- **Upload progress bars are now visible on fast/local uploads** — the progress bar track is rendered as soon as a file is selected (`progress >= 0`) instead of only when `progress > 0`. On local development, uploads complete almost instantly so the previous `> 0 && < 100` condition meant the bar was never visible. The bar now shows a subtle track at 0%, fills with blue as progress advances, displays a percentage label, and transitions to a "Ready" checkmark at 100%.
+
+### Changed
+
+- **Updated all documentation to recommend nested DSL** — the `HasMedia` moduledoc, getting-started guide, and collections-and-conversions guide now show the nested `collection ... do convert ... end` style as the primary/recommended approach, with the flat style and function-based approach as alternatives. All examples explicitly scope conversions to collections.
+
+- **LiveView guide — "How Upload Limits Are Derived" section** — documents how `max_entries` is automatically derived from collection configuration (`single_file: true` → 1, `max_files: N` → N, otherwise 10) and how the `max_entries` component option overrides it.
+
+- **LiveView guide — "Customizing Styles" section** — documents the `upload_class`, `gallery_class`, and `button_class` options with examples for daisyUI integration and fully custom styling.
+
 ## [0.5.0] - 2026-02-27
 
 ### Added

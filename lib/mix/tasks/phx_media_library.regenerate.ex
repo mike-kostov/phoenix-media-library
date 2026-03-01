@@ -179,15 +179,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
 
   @spec get_model_module(String.t()) :: module() | nil
   defp get_model_module(mediable_type) do
-    alias PhxMediaLibrary.Workers.ProcessConversions
-
-    if Code.ensure_loaded?(ProcessConversions) do
-      case ProcessConversions.find_model_module(mediable_type) do
-        {:ok, module} -> module
-        :error -> nil
-      end
-    else
-      nil
+    case PhxMediaLibrary.ModelRegistry.find_model_module(mediable_type) do
+      {:ok, module} -> module
+      :error -> nil
     end
   end
 end

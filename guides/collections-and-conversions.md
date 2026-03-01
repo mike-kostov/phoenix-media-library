@@ -104,26 +104,107 @@ If a file exceeds the limit, you'll get:
 Conversions automatically generate derived images when media is added. They
 require the `:image` dependency (libvips).
 
+> **Important:** Always scope conversions to the collections they apply to.
+> Without scoping, a conversion runs for **every** collection — including
+> non-image collections like documents, which will cause processing errors.
+> The nested syntax (recommended) handles this automatically. The flat syntax
+> requires an explicit `:collections` option on each conversion.
+
+### Nested Conversions (Recommended)
+
+The clearest way to define conversions is inside a `collection ... do ... end`
+block. Each conversion is automatically scoped to the enclosing collection —
+no need to pass `:collections` manually. Collections without image content
+(like `:documents`) simply omit the `do` block, so no conversions will ever
+run for those uploads:
+
 ```elixir
-media_conversions do
-  # Simple resize
-  convert :thumb, width: 150, height: 150
+media_collections do
+  collection :images, max_files: 20 do
+    convert :thumb, width: 150, height: 150, fit: :cover
+    convert :preview, width: 800, quality: 85
+    convert :banner, width: 1200, height: 400, fit: :crop
+  end
 
-  # Resize with fit mode
-  convert :square, width: 300, height: 300, fit: :cover
+  # No conversions for documents — just omit the do block
+  collection :documents, accepts: ~w(application/pdf text/plain)
 
-  # Width only (maintains aspect ratio)
-  convert :preview, width: 800
-
-  # With quality setting
-  convert :optimized, width: 1200, quality: 80
-
-  # Convert format
-  convert :webp_thumb, width: 150, format: :webp
-
-  # Only for specific collections
-  convert :banner, width: 1200, collections: [:images, :gallery]
+  collection :avatar, single_file: true do
+    convert :thumb, width: 150, height: 150, fit: :cover
+  end
 end
+```
+
+In this example:
+- `:thumb`, `:preview`, and `:banner` only run for `:images` uploads
+- `:thumb` also runs for `:avatar` uploads (defined separately in that block)
+- Nothing runs for `:documents` — PDFs are stored as-is
+
+### Flat Conversions
+
+You can also define conversions in a separate `media_conversions` block.
+**Always use the `:collections` option** to scope each conversion explicitly:
+
+```elixir
+media_collections do
+  collection :images, max_files: 20
+  collection :documents, accepts: ~w(application/pdf text/plain)
+  collection :avatar, single_file: true
+end
+
+media_conversions do
+  # Scoped to specific collections — always recommended
+  convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+  convert :preview, width: 800, quality: 85, collections: [:images]
+  convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
+end
+```
+
+Or with the function-based approach:
+
+```elixir
+def media_conversions do
+  [
+    conversion(:thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]),
+    conversion(:preview, width: 800, quality: 85, collections: [:images]),
+    conversion(:banner, width: 1200, height: 400, fit: :crop, collections: [:images])
+  ]
+end
+```
+
+### Mixing Nested and Flat Styles
+
+You can combine both approaches. Use nested conversions for collection-specific
+transforms and a `media_conversions` block for anything else:
+
+```elixir
+media_collections do
+  collection :images, max_files: 20 do
+    convert :preview, width: 800, quality: 85
+    convert :banner, width: 1200, height: 400, fit: :crop
+  end
+
+  collection :documents, accepts: ~w(application/pdf)
+
+  collection :avatar, single_file: true
+end
+
+media_conversions do
+  # Shared thumbnail for images and avatar
+  convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
+end
+```
+
+### Conversion Options
+
+```elixir
+convert :name,
+  width: 150,              # Target width in pixels
+  height: 150,             # Target height in pixels
+  fit: :cover,             # Resize strategy (see table below)
+  quality: 85,             # JPEG/WebP quality (1-100)
+  format: :webp,           # Output format (:jpg, :png, :webp)
+  collections: [:images]   # Only apply to these collections
 ```
 
 ### Fit Options
@@ -134,21 +215,6 @@ end
 | `:cover` | Cover dimensions, cropping if necessary |
 | `:fill` | Stretch to fill dimensions exactly |
 | `:crop` | Crop to exact dimensions from center |
-
-### Collection-Scoped Conversions
-
-Use the `:collections` option to restrict a conversion to specific collections.
-If omitted, the conversion applies to all collections:
-
-```elixir
-media_conversions do
-  # Applied to all collections
-  convert :thumb, width: 150, height: 150, fit: :cover
-
-  # Only applied to :images and :gallery
-  convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images, :gallery]
-end
-```
 
 ### Triggering Conversions Explicitly
 

@@ -112,7 +112,7 @@ if Code.ensure_loaded?(Oban) do
       queue: :media,
       max_attempts: 3
 
-    alias PhxMediaLibrary.{Config, Conversion, Conversions}
+    alias PhxMediaLibrary.{Config, Conversion, Conversions, ModelRegistry}
 
     require Logger
 
@@ -189,12 +189,12 @@ if Code.ensure_loaded?(Oban) do
     def resolve_conversions(mediable_type, conversion_names, media) do
       requested_atoms = Enum.map(conversion_names, &safe_to_atom/1)
 
-      case find_model_module(mediable_type) do
+      case ModelRegistry.find_model_module(mediable_type) do
         {:ok, module} ->
           collection_name = safe_to_atom(media.collection_name)
 
           module
-          |> get_model_conversions(collection_name)
+          |> ModelRegistry.get_model_conversions(collection_name)
           |> Enum.filter(fn %Conversion{name: name} -> name in requested_atoms end)
 
         :error ->
@@ -211,89 +211,18 @@ if Code.ensure_loaded?(Oban) do
       end
     end
 
-    defp get_model_conversions(module, collection_name) do
-      cond do
-        function_exported?(module, :get_media_conversions, 1) ->
-          module.get_media_conversions(collection_name)
-
-        function_exported?(module, :media_conversions, 0) ->
-          module.media_conversions()
-
-        true ->
-          []
-      end
-    end
-
     # -------------------------------------------------------------------------
-    # Model Module Discovery
+    # Model Module Discovery — delegates to ModelRegistry
     # -------------------------------------------------------------------------
 
-    # Finds the Ecto schema module that corresponds to a given mediable_type
-    # string. This is the inverse of `HasMedia.__media_type__/0`.
-    #
-    # Strategy:
-    # 1. Check the explicit registry (if configured)
-    # 2. Scan all loaded modules that implement `__media_type__/0`
-    #
-    # Results are cached in a persistent_term for fast repeated lookups.
-    @doc false
-    def find_model_module(mediable_type) do
-      cache_key = {__MODULE__, :model_lookup, mediable_type}
+    @doc """
+    Finds the model module for the given mediable type.
 
-      case :persistent_term.get(cache_key, :not_found) do
-        :not_found ->
-          result = do_find_model_module(mediable_type)
-
-          case result do
-            {:ok, module} ->
-              :persistent_term.put(cache_key, module)
-              {:ok, module}
-
-            :error ->
-              :error
-          end
-
-        module ->
-          {:ok, module}
-      end
-    end
-
-    defp do_find_model_module(mediable_type) do
-      # Strategy 1: Check explicit registry in config
-      registry = Application.get_env(:phx_media_library, :model_registry, %{})
-
-      case Map.get(registry, mediable_type) do
-        nil ->
-          # Strategy 2: Scan loaded modules
-          scan_for_model_module(mediable_type)
-
-        module when is_atom(module) ->
-          {:ok, module}
-      end
-    end
-
-    defp scan_for_model_module(mediable_type) do
-      # Look through all loaded modules for one that has __media_type__/0
-      # returning the matching type string.
-      result =
-        :code.all_loaded()
-        |> Enum.find_value(fn {module, _path} ->
-          if function_exported?(module, :__media_type__, 0) do
-            try do
-              if module.__media_type__() == mediable_type do
-                module
-              end
-            rescue
-              _ -> nil
-            end
-          end
-        end)
-
-      case result do
-        nil -> :error
-        module -> {:ok, module}
-      end
-    end
+    Delegates to `PhxMediaLibrary.ModelRegistry.find_model_module/1`.
+    Kept for backwards compatibility.
+    """
+    @spec find_model_module(String.t()) :: {:ok, module()} | :error
+    defdelegate find_model_module(mediable_type), to: ModelRegistry
 
     # Safely converts a string to an existing atom, returning the string
     # as-is (converted to atom via String.to_existing_atom) if it exists,

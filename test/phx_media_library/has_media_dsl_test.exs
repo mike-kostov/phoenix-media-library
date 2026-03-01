@@ -117,6 +117,78 @@ defmodule PhxMediaLibrary.HasMediaDSLTest do
     end
   end
 
+  # Schema using the nested collection ... do convert ... end syntax
+  defmodule NestedDSLPost do
+    use Ecto.Schema
+    use PhxMediaLibrary.HasMedia
+
+    @primary_key {:id, :binary_id, autogenerate: true}
+    schema "nested_dsl_posts" do
+      field(:title, :string)
+      has_media()
+      timestamps(type: :utc_datetime)
+    end
+
+    media_collections do
+      collection :photos, accepts: ~w(image/jpeg image/png image/webp) do
+        convert(:thumb, width: 150, height: 150, fit: :cover)
+        convert(:preview, width: 800, quality: 85)
+        convert(:large, width: 1200, quality: 90)
+      end
+
+      # No conversions for documents — no do block
+      collection(:documents, accepts: ~w(application/pdf text/plain))
+
+      collection :cover, single_file: true do
+        convert(:thumb, width: 150, height: 150, fit: :cover)
+      end
+    end
+  end
+
+  # Schema mixing nested conversions with a separate media_conversions block
+  defmodule MixedNestedAndFlatDSL do
+    use Ecto.Schema
+    use PhxMediaLibrary.HasMedia
+
+    @primary_key {:id, :binary_id, autogenerate: true}
+    schema "mixed_nested_flat" do
+      field(:name, :string)
+      has_media()
+    end
+
+    media_collections do
+      collection :images, max_files: 20 do
+        convert(:gallery, width: 800)
+      end
+
+      collection(:documents, accepts: ~w(application/pdf))
+    end
+
+    media_conversions do
+      convert(:thumb, width: 150, height: 150, fit: :cover, collections: [:images])
+    end
+  end
+
+  # Schema where nested conversion explicitly overrides :collections
+  defmodule NestedWithExplicitCollections do
+    use Ecto.Schema
+    use PhxMediaLibrary.HasMedia
+
+    @primary_key {:id, :binary_id, autogenerate: true}
+    schema "nested_explicit" do
+      field(:name, :string)
+      has_media()
+    end
+
+    media_collections do
+      collection :photos do
+        # Explicitly scoped to both :photos and :avatars despite being
+        # nested inside :photos — the explicit :collections wins.
+        convert(:shared_thumb, width: 100, collections: [:photos, :avatars])
+      end
+    end
+  end
+
   # Schema with only DSL collections but function-based conversions
   defmodule MixedStyleSchema do
     use Ecto.Schema
@@ -281,6 +353,104 @@ defmodule PhxMediaLibrary.HasMediaDSLTest do
       conversions = MixedStyleSchema.media_conversions()
       assert length(conversions) == 1
       assert hd(conversions).name == :small
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Nested DSL: collection ... do convert ... end
+  # ---------------------------------------------------------------------------
+
+  describe "nested collection ... do convert ... end syntax" do
+    test "collections are defined correctly" do
+      collections = NestedDSLPost.media_collections()
+      assert length(collections) == 3
+      names = Enum.map(collections, & &1.name)
+      assert names == [:photos, :documents, :cover]
+    end
+
+    test "nested conversions are auto-scoped to enclosing collection" do
+      conversions = NestedDSLPost.media_conversions()
+
+      photo_conversions = Enum.filter(conversions, &(:photos in &1.collections))
+      assert length(photo_conversions) == 3
+      assert Enum.map(photo_conversions, & &1.name) == [:thumb, :preview, :large]
+
+      cover_conversions = Enum.filter(conversions, &(:cover in &1.collections))
+      assert length(cover_conversions) == 1
+      assert hd(cover_conversions).name == :thumb
+    end
+
+    test "collections without do block have no conversions" do
+      conversions = NestedDSLPost.media_conversions()
+      doc_conversions = Enum.filter(conversions, &(:documents in &1.collections))
+      assert doc_conversions == []
+    end
+
+    test "get_media_conversions/1 filters correctly for nested conversions" do
+      photos = NestedDSLPost.get_media_conversions(:photos)
+      assert length(photos) == 3
+      assert Enum.map(photos, & &1.name) == [:thumb, :preview, :large]
+
+      cover = NestedDSLPost.get_media_conversions(:cover)
+      assert length(cover) == 1
+      assert hd(cover).name == :thumb
+
+      docs = NestedDSLPost.get_media_conversions(:documents)
+      assert docs == []
+    end
+
+    test "nested conversions preserve all options" do
+      conversions = NestedDSLPost.media_conversions()
+      thumb = Enum.find(conversions, &(&1.name == :thumb and :photos in &1.collections))
+
+      assert thumb.width == 150
+      assert thumb.height == 150
+      assert thumb.fit == :cover
+      assert thumb.collections == [:photos]
+    end
+
+    test "collection options are preserved with nested conversions" do
+      collections = NestedDSLPost.media_collections()
+
+      photos = Enum.find(collections, &(&1.name == :photos))
+      assert photos.accepts == ~w(image/jpeg image/png image/webp)
+      assert photos.single_file == false
+
+      cover = Enum.find(collections, &(&1.name == :cover))
+      assert cover.single_file == true
+
+      docs = Enum.find(collections, &(&1.name == :documents))
+      assert docs.accepts == ~w(application/pdf text/plain)
+    end
+
+    test "explicit :collections inside nested block overrides auto-scoping" do
+      conversions = NestedWithExplicitCollections.media_conversions()
+      assert length(conversions) == 1
+
+      thumb = hd(conversions)
+      assert thumb.name == :shared_thumb
+      assert thumb.collections == [:photos, :avatars]
+    end
+
+    test "mixing nested and flat DSL combines conversions" do
+      collections = MixedNestedAndFlatDSL.media_collections()
+      assert length(collections) == 2
+
+      conversions = MixedNestedAndFlatDSL.media_conversions()
+      assert length(conversions) == 2
+
+      gallery = Enum.find(conversions, &(&1.name == :gallery))
+      assert gallery.collections == [:images]
+
+      thumb = Enum.find(conversions, &(&1.name == :thumb))
+      assert thumb.collections == [:images]
+    end
+
+    test "declaration order is preserved for nested conversions" do
+      conversions = NestedDSLPost.media_conversions()
+      names = Enum.map(conversions, & &1.name)
+      # photos conversions first, then cover conversions
+      assert names == [:thumb, :preview, :large, :thumb]
     end
   end
 
