@@ -9,7 +9,7 @@ The guiding principle: *every feature should reduce repetitive work for the deve
 ## Table of Contents
 
 - [Vision](#vision)
-- [Milestone 1 — Killer DX: LiveView Media Component](#milestone-1--killer-dx-liveview-media-component)
+- [Milestone 1 — Killer DX: LiveView Media Component (v0.5.1) ✅](#milestone-1--killer-dx-liveview-media-component-v051-)
 - [Milestone 2 — Make the Core Solid ✅](#milestone-2--make-the-core-solid-)
 - [Milestone 3a — Error Handling & Validation Hardening (v0.3.0) ✅](#milestone-3a--error-handling--validation-hardening-v030-)
 - [Milestone 3b — Remote URLs, Metadata & Oban Enhancements (v0.4.0) ✅](#milestone-3b--remote-urls-metadata--oban-enhancements-v040-)
@@ -36,11 +36,36 @@ Everything else — conversions, responsive images, S3 storage — should layer 
 
 ---
 
-## Milestone 1 — Killer DX: LiveView Media Component
+## Milestone 1 — Killer DX: LiveView Media Component (v0.5.1) ✅
 
 **Goal**: Ship a ready-to-use LiveView component that eliminates 150+ lines of upload boilerplate.
 
+**Status**: Complete. All core sub-items implemented. The `MediaLive` LiveComponent provides the zero-boilerplate "drop one component" experience. The lower-level `<.media_upload>`, `<.media_gallery>`, and `LiveUpload` helpers provide full control for custom UIs. Only drag-and-drop reordering (`.MediaSortable`) remains deferred to Milestone 4.
+
 This is the single highest-impact feature for adoption. Every Phoenix developer who handles file uploads writes the same code over and over. We eliminate that.
+
+### 1.0 — `PhxMediaLibrary.MediaLive` — Zero-Boilerplate LiveComponent *(v0.5.1)*
+
+- [x] Self-contained LiveComponent that encapsulates upload + gallery lifecycle
+- [x] No `use PhxMediaLibrary.LiveUpload`, no `handle_event`, no `allow_upload`, no `consume_media` needed
+- [x] Drag-and-drop upload zone, live image previews, progress bars, error display, cancel buttons
+- [x] Stream-powered media gallery with delete-on-hover
+- [x] Dark mode support
+- [x] Configurable: `max_file_size`, `max_entries`, `responsive`, `upload_label`, `upload_sublabel`, `compact`, `columns`, `conversion`, `show_gallery`, `class`
+- [x] Style override: `upload_class`, `gallery_class`, `button_class` for full customization (daisyUI, etc.)
+- [x] Sends `{PhxMediaLibrary.MediaLive, {:uploaded, collection, media_items}}` and `{PhxMediaLibrary.MediaLive, {:deleted, collection, media}}` messages to parent
+
+```elixir
+# The simplest possible media upload — this is ALL a developer needs:
+<.live_component
+  module={PhxMediaLibrary.MediaLive}
+  id="post-images"
+  model={@post}
+  collection={:images}
+/>
+```
+
+**Status**: ✅ Done (v0.5.1). This is the recommended approach for most use cases. For full control, use the lower-level `<.media_upload>` + `<.media_gallery>` + `LiveUpload` helpers below.
 
 ### 1.1 — `<.media_upload>` Component
 
@@ -68,7 +93,7 @@ This is the single highest-impact feature for adoption. Every Phoenix developer 
 - [x] Display existing media for a model/collection (works with LiveView streams)
 - [x] Delete button per item with confirmation (configurable confirm_delete, confirm_message)
 - [x] Thumbnail display for images, icon for documents (auto-detected by MIME type)
-- [ ] Drag-and-drop reordering (deferred to Milestone 3 — needs JS + reorder API)
+- [ ] Drag-and-drop reordering (deferred to Milestone 4 — needs JS + reorder API)
 - [x] Empty state (via `:empty` slot + CSS `:only-child` pattern)
 - [x] Customizable item rendering via `:item` slot
 
@@ -124,7 +149,7 @@ end
 - [x] Use colocated JS hooks (Phoenix 1.8 style with `.HookName` prefix)
 - [x] `.MediaDropZone` — drag-and-drop with visual states (idle, hover, active, dropped flash)
 - [x] `.MediaPreview` — handled natively by `<.live_img_preview>` (no custom hook needed)
-- [ ] `.MediaSortable` — drag-and-drop reordering (deferred to Milestone 3 — needs reorder API)
+- [ ] `.MediaSortable` — drag-and-drop reordering (deferred to Milestone 4 — needs reorder API)
 - [x] `.MediaProgress` — CSS transition-based smooth progress bar (no JS hook needed)
 
 ### 1.5 — Default Styles
@@ -136,6 +161,12 @@ end
 - [x] All styles in component attrs, never in external CSS (so users can override everything)
 - [x] `<.media_upload_button>` — compact inline variant for embedding in forms
 - [x] `phx-drop-target-active:` custom variant documented for consumer app CSS setup
+
+### 1.6 — Multi-file Selection & Progress Bar Fixes *(v0.5.1)*
+
+- [x] Non-`single_file` collections default to `max_entries: 10` (enables `multiple` attribute on file input)
+- [x] Progress bar track rendered at `progress >= 0` (visible on fast/local uploads)
+- [x] Percentage label during upload, "Ready" checkmark at 100%
 
 ---
 
@@ -152,9 +183,12 @@ end
 - [x] Image processing features gracefully degrade when `:image` is not available
 - [ ] Add `PhxMediaLibrary.ImageProcessor.Mogrify` as alternative adapter (also optional)
 - [x] Clear error messages when user tries to use conversions without an image processor installed
+- [x] Wrap all optional-dep modules in `if Code.ensure_loaded?` compile guards (v0.5.1 — S3 adapter added)
 
 **Status**: ✅ Done (except Mogrify adapter — deferred to a future milestone).
 `:image` is `optional: true` in `mix.exs`. `ImageProcessor.Image` is wrapped in `if Code.ensure_loaded?(Image)`. `ImageProcessor.Null` provides clear error messages guiding the developer. `Config.image_processor/0` auto-detects the available backend.
+
+**v0.5.1 update**: `Storage.S3` now also wrapped in `if Code.ensure_loaded?(ExAws.S3)`, matching the pattern used by `ImageProcessor.Image` and `AsyncProcessor.Oban`. Consumer projects without S3 deps no longer see ~15 noisy `ExAws.S3.* is undefined` compile warnings.
 
 **Why**: Many users just need file attachments (PDFs, CSVs, documents). Requiring libvips installation to store a PDF is a dealbreaker.
 
@@ -179,8 +213,11 @@ end
 - [x] Look up the model's `media_conversions/0` and match by name to get full config
 - [x] Add proper error handling and logging
 - [x] Add test for the Oban worker (using `Oban.Testing`)
+- [x] Extract `find_model_module/1` into `PhxMediaLibrary.ModelRegistry` (v0.5.1) — always compiled, no Oban dependency
 
-**Status**: ✅ Done. 17 dedicated tests in `test/phx_media_library/workers/process_conversions_test.exs` using `Oban.Testing.perform_job/3`. The `Workers.ProcessConversions` worker now stores `mediable_type` in job args, discovers the originating schema module via `find_model_module/1` (using a persistent_term cache), retrieves full `Conversion` definitions from the model's `get_media_conversions/1` or `media_conversions/0`, and filters by requested names. Handles legacy job args gracefully. Includes proper logging for missing media, unresolvable modules, and empty conversion lists. Tests cover: missing media discard, conversion resolution from TestPost (full definitions with dimensions/quality/fit), collection-scoped conversions, legacy args fallback, unknown mediable_type fallback, model module discovery and caching, explicit model registry, and job changeset construction.
+**Status**: ✅ Done. 17 dedicated tests in `test/phx_media_library/workers/process_conversions_test.exs` using `Oban.Testing.perform_job/3`. The `Workers.ProcessConversions` worker now stores `mediable_type` in job args, discovers the originating schema module via `ModelRegistry.find_model_module/1` (using a persistent_term cache), retrieves full `Conversion` definitions from the model's `get_media_conversions/1` or `media_conversions/0`, and filters by requested names. Handles legacy job args gracefully. Includes proper logging for missing media, unresolvable modules, and empty conversion lists. Tests cover: missing media discard, conversion resolution from TestPost (full definitions with dimensions/quality/fit), collection-scoped conversions, legacy args fallback, unknown mediable_type fallback, model module discovery and caching, explicit model registry, and job changeset construction.
+
+**v0.5.1 update**: The model discovery logic (`find_model_module/1`, `get_model_conversions/2`, persistent_term cache) was extracted into `PhxMediaLibrary.ModelRegistry` — an always-compiled module with no optional dependencies. The Oban worker and `mix phx_media_library.regenerate` both delegate to it. `ProcessConversions.find_model_module/1` remains as a `defdelegate` for backwards compatibility.
 
 **Why**: The current Oban worker creates empty `Conversion` structs with only a name — no dimensions, no quality, no fit mode. Async processing is broken.
 
@@ -228,8 +265,13 @@ end
 - [x] Collections and conversions defined at compile-time in the schema body
 - [x] App-level config only for global defaults (repo, storage disks)
 - [x] Schema-level config overrides app-level
+- [x] Nested `collection ... do convert ... end` syntax (v0.5.1) — conversions auto-scoped to enclosing collection
+- [x] `NestedConversionAccumulator` provides `convert/2` inside collection blocks
+- [x] Nested and flat styles mixable freely; explicit `:collections` respected inside nested blocks
 
-**Status**: ✅ Done. `media_collections do ... end` and `media_conversions do ... end` macros accumulate `Collection` and `Conversion` structs via module attributes at compile time. `CollectionAccumulator` and `ConversionAccumulator` provide the in-block macros. `__before_compile__` injects `media_collections/0` and `media_conversions/0` using `defoverridable` to replace the default empty-list implementations. The DSL and function-based styles are mutually exclusive per concern but can be mixed (e.g. DSL collections + function conversions). `convert/2` is an alias for `conversion/2` that reads more naturally in the DSL context. Tests verify DSL, function-based, mixed, and minimal schemas.
+**Status**: ✅ Done. `media_collections do ... end` and `media_conversions do ... end` macros accumulate `Collection` and `Conversion` structs via module attributes at compile time. `CollectionAccumulator` and `ConversionAccumulator` provide the in-block macros. `__before_compile__` injects `media_collections/0` and `media_conversions/0` using `defoverridable` to replace the default empty-list implementations. The DSL and function-based styles are mutually exclusive per concern but can be mixed (e.g. DSL collections + function conversions). `convert/2` is an alias for `conversion/2` that reads more naturally in the DSL context. Tests verify DSL, function-based, mixed, nested, and minimal schemas.
+
+**v0.5.1 update**: Added nested `collection ... do ... end` syntax via `NestedConversionAccumulator`. This is now the **recommended style** — conversions are auto-scoped to their enclosing collection, eliminating the need for explicit `:collections` options. The flat style remains supported for shared conversions or developer preference.
 
 ```elixir
 defmodule MyApp.Post do
@@ -242,21 +284,24 @@ defmodule MyApp.Post do
     timestamps()
   end
 
+  # Recommended: nested style (v0.5.1+)
   media_collections do
-    collection :images, disk: :s3, max_files: 20
-    collection :documents, accepts: ~w(application/pdf)
-    collection :avatar, single_file: true, fallback_url: "/images/default.png"
-  end
+    collection :images, disk: :s3, max_files: 20 do
+      convert :thumb, width: 150, height: 150, fit: :cover
+      convert :preview, width: 800, quality: 85
+      convert :banner, width: 1200, height: 400, fit: :crop
+    end
 
-  media_conversions do
-    convert :thumb, width: 150, height: 150, fit: :cover
-    convert :preview, width: 800, quality: 85
-    convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
+    collection :documents, accepts: ~w(application/pdf)
+
+    collection :avatar, single_file: true, fallback_url: "/images/default.png" do
+      convert :thumb, width: 150, height: 150, fit: :cover
+    end
   end
 end
 ```
 
-**Why**: This reads more naturally than returning lists from functions. It's the Ecto DSL philosophy — declare your data model, don't configure it from afar.
+**Why**: This reads more naturally than returning lists from functions. It's the Ecto DSL philosophy — declare your data model, don't configure it from afar. The nested style makes scoping visually explicit — you can see at a glance which conversions apply to which collections.
 
 ---
 
@@ -436,14 +481,16 @@ Decisions made or pending that affect the library's architecture.
 |----------|---------|-------|
 | Library name | `PhxMediaLibrary`, `PhxMedia`, `ExMedia`, `Mediator` | Parking for later. `Phx` prefix implies Phoenix-only but core is Ecto-only |
 
-### Recently Decided (Milestone 2)
+### Recently Decided (Milestones 2 & v0.5.1)
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Schema DSL style | Both: macro blocks (`media_collections do ... end`) + function-based (`def media_collections, do: [...]`) | DSL reads more naturally; function style preserved for backwards compat. Mutually exclusive per concern but mixable (e.g. DSL collections + function conversions). See 2.7 |
+| Schema DSL style | Both: macro blocks (`media_collections do ... end`) + function-based (`def media_collections, do: [...]`). Nested `collection ... do convert ... end` as recommended style (v0.5.1) | DSL reads more naturally; nested style makes conversion scoping visually explicit. Function style preserved for backwards compat. Mutually exclusive per concern but mixable. See 2.7 |
 | Polymorphic type derivation | Ecto table name (`__schema__(:source)`) as default, overridable via `use` option or `def __media_type__/0` | Table name is the most robust default — no naive pluralization. Priority: user-defined fn > explicit option > table source > module name fallback. See 2.6 |
-| `has_many` injection | Via `has_media()` macro inside the schema block, calling `Ecto.Schema.__has_many__/4` directly at module compilation time | Bypasses macro-expansion timing issues. Uses `:where` for polymorphic scoping, `:defaults` for auto-populating. Collection-scoped variants via `has_media(:images)`. See 2.4 |
-| LiveView component architecture | Both: `<.media_upload>` as all-in-one + `PhxMediaLibrary.LiveUpload` as composable primitives | Monolithic component for quick start; helper module for full control. See 1.1–1.3 |
+| `has_many` injection | Via `has_media()` macro inside the schema block, calling `Ecto.Schema.__has_many__/4` directly at module compilation time | Bypasses macro-expansion timing issues with Ecto's schema block. Uses `:where` for polymorphic scoping, `:defaults` for auto-populating. Collection-scoped variants via `has_media(:images)`. See 2.4 |
+| LiveView component architecture | Three tiers: `MediaLive` LiveComponent (zero-boilerplate, v0.5.1) → `<.media_upload>` + `<.media_gallery>` (composable) → `LiveUpload` helpers (full control) | `MediaLive` for quick start; function components for layout control; helper module for complete customization. See 1.0–1.3 |
+| Optional dep compile guards | All optional-dep modules wrapped in `if Code.ensure_loaded?` | Prevents noisy warnings in consumer projects. Pattern: `ImageProcessor.Image`, `AsyncProcessor.Oban`, `Storage.S3` (v0.5.1). See 2.1 |
+| Model module discovery | `PhxMediaLibrary.ModelRegistry` (always compiled, v0.5.1) with persistent_term cache | Decoupled from Oban worker so mix tasks and non-Oban setups can discover model modules. See 2.3 |
 | Optional image processing | `:image` marked `optional: true`; `ImageProcessor.Null` as fallback with clear error messages; `Config.image_processor/0` auto-detects | Library works for file storage without libvips. See 2.1 |
 | Checksum strategy | SHA-256 computed before storage, stored alongside media record | Supports sha256/sha1/md5. `verify_integrity/1` re-reads and compares. See 2.5 |
 
@@ -465,6 +512,10 @@ Active bugs or problems in the current codebase.
 - [x] **No file size validation** — collections can't limit upload size. (Fixed in Milestone 3.2 — `:max_size` collection option, validated before storage)
 - [x] **MIME detection is extension-only** — no content-based verification. (Fixed in Milestone 3.3 — `MimeDetector` behaviour with magic-bytes default, `:verify_content_type` collection option)
 - [x] **`MediaAdder` loads entire file into memory** — `File.read!` before storage. (Fixed in Milestone 3c/3.6 — now streams in 64 KB chunks with single-pass checksum)
+- [x] **~15 noisy ExAws/S3 compile warnings in consumer projects** — `Storage.S3` was unconditionally compiled, producing `ExAws.S3.* is undefined` warnings for projects without S3 deps. (Fixed in v0.5.1 — wrapped in `if Code.ensure_loaded?(ExAws.S3)`)
+- [x] **`ProcessConversions.find_model_module/1 is undefined` warning in `mix phx_media_library.regenerate`** — the mix task referenced `ProcessConversions` which only exists when Oban is installed. (Fixed in v0.5.1 — extracted to `ModelRegistry`)
+- [x] **Multi-file selection broken by default** — non-`single_file` collections without `max_files` defaulted to `max_entries: 1` (Phoenix LiveView default), disabling the `multiple` attribute. (Fixed in v0.5.1 — defaults to `max_entries: 10`)
+- [x] **Upload progress bars invisible on fast/local uploads** — progress bar only rendered when `progress > 0`, but local uploads complete instantly. (Fixed in v0.5.1 — renders at `progress >= 0`)
 
 ---
 
