@@ -603,8 +603,14 @@ defmodule PhxMediaLibrary.MediaAdder do
     headers
     |> Enum.find(fn {k, _} -> String.downcase(k) == "content-type" end)
     |> case do
-      {_, value} -> value |> String.split(";") |> List.first() |> String.trim()
-      _ -> nil
+      {_, value} when is_binary(value) ->
+        value |> String.split(";") |> List.first() |> String.trim()
+
+      {_, [value | _]} when is_binary(value) ->
+        value |> String.split(";") |> List.first() |> String.trim()
+
+      _ ->
+        nil
     end
   end
 

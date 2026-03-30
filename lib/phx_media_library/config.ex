@@ -75,6 +75,33 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @doc """
+  Get the configured path generator module.
+
+  The path generator controls how storage paths are constructed for media
+  files and conversions. Any module that implements the
+  `PhxMediaLibrary.PathGenerator` behaviour can be used here.
+
+  Built-in generators:
+
+    * `PhxMediaLibrary.PathGenerator.Default` — `{type}/{id}/{uuid}/{filename}` (default)
+    * `PhxMediaLibrary.PathGenerator.Flat` — `{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.DateBased` — `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
+
+  ## Configuration
+
+      config :phx_media_library,
+        path_generator: PhxMediaLibrary.PathGenerator.DateBased
+
+  """
+  def path_generator do
+    Application.get_env(
+      :phx_media_library,
+      :path_generator,
+      PhxMediaLibrary.PathGenerator.Default
+    )
+  end
+
+  @doc """
   Get the image processor module.
 
   Defaults to `PhxMediaLibrary.ImageProcessor.Image` when the `:image`

@@ -15,5 +15,11 @@
   {"lib/mix/tasks/phx_media_library.regenerate_responsive.ex", :callback_info_missing},
   {"lib/mix/tasks/phx_media_library.regenerate_responsive.ex", :unknown_function},
   {"lib/mix/tasks/phx_media_library.purge_deleted.ex", :callback_info_missing},
-  {"lib/mix/tasks/phx_media_library.purge_deleted.ex", :unknown_function}
+  {"lib/mix/tasks/phx_media_library.purge_deleted.ex", :unknown_function},
+  {"lib/mix/tasks/phx_media_library.stats.ex", :callback_info_missing},
+  {"lib/mix/tasks/phx_media_library.stats.ex", :unknown_function},
+  {"lib/mix/tasks/phx_media_library.stats.ex", :guard_fail},
+  {"lib/mix/tasks/phx_media_library.stats.ex", :pattern_match},
+  {"lib/mix/tasks/phx_media_library.doctor.ex", :callback_info_missing},
+  {"lib/mix/tasks/phx_media_library.doctor.ex", :unknown_function}
 ]
