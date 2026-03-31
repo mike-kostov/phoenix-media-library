@@ -33,6 +33,11 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     @behaviour PhxMediaLibrary.Storage
 
+    # Minimum multipart part size imposed by S3 (and LocalStack).
+    # Every part except the last must be >= 5 MiB; we target exactly this
+    # so that even the last part of a very large file stays on the safe side.
+    @multipart_part_size 5 * 1024 * 1024
+
     @impl true
     def put(path, content, opts) do
       bucket = Keyword.fetch!(opts, :bucket)
@@ -43,7 +48,18 @@ if Code.ensure_loaded?(ExAws.S3) do
       result =
         case content do
           {:stream, stream} ->
+            # ExAws.S3.upload treats every element of the source stream as an
+            # individual multipart part and uploads them concurrently.  It does
+            # NOT rechunk the input.  Our MediaAdder streams files in 64 KiB
+            # chunks (for checksum computation), so without rechunking every
+            # part would be 64 KiB — well below the 5 MiB minimum that both
+            # real AWS and LocalStack enforce.
+            #
+            # We rechunk the stream into @multipart_part_size binary parts
+            # using Stream.transform/4 (Elixir ≥ 1.9).  The last part may be
+            # smaller than the threshold, which S3 allows for the final part.
             stream
+            |> rechunk(@multipart_part_size)
             |> ExAws.S3.upload(bucket, path, upload_opts)
             |> ExAws.request(ex_aws_opts(opts))
 
@@ -209,6 +225,55 @@ if Code.ensure_loaded?(ExAws.S3) do
       opts
       |> Keyword.take([:access_key_id, :secret_access_key, :region])
       |> Enum.reject(fn {_, v} -> is_nil(v) end)
+    end
+
+    # ---------------------------------------------------------------------------
+    # Stream rechunking helper
+    # ---------------------------------------------------------------------------
+
+    # Rechunks a stream of arbitrarily-sized binary chunks into parts of
+    # exactly `part_size` bytes, with a potentially smaller final part.
+    #
+    # Uses Stream.transform/4 (start_fun, reducer, last_fun) so the
+    # accumulated buffer is flushed as a final emission when the source
+    # stream is exhausted — ensuring we never silently drop the tail of
+    # an upload.
+    #
+    # Memory profile: at most 2 × part_size bytes live in the accumulator
+    # at any time (one full part being assembled + one incoming chunk).
+    defp rechunk(stream, part_size) do
+      Stream.transform(
+        stream,
+        # start_fun — initial accumulator: empty binary buffer
+        fn -> <<>> end,
+        # reducer — called for each incoming chunk
+        fn chunk, buffer ->
+          data = buffer <> chunk
+
+          if byte_size(data) >= part_size do
+            # Slice out as many full parts as we can and keep the rest.
+            full_count = div(byte_size(data), part_size)
+
+            parts =
+              for i <- 0..(full_count - 1) do
+                binary_part(data, i * part_size, part_size)
+              end
+
+            rest_offset = full_count * part_size
+            rest = binary_part(data, rest_offset, byte_size(data) - rest_offset)
+
+            {parts, rest}
+          else
+            # Not enough data yet — keep accumulating.
+            {[], data}
+          end
+        end,
+        # last_fun — flush any remaining bytes as the final (possibly small) part
+        fn
+          <<>> -> {[], <<>>}
+          leftover -> {[leftover], <<>>}
+        end
+      )
     end
   end
 end
