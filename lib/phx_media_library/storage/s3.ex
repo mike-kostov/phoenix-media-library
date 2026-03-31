@@ -94,8 +94,11 @@ if Code.ensure_loaded?(ExAws.S3) do
     def url(path, opts) do
       bucket = Keyword.fetch!(opts, :bucket)
       signed = Keyword.get(opts, :signed, false)
+      download = Keyword.get(opts, :download, false)
 
-      if signed do
+      # S3 Content-Disposition overrides require a presigned URL, so
+      # `download: true` implicitly forces signing.
+      if signed or download do
         signed_url(bucket, path, opts)
       else
         public_url(bucket, path, opts)
@@ -169,13 +172,37 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     defp signed_url(bucket, path, opts) do
       expires_in = Keyword.get(opts, :expires_in, 3600)
+      download = Keyword.get(opts, :download, false)
+
+      presign_opts =
+        [expires_in: expires_in]
+        |> maybe_add_response_content_disposition(path, opts, download)
 
       {:ok, url} =
-        ExAws.S3.presigned_url(ExAws.Config.new(:s3, ex_aws_opts(opts)), :get, bucket, path,
-          expires_in: expires_in
+        ExAws.S3.presigned_url(
+          ExAws.Config.new(:s3, ex_aws_opts(opts)),
+          :get,
+          bucket,
+          path,
+          presign_opts
         )
 
       url
+    end
+
+    # Adds a `response-content-disposition` query param to the presigned URL
+    # so that S3 instructs the browser to download the file rather than render it.
+    # The param is included in the AWS Signature V4 canonical query string.
+    defp maybe_add_response_content_disposition(presign_opts, path, opts, true) do
+      filename = Keyword.get(opts, :filename, Path.basename(path))
+      safe_name = String.replace(filename, ~s("), ~s(\\"))
+      disposition = ~s(attachment; filename="#{safe_name}")
+
+      Keyword.put(presign_opts, :query_params, [{"response-content-disposition", disposition}])
+    end
+
+    defp maybe_add_response_content_disposition(presign_opts, _path, _opts, false) do
+      presign_opts
     end
 
     defp ex_aws_opts(opts) do

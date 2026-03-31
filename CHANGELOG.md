@@ -11,6 +11,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### 4.1 — BlurHash Generation
+
+- **`PhxMediaLibrary.Blurhash`** — new module that generates BlurHash strings
+  from image files. Uses the `:image` library (libvips) to resize images to a
+  small working size and applies a pure-Elixir DCT encoder (base-83 alphabet,
+  reference: blurha.sh). Optional — silently disabled when `:image` is not
+  installed.
+
+- **`Config.blurhash_enabled?/0`** — returns `true` when
+  `responsive_images: [blurhash: true]` is configured **and** the `:image`
+  library is available.
+
+- **Automatic blurhash generation** — `MediaAdder` now generates a BlurHash
+  string for every image upload when `blurhash_enabled?/0` is true. The hash
+  is stored in `media.responsive_images["blurhash"]`.
+
+- **`Media.blurhash/1`** and **`PhxMediaLibrary.blurhash/1`** — convenience
+  helpers that return `media.responsive_images["blurhash"]` or `nil`.
+
+- **`<PhxMediaLibrary.Components.blurhash>`** — new function component that
+  renders the hash as a `<canvas>` element. A colocated JavaScript hook
+  (no npm dependency) decodes the hash client-side and paints the blurred
+  preview, providing smooth progressive loading before the real image arrives.
+
+#### 4.4a — CDN URL Generation with Cache-Busting
+
+- **`url/3` `:cache_bust` option** — pass `cache_bust: true` to any
+  URL-generating call to append `?v={checksum[0..7]}` to the URL. The
+  fingerprint comes from the media item's stored SHA-256 checksum, so CDN
+  edges automatically serve a fresh copy whenever a file is replaced. Falls
+  back to a plain URL when no checksum is stored.
+
+- **`PhxMediaLibrary.cdn_url/2`**, **`Media.cdn_url/2`**, and
+  **`UrlGenerator.cdn_url/2`** — convenience shorthand for
+  `url(media, conversion, cache_bust: true)`.
+
+#### 4.4b — Content-Disposition Download Links
+
+- **`url/3` `:download` option** — pass `download: true` to generate a URL
+  that triggers `Content-Disposition: attachment` in the browser.
+
+  - **S3**: generates a presigned GET URL with the
+    `response-content-disposition` query parameter included in the AWS
+    Signature V4 canonical request (so the signature is valid).
+  - **Local disk**: routes through `PhxMediaLibrary.Plug.MediaDownload`
+    which serves the file with the proper response header.
+
+- **`PhxMediaLibrary.download_url/3`**, **`Media.download_url/3`**, and
+  **`UrlGenerator.download_url/3`** — shorthand for
+  `url(media, conversion, download: true)`.
+
+- **`PhxMediaLibrary.Plug.MediaDownload`** — new Plug for local-disk
+  storage. Mount it in the Phoenix router at the path configured as
+  `download_base_url`. Supports unsigned download links and HMAC-signed
+  expiring URLs (see 4.4c below). Includes path-traversal protection.
+
+#### 4.4c — Signed / Expiring URLs
+
+- **`url/3` `:signed` and `:expires_in` options** — pass `signed: true` to
+  generate a time-limited URL. `:expires_in` controls the expiry window in
+  seconds (default: `3600`).
+
+  - **S3**: AWS Signature V4 presigned GET URL (already supported internally;
+    now cleanly exposed through the unified `url/3` API).
+  - **Local disk**: HMAC-SHA256–signed URL verified by
+    `PhxMediaLibrary.Plug.MediaDownload`. Requires `secret_key_base` and
+    `download_base_url` in the disk config.
+
+- **`PhxMediaLibrary.signed_url/3`**, **`Media.signed_url/3`**, and
+  **`UrlGenerator.signed_url/3`** — shorthand for
+  `url(media, conversion, signed: true)`.
+
+- **`PhxMediaLibrary.SignedUrl`** — new module implementing HMAC-SHA256
+  signing and constant-time verification for local-disk URLs.
+
+- **`Config.secret_key_base/0`** and **`Config.download_base_url/0`** —
+  new config helpers for the global signing secret and download plug mount
+  path.
+
 #### 4.3 — Multi-Tenant Support
 
 - **`PhxMediaLibrary.PathGenerator.Tenant`** — new built-in path generator

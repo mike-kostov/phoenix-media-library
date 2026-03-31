@@ -309,9 +309,96 @@ defmodule PhxMediaLibrary do
 
   @doc """
   Get the URL for a media item, optionally for a specific conversion.
+
+  Accepts the same options as `PhxMediaLibrary.UrlGenerator.url/3`, including
+  `cache_bust: true`, `signed: true`, `download: true`, and `expires_in`.
   """
-  @spec url(Media.t(), atom() | nil) :: String.t()
-  defdelegate url(media, conversion \\ nil), to: Media
+  @spec url(Media.t(), atom() | nil, keyword()) :: String.t()
+  defdelegate url(media, conversion \\ nil, opts \\ []), to: Media
+
+  @doc """
+  Get a CDN-friendly URL with a cache-busting fingerprint query parameter.
+
+  Appends `?v={checksum[0..7]}` when the media item has a stored checksum so
+  CDN edges pick up the new file whenever it is replaced. Falls back to a
+  plain URL when no checksum is stored.
+
+  Equivalent to `PhxMediaLibrary.url(media, conversion, cache_bust: true)`.
+
+  ## Examples
+
+      PhxMediaLibrary.cdn_url(media)
+      #=> "/uploads/images/1/uuid/photo.jpg?v=a1b2c3d4"
+
+  """
+  @spec cdn_url(Media.t(), atom() | nil) :: String.t()
+  defdelegate cdn_url(media, conversion \\ nil), to: Media
+
+  @doc """
+  Get a download URL that triggers `Content-Disposition: attachment`.
+
+  For **S3** storage this generates a presigned GET URL with the
+  `response-content-disposition` query parameter included in the AWS
+  Signature V4 canonical request.
+
+  For **local disk** storage the URL routes through
+  `PhxMediaLibrary.Plug.MediaDownload`, which serves the file with the
+  proper header. The plug must be mounted in the app's router.
+
+  ## Options
+
+  - `:filename` — override the filename in the header (default: `media.file_name`).
+  - `:expires_in` — presigned URL expiry in seconds for S3 (default: `3600`).
+
+  ## Examples
+
+      # In a template
+      <a href={PhxMediaLibrary.download_url(@media)} download>Download</a>
+
+  """
+  @spec download_url(Media.t(), atom() | nil, keyword()) :: String.t()
+  defdelegate download_url(media, conversion \\ nil, opts \\ []), to: Media
+
+  @doc """
+  Get a signed, time-limited URL for a media item.
+
+  For **S3** this is an AWS Signature V4 presigned GET URL. For **local disk**
+  this is an HMAC-SHA256–signed URL verified by
+  `PhxMediaLibrary.Plug.MediaDownload`. A `secret_key_base` must be present in
+  the disk config and the plug must be mounted.
+
+  ## Options
+
+  - `:expires_in` — seconds until the URL expires (default: `3600`).
+  - `:download` — also add a `Content-Disposition: attachment` header.
+
+  ## Examples
+
+      PhxMediaLibrary.signed_url(media)
+      PhxMediaLibrary.signed_url(media, nil, expires_in: 300)
+      PhxMediaLibrary.signed_url(media, nil, download: true, expires_in: 600)
+
+  """
+  @spec signed_url(Media.t(), atom() | nil, keyword()) :: String.t()
+  defdelegate signed_url(media, conversion \\ nil, opts \\ []), to: Media
+
+  @doc """
+  Get the BlurHash string for a media item, or `nil` if not generated.
+
+  Blurhash must be opted in via `config :phx_media_library, responsive_images:
+  [blurhash: true]` and the `:image` library must be available.
+
+  Use the `<PhxMediaLibrary.Components.blurhash>` component to render the
+  decoded placeholder client-side via a `<canvas>` element.
+
+  ## Examples
+
+      PhxMediaLibrary.blurhash(media)
+      #=> "LKO2?V%2Tw=w]~RBVZRi};RPxuwH"
+
+  """
+  @spec blurhash(Media.t()) :: String.t() | nil
+  defdelegate blurhash(media), to: Media
 
   @doc """
   Get the filesystem path for a media item (local storage only).

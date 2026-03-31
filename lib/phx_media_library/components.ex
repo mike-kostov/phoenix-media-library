@@ -443,6 +443,79 @@ defmodule PhxMediaLibrary.Components do
   end
 
   # ===========================================================================
+  # Blurhash component
+  # ===========================================================================
+
+  @doc """
+  Renders a BlurHash placeholder as a `<canvas>` element.
+
+  The hash is decoded client-side by a colocated JavaScript hook that paints
+  the low-fidelity blurred preview onto the canvas.  This is a lightweight
+  alternative to the tiny JPEG placeholder: the hash is ~20–40 bytes stored
+  directly in the database rather than a base64-encoded image.
+
+  Requires `PhxMediaLibrary.Config.blurhash_enabled?/0` to be `true` (opt-in
+  via `config :phx_media_library, responsive_images: [blurhash: true]`) and the
+  `:image` library to be available.
+
+  ## Attributes
+
+  - `:media` — (required) a `PhxMediaLibrary.Media` struct.  The hash is read
+    from `media.responsive_images["blurhash"]`.
+  - `:width` — canvas render width in pixels (default: `32`).  The canvas is
+    stretched to fill its container via `width: 100%` CSS so you can set this
+    to any small value without affecting the visual size.
+  - `:height` — canvas render height in pixels (default: `32`).  If you pass
+    `nil`, the component preserves the aspect ratio from the media metadata.
+  - `:class` — additional CSS classes applied to the `<canvas>`.
+
+  ## Examples
+
+      <%!-- Basic usage --%>
+      <PhxMediaLibrary.Components.blurhash media={@photo} />
+
+      <%!-- Full-bleed cover with aspect-ratio preservation --%>
+      <div class="relative overflow-hidden rounded-xl">
+        <PhxMediaLibrary.Components.blurhash
+          media={@photo}
+          class="absolute inset-0 w-full h-full object-cover"
+        />
+        <img src={PhxMediaLibrary.url(@photo)} class="relative w-full" loading="lazy" />
+      </div>
+
+  """
+  attr(:media, :any, required: true)
+  attr(:width, :integer, default: 32)
+  attr(:height, :integer, default: 32)
+  attr(:class, :string, default: nil)
+
+  def blurhash(assigns) do
+    hash = get_in(assigns.media.responsive_images || %{}, ["blurhash"])
+    assigns = assign(assigns, :hash, hash)
+
+    ~H"""
+    <%= if @hash do %>
+      <canvas
+        id={"blurhash-#{@media.id}"}
+        phx-hook=".Blurhash"
+        data-hash={@hash}
+        data-width={@width}
+        data-height={@height}
+        width={@width}
+        height={@height}
+        class={[
+          "transition-opacity duration-300",
+          @class
+        ]}
+        style="width: 100%; aspect-ratio: {@width} / {@height};"
+        aria-hidden="true"
+      />
+      <._blurhash_hook />
+    <% end %>
+    """
+  end
+
+  # ===========================================================================
   # Private sub-components
   # ===========================================================================
 
@@ -923,4 +996,134 @@ defmodule PhxMediaLibrary.Components do
 
   defp format_fps(fps) when is_integer(fps), do: Integer.to_string(fps)
   defp format_fps(_), do: "—"
+
+  # -- Colocated JS hook for BlurHash canvas rendering -----------------------
+
+  defp _blurhash_hook(assigns) do
+    ~H"""
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".Blurhash">
+      // -----------------------------------------------------------------------
+      // BlurHash decoder — pure JS, no npm dependency required.
+      // Reference: https://github.com/woltapp/blurhash
+      // -----------------------------------------------------------------------
+
+      const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~'
+
+      function decode83(str) {
+        let value = 0
+        for (let i = 0; i < str.length; i++) {
+          value = value * 83 + CHARS.indexOf(str[i])
+        }
+        return value
+      }
+
+      function toLinear(value) {
+        const v = value / 255
+        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+      }
+
+      function toSRGB(linear) {
+        const c = Math.max(0, Math.min(1, linear))
+        return Math.round(
+          c <= 0.0031308
+            ? c * 12.92 * 255 + 0.5
+            : (1.055 * Math.pow(c, 1 / 2.4) - 0.055) * 255 + 0.5
+        )
+      }
+
+      function signPow(val, exp) {
+        return Math.sign(val) * Math.pow(Math.abs(val), exp)
+      }
+
+      function decodeDC(value) {
+        return [toLinear(value >> 16), toLinear((value >> 8) & 0xff), toLinear(value & 0xff)]
+      }
+
+      function decodeAC(value, maxVal) {
+        const qr = Math.floor(value / (19 * 19))
+        const qg = Math.floor(value / 19) % 19
+        const qb = value % 19
+        return [
+          signPow((qr - 9) / 9, 2) * maxVal,
+          signPow((qg - 9) / 9, 2) * maxVal,
+          signPow((qb - 9) / 9, 2) * maxVal
+        ]
+      }
+
+      function decodeHash(hash, width, height) {
+        const sizeFlag = decode83(hash[0])
+        const numY = Math.floor(sizeFlag / 9) + 1
+        const numX = (sizeFlag % 9) + 1
+
+        const qMaxAC = decode83(hash[1])
+        const maxAC = (qMaxAC + 1) / 166
+
+        const numColors = numX * numY
+        const colors = []
+        for (let i = 0; i < numColors; i++) {
+          if (i === 0) {
+            colors.push(decodeDC(decode83(hash.substring(2, 6))))
+          } else {
+            colors.push(decodeAC(decode83(hash.substring(4 + i * 2, 6 + i * 2)), maxAC))
+          }
+        }
+
+        const pixels = new Uint8ClampedArray(width * height * 4)
+
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            let r = 0, g = 0, b = 0
+
+            for (let j = 0; j < numY; j++) {
+              for (let i = 0; i < numX; i++) {
+                const cos = Math.cos((Math.PI * x * i) / width) *
+                            Math.cos((Math.PI * y * j) / height)
+                const [cr, cg, cb] = colors[j * numX + i]
+                r += cr * cos
+                g += cg * cos
+                b += cb * cos
+              }
+            }
+
+            const base = (y * width + x) * 4
+            pixels[base]     = toSRGB(r)
+            pixels[base + 1] = toSRGB(g)
+            pixels[base + 2] = toSRGB(b)
+            pixels[base + 3] = 255
+          }
+        }
+
+        return pixels
+      }
+
+      export default {
+        mounted() {
+          this.render()
+        },
+
+        updated() {
+          this.render()
+        },
+
+        render() {
+          const hash   = this.el.dataset.hash
+          const width  = parseInt(this.el.dataset.width,  10) || 32
+          const height = parseInt(this.el.dataset.height, 10) || 32
+
+          if (!hash) return
+
+          try {
+            const pixels = decodeHash(hash, width, height)
+            const ctx = this.el.getContext('2d')
+            const imageData = ctx.createImageData(width, height)
+            imageData.data.set(pixels)
+            ctx.putImageData(imageData, 0, 0)
+          } catch (_err) {
+            // Invalid hash — silently no-op; the real image will load anyway.
+          }
+        }
+      }
+    </script>
+    """
+  end
 end

@@ -419,12 +419,12 @@ end
 
 **Goal**: Features that make this library the definitive choice in the ecosystem.
 
-### 4.1 — Blurhash Generation
+### 4.1 — Blurhash Generation ✅
 
-- [ ] Generate blurhash strings as an alternative to tiny JPEG placeholders
-- [ ] Store in `responsive_images` metadata
-- [ ] Ship a `<.blurhash>` component that renders the placeholder client-side
-- [ ] Much smaller payload than base64 JPEG placeholders
+- [x] Generate blurhash strings as an alternative to tiny JPEG placeholders
+- [x] Store in `responsive_images` metadata
+- [x] Ship a `<.blurhash>` component that renders the placeholder client-side (colocated JS hook, no npm)
+- [x] Much smaller payload than base64 JPEG placeholders (~25 bytes vs ~500–2 KB)
 
 ### 4.2 — Video Support ✅
 
@@ -440,12 +440,12 @@ end
 - [x] Per-tenant storage configuration via `:disk` option at upload time
 - [x] Multi-tenant guide covering all patterns (`guides/multi-tenant.md`)
 
-### 4.4 — Content Delivery Optimization
+### 4.4 — Content Delivery Optimization ✅
 
-- [ ] CDN URL generation with cache-busting (checksum in URL)
-- [ ] Signed/expiring URLs for private media
+- [x] CDN URL generation with cache-busting (`?v={checksum[0..7]}`); `cdn_url/2` convenience helper
+- [x] Signed/expiring URLs — S3 presigned GET; HMAC-SHA256 for local disk via `Plug.MediaDownload`
 - [ ] On-the-fly image transformation URLs (like Imgix/Cloudinary)
-- [ ] Content-Disposition headers for download links
+- [x] Content-Disposition download links — `download_url/3`; `Plug.MediaDownload` for local, `response-content-disposition` for S3
 
 ### 4.5 — Admin & Debugging Tools ✅
 

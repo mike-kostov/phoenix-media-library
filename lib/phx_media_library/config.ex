@@ -188,6 +188,57 @@ defmodule PhxMediaLibrary.Config do
     Keyword.get(responsive_images_config(), :tiny_placeholder, true)
   end
 
+  @doc """
+  Check if blurhash generation is enabled.
+
+  Blurhash requires the `:image` library to be available. Even when enabled
+  in config, this returns `false` if the library is not loaded.
+
+  ## Configuration
+
+      config :phx_media_library,
+        responsive_images: [
+          enabled: true,
+          blurhash: true   # enable blurhash generation
+        ]
+
+  """
+  def blurhash_enabled? do
+    Keyword.get(responsive_images_config(), :blurhash, false) and
+      Code.ensure_loaded?(Image)
+  end
+
+  @doc """
+  Return the global HMAC secret key used for signing local-disk URLs.
+
+  This can be overridden per-disk via the `:secret_key_base` key in the disk
+  config. Returns `nil` when not configured.
+
+  ## Configuration
+
+      config :phx_media_library, secret_key_base: "long-random-secret"
+
+  """
+  def secret_key_base do
+    Application.get_env(:phx_media_library, :secret_key_base)
+  end
+
+  @doc """
+  Return the global base URL where `PhxMediaLibrary.Plug.MediaDownload` is
+  mounted.
+
+  This can be overridden per-disk via the `:download_base_url` key in the
+  disk config. Returns `nil` when not configured.
+
+  ## Configuration
+
+      config :phx_media_library, download_base_url: "/media"
+
+  """
+  def download_base_url do
+    Application.get_env(:phx_media_library, :download_base_url)
+  end
+
   # Default disk configuration
   defp default_disks do
     [

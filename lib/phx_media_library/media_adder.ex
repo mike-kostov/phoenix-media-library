@@ -405,6 +405,16 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
+      # Generate blurhash placeholder when enabled and Image is available.
+      # Runs after responsive images so the same open/resize work could
+      # theoretically be shared; kept separate for clarity.
+      media =
+        if image?(file_info.mime_type) and Config.blurhash_enabled?() do
+          maybe_generate_blurhash(media, file_info.path)
+        else
+          media
+        end
+
       # Generate poster frame for videos when FFmpeg is available.
       # Must happen before temp file cleanup so the source file is still present.
       media =
@@ -544,6 +554,26 @@ defmodule PhxMediaLibrary.MediaAdder do
 
       {:error, _reason} ->
         # Log error but don't fail the upload
+        media
+    end
+  end
+
+  defp maybe_generate_blurhash(media, file_path) do
+    case PhxMediaLibrary.Blurhash.generate(file_path) do
+      {:ok, hash} ->
+        updated_responsive =
+          Map.put(media.responsive_images || %{}, "blurhash", hash)
+
+        case media
+             |> Ecto.Changeset.change(responsive_images: updated_responsive)
+             |> Config.repo().update() do
+          {:ok, updated_media} -> updated_media
+          {:error, _} -> media
+        end
+
+      {:error, _} ->
+        # Blurhash generation failed (e.g. unsupported format) — don't
+        # fail the upload, just skip the placeholder.
         media
     end
   end
