@@ -133,20 +133,25 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
   end
 
   # ---------------------------------------------------------------------------
-  # Video extraction
-  # ---------------------------------------------------------------------------
+  # Video extraction — delegates to the configured VideoProcessor
+  # (PhxMediaLibrary.VideoProcessor.FFmpeg when ffprobe/ffmpeg are on $PATH,
+  # PhxMediaLibrary.VideoProcessor.Null otherwise).
 
-  # Video metadata extraction beyond format requires external tools
-  # (ffprobe, etc.) which are out of scope for the default extractor.
-  # Users needing video duration/dimensions should implement a custom
-  # extractor using ffprobe or a similar tool.
-  defp extract_video(_file_path, base), do: base
+  defp extract_video(file_path, base) do
+    processor = PhxMediaLibrary.Config.video_processor()
+
+    case processor.extract_metadata(file_path) do
+      {:ok, video_meta} -> Map.merge(base, video_meta)
+      {:error, _reason} -> base
+    end
+  end
 
   # ---------------------------------------------------------------------------
   # Audio extraction
   # ---------------------------------------------------------------------------
 
-  # Same as video — duration extraction requires ffprobe or similar.
+  # Duration extraction for audio requires ffprobe or similar.
+  # Users needing audio duration should implement a custom extractor.
   defp extract_audio(_file_path, base), do: base
 
   # ---------------------------------------------------------------------------

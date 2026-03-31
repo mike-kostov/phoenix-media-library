@@ -86,6 +86,7 @@ defmodule PhxMediaLibrary.Config do
     * `PhxMediaLibrary.PathGenerator.Default` — `{type}/{id}/{uuid}/{filename}` (default)
     * `PhxMediaLibrary.PathGenerator.Flat` — `{uuid}/{filename}`
     * `PhxMediaLibrary.PathGenerator.DateBased` — `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.Tenant` — `{tenant_id}/{type}/{id}/{uuid}/{filename}`
 
   ## Configuration
 
@@ -122,6 +123,40 @@ defmodule PhxMediaLibrary.Config do
       PhxMediaLibrary.ImageProcessor.Image
     else
       PhxMediaLibrary.ImageProcessor.Null
+    end
+  end
+
+  @doc """
+  Get the video processor module.
+
+  Defaults to `PhxMediaLibrary.VideoProcessor.FFmpeg` when both `ffprobe`
+  and `ffmpeg` executables are found on `$PATH`, otherwise falls back to
+  `PhxMediaLibrary.VideoProcessor.Null`.
+
+  When FFmpeg is available, video metadata (duration, dimensions, codec, fps)
+  is extracted automatically on every video upload and a JPEG poster frame is
+  stored alongside the video file.
+
+  ## Configuration
+
+      config :phx_media_library,
+        video_processor: MyApp.CustomVideoProcessor
+
+  """
+  @spec video_processor() :: module()
+  def video_processor do
+    Application.get_env(
+      :phx_media_library,
+      :video_processor,
+      default_video_processor()
+    )
+  end
+
+  defp default_video_processor do
+    if PhxMediaLibrary.VideoProcessor.FFmpeg.available?() do
+      PhxMediaLibrary.VideoProcessor.FFmpeg
+    else
+      PhxMediaLibrary.VideoProcessor.Null
     end
   end
 

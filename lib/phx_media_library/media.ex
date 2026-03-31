@@ -365,12 +365,22 @@ defmodule PhxMediaLibrary.Media do
       StorageWrapper.delete(storage, conversion_path)
     end)
 
-    # Delete responsive images
-    media.responsive_images
-    |> Map.values()
-    |> List.flatten()
-    |> Enum.each(fn %{"path" => path} ->
-      StorageWrapper.delete(storage, path)
+    # Delete responsive image variants and poster frames.
+    # Values may be:
+    #   - %{"variants" => [...], "placeholder" => ...}  (responsive images)
+    #   - %{"path" => "...", "url" => "..."}             (poster frame)
+    Enum.each(media.responsive_images, fn
+      {_key, %{"variants" => variants}} when is_list(variants) ->
+        Enum.each(variants, fn
+          %{"path" => path} when is_binary(path) -> StorageWrapper.delete(storage, path)
+          _ -> :ok
+        end)
+
+      {_key, %{"path" => path}} when is_binary(path) ->
+        StorageWrapper.delete(storage, path)
+
+      _ ->
+        :ok
     end)
 
     :ok

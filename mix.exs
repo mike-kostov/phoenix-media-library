@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.5.1"
+  @version "0.6.0"
   @source_url "https://github.com/mike-kostov/phx_media_library"
 
   def project do
@@ -118,6 +118,7 @@ defmodule PhxMediaLibrary.MixProject do
         "guides/error-handling.md",
         "guides/telemetry.md",
         "guides/advanced.md",
+        "guides/multi-tenant.md",
         "CHANGELOG.md"
       ],
       groups_for_extras: [
@@ -128,7 +129,8 @@ defmodule PhxMediaLibrary.MixProject do
           "guides/storage.md",
           "guides/error-handling.md",
           "guides/telemetry.md",
-          "guides/advanced.md"
+          "guides/advanced.md",
+          "guides/multi-tenant.md"
         ]
       ]
     ]

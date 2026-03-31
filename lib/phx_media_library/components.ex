@@ -363,6 +363,85 @@ defmodule PhxMediaLibrary.Components do
     """
   end
 
+  # =========================================================================
+  # media_video/1
+  # =========================================================================
+
+  attr(:media, :any, required: true, doc: "A `PhxMediaLibrary.Media` struct for a video file.")
+  attr(:class, :string, default: nil, doc: "Extra CSS classes for the wrapping div.")
+  attr(:controls, :boolean, default: true, doc: "Show native browser video controls.")
+  attr(:autoplay, :boolean, default: false, doc: "Auto-play on load.")
+
+  attr(:muted, :boolean,
+    default: false,
+    doc: "Mute audio on load (required for autoplay in most browsers)."
+  )
+
+  attr(:loop, :boolean, default: false, doc: "Loop the video.")
+
+  @doc """
+  Renders a `<video>` player for a media item with an optional poster frame
+  and a metadata strip showing duration, dimensions, and codec.
+
+  Poster frames are generated automatically when FFmpeg is installed and the
+  video was uploaded after v0.6.0. When no poster is available the browser
+  renders its default video thumbnail.
+
+  ## Examples
+
+      <PhxMediaLibrary.Components.media_video media={@video} />
+
+      <PhxMediaLibrary.Components.media_video
+        media={@video}
+        controls={true}
+        class="rounded-xl shadow-lg"
+      />
+
+  """
+  def media_video(assigns) do
+    poster_url = get_in(assigns.media.responsive_images || %{}, ["poster", "url"])
+    assigns = assign(assigns, :poster_url, poster_url)
+
+    ~H"""
+    <div class={["overflow-hidden rounded-xl bg-zinc-950", @class]}>
+      <video
+        controls={@controls}
+        autoplay={@autoplay}
+        muted={@muted}
+        loop={@loop}
+        poster={@poster_url}
+        class="w-full max-h-[480px]"
+        preload="metadata"
+      >
+        <source src={PhxMediaLibrary.url(@media)} type={@media.mime_type} />
+        <p class="p-4 text-sm text-zinc-400">
+          Your browser does not support HTML5 video.
+          <a href={PhxMediaLibrary.url(@media)} class="underline" download={@media.file_name}>
+            Download the video
+          </a>
+          instead.
+        </p>
+      </video>
+      <%= if map_size(@media.metadata || %{}) > 0 do %>
+        <div class="px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400 border-t border-zinc-800">
+          <%= if dur = @media.metadata["duration"] do %>
+            <span class="font-medium text-zinc-300">{format_video_duration(dur)}</span>
+          <% end %>
+          <%= if @media.metadata["width"] && @media.metadata["height"] do %>
+            <span>{@media.metadata["width"]}×{@media.metadata["height"]}</span>
+          <% end %>
+          <%= if codec = @media.metadata["codec"] do %>
+            <span class="uppercase tracking-wide">{codec}</span>
+          <% end %>
+          <%= if fps = @media.metadata["fps"] do %>
+            <span>{format_fps(fps)} fps</span>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
   # ===========================================================================
   # Private sub-components
   # ===========================================================================
@@ -824,4 +903,24 @@ defmodule PhxMediaLibrary.Components do
   end
 
   defp file_extension(_), do: ""
+
+  defp format_video_duration(seconds) when is_number(seconds) do
+    total = trunc(seconds)
+    minutes = div(total, 60)
+    secs = rem(total, 60)
+    :io_lib.format("~B:~2..0B", [minutes, secs]) |> IO.iodata_to_binary()
+  end
+
+  defp format_video_duration(_), do: "—"
+
+  defp format_fps(fps) when is_float(fps) do
+    if fps == trunc(fps) * 1.0 do
+      trunc(fps) |> Integer.to_string()
+    else
+      :erlang.float_to_binary(fps, decimals: 2)
+    end
+  end
+
+  defp format_fps(fps) when is_integer(fps), do: Integer.to_string(fps)
+  defp format_fps(_), do: "—"
 end

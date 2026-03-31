@@ -17,7 +17,8 @@ defmodule PhxMediaLibrary.MediaAdder do
     MimeDetector,
     PathGenerator,
     StorageWrapper,
-    Telemetry
+    Telemetry,
+    UrlGenerator
   }
 
   defstruct [
@@ -404,6 +405,15 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
+      # Generate poster frame for videos when FFmpeg is available.
+      # Must happen before temp file cleanup so the source file is still present.
+      media =
+        if video?(file_info.mime_type) do
+          maybe_generate_poster(media, file_info.path)
+        else
+          media
+        end
+
       # Cleanup temp file if needed
       if file_info.temp, do: File.rm(file_info.path)
 
@@ -457,6 +467,70 @@ defmodule PhxMediaLibrary.MediaAdder do
   defp image?(mime_type) do
     String.starts_with?(mime_type, "image/")
   end
+
+  defp video?(mime_type) do
+    String.starts_with?(mime_type, "video/")
+  end
+
+  defp maybe_generate_poster(media, file_path) do
+    processor = Config.video_processor()
+
+    if processor.available?() do
+      duration = media.metadata |> Map.get("duration") |> coerce_float()
+      offset = min(duration * 0.1, 5.0) |> max(0.0)
+
+      case processor.extract_poster(file_path, offset) do
+        {:ok, jpeg_data} -> store_poster(media, jpeg_data)
+        {:error, _} -> media
+      end
+    else
+      media
+    end
+  end
+
+  defp store_poster(media, jpeg_data) do
+    storage = Config.storage_adapter(media.disk)
+    poster_path = poster_storage_path(media)
+
+    case StorageWrapper.put(storage, poster_path, jpeg_data) do
+      :ok ->
+        poster_url = UrlGenerator.url_for_path(media, poster_path)
+
+        updated_responsive =
+          Map.put(media.responsive_images || %{}, "poster", %{
+            "path" => poster_path,
+            "url" => poster_url
+          })
+
+        case media
+             |> Ecto.Changeset.change(responsive_images: updated_responsive)
+             |> Config.repo().update() do
+          {:ok, updated_media} -> updated_media
+          {:error, _} -> media
+        end
+
+      {:error, _} ->
+        media
+    end
+  end
+
+  defp poster_storage_path(media) do
+    base_dir = Path.dirname(PathGenerator.relative_path(media, nil))
+    Path.join(base_dir, "poster.jpg")
+  end
+
+  defp coerce_float(nil), do: 0.0
+  defp coerce_float(v) when is_float(v), do: v
+  defp coerce_float(v) when is_integer(v), do: v * 1.0
+
+  defp coerce_float(v) when is_binary(v) do
+    case Float.parse(v) do
+      {f, _} -> f
+      :error -> 0.0
+    end
+  end
+
+  defp coerce_float(_), do: 0.0
 
   defp generate_responsive_images(media) do
     case PhxMediaLibrary.ResponsiveImages.generate(media, nil) do

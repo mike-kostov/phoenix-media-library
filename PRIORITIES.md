@@ -415,7 +415,7 @@ end
 
 ---
 
-## Milestone 4 — Best-in-Class
+## Milestone 4 — Best-in-Class ✅
 
 **Goal**: Features that make this library the definitive choice in the ecosystem.
 
@@ -426,18 +426,19 @@ end
 - [ ] Ship a `<.blurhash>` component that renders the placeholder client-side
 - [ ] Much smaller payload than base64 JPEG placeholders
 
-### 4.2 — Video Support
+### 4.2 — Video Support ✅
 
-- [ ] Extract video thumbnails (via FFmpeg adapter)
-- [ ] Store video metadata (duration, resolution, codec)
-- [ ] Generate video preview (short clip / GIF)
-- [ ] `<.media_video>` component with poster frame
+- [x] Extract video metadata (duration, dimensions, codec, fps) via `VideoProcessor.FFmpeg`
+- [x] Store video metadata in `media.metadata` on every video upload when FFmpeg is available
+- [x] Generate JPEG poster frame stored in `media.responsive_images["poster"]`
+- [x] `<.media_video>` component with poster frame and metadata strip
 
-### 4.3 — Multi-Tenant Support
+### 4.3 — Multi-Tenant Support ✅
 
-- [ ] Scoped storage paths: `{tenant_id}/{mediable_type}/{id}/...`
-- [ ] Per-tenant storage configuration (different S3 buckets)
-- [ ] Query scoping by tenant
+- [x] Scoped storage paths via `PathGenerator.Tenant`: `{tenant_id}/{mediable_type}/{id}/...`
+- [x] `path_context` escape hatch threads tenant ID through any custom generator
+- [x] Per-tenant storage configuration via `:disk` option at upload time
+- [x] Multi-tenant guide covering all patterns (`guides/multi-tenant.md`)
 
 ### 4.4 — Content Delivery Optimization
 
@@ -446,18 +447,18 @@ end
 - [ ] On-the-fly image transformation URLs (like Imgix/Cloudinary)
 - [ ] Content-Disposition headers for download links
 
-### 4.5 — Admin & Debugging Tools
+### 4.5 — Admin & Debugging Tools ✅
 
-- [ ] Mix task: `mix phx_media_library.stats` — show storage usage per model/collection
-- [ ] Mix task: `mix phx_media_library.doctor` — diagnose common issues (missing files, orphaned records, broken conversions)
+- [x] Mix task: `mix phx_media_library.stats` — storage usage per model/collection with `--collection`, `--type`, `--include-trashed` flags
+- [x] Mix task: `mix phx_media_library.doctor` — diagnose missing files, orphaned records, broken conversions; `--fix`, `--skip-files`, `--skip-orphans` flags
 - [ ] Optional LiveDashboard page showing media stats
 
-### 4.6 — Custom Path Generator Behaviour
+### 4.6 — Custom Path Generator Behaviour ✅
 
-- [ ] Allow users to define their own path structure
-- [ ] Default: `{mediable_type}/{mediable_id}/{uuid}/{filename}`
-- [ ] Flat: `{uuid}/{filename}`
-- [ ] Date-based: `{year}/{month}/{day}/{uuid}/{filename}`
+- [x] `PathGenerator` behaviour with pluggable implementations
+- [x] Built-ins: `Default` (`{type}/{id}/{uuid}/{filename}`), `Flat` (`{uuid}/{filename}`), `DateBased` (`{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`), `Tenant` (`{tenant_id}/{type}/{id}/{uuid}/{filename}`)
+- [x] `path_context` escape hatch for tenant/user scoping without schema coupling
+- [x] `Config.path_generator/0` with application-level configuration
 
 ---
 

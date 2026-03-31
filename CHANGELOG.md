@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-31
+
+### Added
+
+#### 4.3 — Multi-Tenant Support
+
+- **`PhxMediaLibrary.PathGenerator.Tenant`** — new built-in path generator
+  that prepends a `tenant_id` segment to every storage path:
+  `{tenant_id}/{mediable_type}/{mediable_id}/{uuid}/{filename}`. The
+  `tenant_id` is read from the optional `path_context` map (atom or string
+  key); falls back to `"shared"` when absent. Integer IDs are coerced to
+  strings automatically.
+
+- **Multi-Tenant guide** (`guides/multi-tenant.md`) — covers natural
+  per-model scoping, configuring `PathGenerator.Tenant`, passing
+  `path_context` through upload flows, cross-model queries, per-tenant
+  storage backends, custom generators, and migrating existing files.
+
+- **`Config.path_generator/0` doc** updated to list `Tenant` alongside
+  `Default`, `Flat`, and `DateBased`.
+
+#### 4.2 — Optional FFmpeg Video Processor
+
+- **`PhxMediaLibrary.VideoProcessor` behaviour** — new pluggable behaviour
+  for video processing adapters with three callbacks: `available?/0`,
+  `extract_metadata/1`, and `extract_poster/2`.
+
+- **`PhxMediaLibrary.VideoProcessor.FFmpeg`** — implementation using
+  `ffprobe` (metadata) and `ffmpeg` (poster frames). Selected automatically
+  when both executables are found on `$PATH`. No configuration required.
+  Extracts: `duration` (float seconds), `width`, `height`, `codec`, `fps`,
+  `audio_codec`, `bit_rate`.
+
+- **`PhxMediaLibrary.VideoProcessor.Null`** — no-op fallback used when
+  FFmpeg is not installed. Uploads still succeed; metadata and poster
+  generation are simply skipped without errors.
+
+- **`Config.video_processor/0`** — returns the active video processor
+  module; auto-detects FFmpeg at startup; configurable via
+  `config :phx_media_library, video_processor: …`
+
+- **Automatic video metadata extraction** — `MetadataExtractor.Default`
+  now delegates video file extraction to the configured `VideoProcessor`,
+  populating `media.metadata` with duration, dimensions, codec, and fps on
+  every video upload when FFmpeg is available.
+
+- **Poster frame generation** — `MediaAdder` extracts a JPEG poster frame
+  at 10% into the video (capped at 5 s) immediately after upload and stores
+  it alongside the video file. The URL is recorded in
+  `media.responsive_images["poster"]["url"]` for use in templates.
+
+- **`<.media_video>` component** — new `PhxMediaLibrary.Components`
+  function component that renders a styled `<video>` player with automatic
+  poster frame, preload, and a metadata strip (duration, dimensions, codec,
+  fps). Accepts `controls`, `autoplay`, `muted`, `loop`, and `class`
+  attributes.
+
+### Fixed
+
+- **`delete_files/1` crash on media with responsive images** — the
+  responsive images delete loop incorrectly pattern-matched
+  `%{"path" => path}` directly on top-level map values, which are actually
+  `%{"variants" => [...], "placeholder" => ...}` structs. The loop now
+  uses multi-clause `Enum.each` to correctly handle both responsive image
+  variant lists and poster frame entries (`%{"path" => ..., "url" => ...}`).
+
+- **`data-confirm` interpolation in gallery_app video delete button** —
+  the confirmation string used unescaped curly quotes around the filename,
+  causing a HEEx compile warning. Now uses proper `\"` escaping.
+
+### Changed
+
+- **Version bumped to `0.6.0`** — covers the full Milestone 4 feature set
+  (4.2 FFmpeg video processing, 4.3 multi-tenant path generator, 4.4/4.5/4.6
+  tooling and path generators delivered in Wave 1).
+
 ## [0.5.1] - 2026-03-01
 
 ### Added
