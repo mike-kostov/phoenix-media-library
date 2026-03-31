@@ -124,7 +124,7 @@ end
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.5.0"},
+    {:phx_media_library, "~> 0.6.0"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
