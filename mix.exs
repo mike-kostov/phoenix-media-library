@@ -1,8 +1,8 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.6.0"
-  @source_url "https://github.com/mike-kostov/phx_media_library"
+  @version "0.6.1"
+  @source_url "https://github.com/mike-kostov/phoenix-media-library"
 
   def project do
     [
