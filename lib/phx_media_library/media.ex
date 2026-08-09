@@ -38,6 +38,8 @@ defmodule PhxMediaLibrary.Media do
 
   @type t :: %__MODULE__{}
 
+  @mediable_id_type Application.compile_env(:phx_media_library, :mediable_id_type, :binary_id)
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "media" do
@@ -59,7 +61,7 @@ defmodule PhxMediaLibrary.Media do
 
     # Polymorphic association
     field(:mediable_type, :string)
-    field(:mediable_id, :binary_id)
+    field(:mediable_id, @mediable_id_type)
 
     timestamps(type: :utc_datetime)
   end

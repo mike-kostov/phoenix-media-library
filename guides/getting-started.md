@@ -9,7 +9,7 @@ Add `phx_media_library` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.6.0"},
+    {:phx_media_library, "~> 0.7.0"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
@@ -48,6 +48,59 @@ config :phx_media_library,
       base_url: "/uploads"
     ]
   ]
+```
+
+### Choosing a mediable_id type
+
+The `mediable_id` column stores the primary key of every associated model.
+Because Postgres is strict about column types, this must match the actual type
+of those PKs. Three values are supported:
+
+| Value | Database column | Use when |
+|-------|----------------|----------|
+| `:binary_id` | `uuid` | All your models use UUID primary keys |
+| `:integer` | `bigint` | All your models use integer primary keys |
+| `:string` | `varchar` | Mixed or non-standard primary key types |
+
+```elixir
+# config/config.exs
+config :phx_media_library,
+  repo: MyApp.Repo,
+  mediable_id_type: :string   # or :integer or :binary_id
+```
+
+**Default and roadmap**
+
+The current default is `:binary_id`, kept for backwards compatibility with
+existing installations — no existing app needs to change anything.
+
+Starting in **0.8**, the default will change to `:string`. A `varchar` column
+accepts UUID strings, integer-to-string coercions, and slug values equally
+well, making it the best choice for a library used across diverse apps. The
+tradeoff is a marginal index overhead compared to a native `bigint` or `uuid`
+column on very large tables; if that matters, set `:integer` or `:binary_id`
+explicitly.
+
+**Recommendation for new apps:** set `:string` today. You will need no change
+when 0.8 ships.
+
+```elixir
+# New app — set explicitly now, nothing to change in 0.8
+config :phx_media_library, mediable_id_type: :string
+
+# Integer PK app that prefers native bigint
+config :phx_media_library, mediable_id_type: :integer
+
+# UUID PK app that prefers native uuid
+config :phx_media_library, mediable_id_type: :binary_id
+```
+
+The installer generates the migration column to match your choice:
+
+```bash
+mix phx_media_library.install                  # binary_id column (default)
+mix phx_media_library.install --id-type string  # varchar column
+mix phx_media_library.install --id-type integer # bigint column
 ```
 
 ### Storage Options
@@ -111,7 +164,14 @@ mix phx_media_library.install
 mix ecto.migrate
 ```
 
-This generates the `media` table migration with all required fields.
+This generates the `media` table migration with all required fields. Pass
+`--id-type` to match the `mediable_id_type` you set in config:
+
+```bash
+mix phx_media_library.install --id-type string   # varchar (recommended for new apps)
+mix phx_media_library.install --id-type integer  # bigint
+mix phx_media_library.install --id-type binary_id # uuid (default)
+```
 
 ## Tailwind CSS Setup
 

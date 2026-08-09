@@ -12,9 +12,21 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
 
   ## Options
 
-      --no-migration  Skip migration generation
-      --binary-id     Use binary IDs for primary keys (default: true)
-      --table         Custom table name (default: "media")
+      --no-migration        Skip migration generation
+      --id-type TYPE        Type for the mediable_id column: binary_id (default), integer, string
+      --binary-id BOOL      Deprecated — use --id-type instead (false maps to --id-type integer)
+      --table NAME          Custom table name (default: "media")
+
+  ## Examples
+
+      # Apps with UUID primary keys (default)
+      $ mix phx_media_library.install
+
+      # Apps with integer primary keys
+      $ mix phx_media_library.install --id-type integer
+
+      # Apps with string/slug primary keys
+      $ mix phx_media_library.install --id-type string
 
   """
 
@@ -33,12 +45,19 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
         strict: [
           no_migration: :boolean,
           binary_id: :boolean,
+          id_type: :string,
           table: :string
         ]
       )
 
     table = opts[:table] || @default_table
-    binary_id? = Keyword.get(opts, :binary_id, true)
+
+    id_type =
+      cond do
+        opts[:id_type] -> parse_id_type(opts[:id_type])
+        opts[:binary_id] == false -> :integer
+        true -> :binary_id
+      end
 
     Mix.shell().info("""
 
@@ -47,7 +66,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
     """)
 
     unless opts[:no_migration] do
-      generate_migration(table, binary_id?)
+      generate_migration(table, id_type)
     end
 
     print_configuration_instructions()
@@ -65,10 +84,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
     """)
   end
 
-  defp generate_migration(table, binary_id?) do
+  defp generate_migration(table, id_type) do
     Mix.shell().info("#{IO.ANSI.cyan()}Generating migration...#{IO.ANSI.reset()}")
 
-    # Get the repo from config or infer from app
     _app = Mix.Project.config()[:app]
     migrations_path = Path.join(["priv", "repo", "migrations"])
 
@@ -78,23 +96,27 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
     filename = "#{timestamp}_create_#{table}_table.exs"
     path = Path.join(migrations_path, filename)
 
-    migration_content = migration_template(table, binary_id?)
+    migration_content = migration_template(table, id_type)
 
     create_file(path, migration_content)
 
     Mix.shell().info("  #{IO.ANSI.green()}✓#{IO.ANSI.reset()} Created #{path}")
   end
 
-  defp migration_template(table, binary_id?) do
-    primary_key_type = if binary_id?, do: ":binary_id", else: ":id"
-    foreign_key_type = if binary_id?, do: ":binary_id", else: ":bigint"
+  defp migration_template(table, id_type) do
+    mediable_id_column_type =
+      case id_type do
+        :integer -> ":bigint"
+        :string -> ":string"
+        _ -> ":binary_id"
+      end
 
     """
     defmodule #{inspect(repo_module())}.Migrations.Create#{Macro.camelize(table)}Table do
       use Ecto.Migration
 
       def change do
-        create table(:#{table}, primary_key: [type: #{primary_key_type}]) do
+        create table(:#{table}, primary_key: [type: :binary_id]) do
           add :uuid, :string, null: false
           add :collection_name, :string, null: false, default: "default"
           add :name, :string, null: false
@@ -113,7 +135,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
 
           # Polymorphic association
           add :mediable_type, :string, null: false
-          add :mediable_id, #{foreign_key_type}, null: false
+          add :mediable_id, #{mediable_id_column_type}, null: false
 
           timestamps(type: :utc_datetime)
         end
@@ -129,6 +151,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
     """
   end
 
+  defp parse_id_type("integer"), do: :integer
+  defp parse_id_type("string"), do: :string
+  defp parse_id_type(_), do: :binary_id
+
   defp print_configuration_instructions do
     _app = Mix.Project.config()[:app]
 
@@ -142,6 +168,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
         config :phx_media_library,
           repo: #{inspect(repo_module())},
           default_disk: :local,
+          # mediable_id_type: :binary_id,  # :binary_id (default), :integer, or :string
           disks: [
             local: [
               adapter: PhxMediaLibrary.Storage.Disk,
@@ -155,6 +182,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
             #   region: "us-east-1"
             # ]
           ]
+
+    If your models use integer primary keys, add:
+
+        config :phx_media_library, mediable_id_type: :integer
 
     """)
   end

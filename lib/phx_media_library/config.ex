@@ -224,6 +224,24 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @doc """
+  Get the configured mediable_id field type.
+
+  Controls the Ecto field type used for `mediable_id` in the `Media` schema,
+  allowing the library to store associations to models with integer, UUID, or
+  string primary keys.
+
+  Supported values: `:binary_id` (default), `:integer`, `:string`.
+
+  ## Configuration
+
+      config :phx_media_library, mediable_id_type: :integer
+
+  """
+  def mediable_id_type do
+    Application.get_env(:phx_media_library, :mediable_id_type, :binary_id)
+  end
+
+  @doc """
   Return the global base URL where `PhxMediaLibrary.Plug.MediaDownload` is
   mounted.
 

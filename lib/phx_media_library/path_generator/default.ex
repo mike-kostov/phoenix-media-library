@@ -47,7 +47,7 @@ defmodule PhxMediaLibrary.PathGenerator.Default do
     base_path =
       Path.join([
         media.mediable_type,
-        media.mediable_id,
+        to_string(media.mediable_id),
         media.uuid
       ])
 
@@ -65,7 +65,7 @@ defmodule PhxMediaLibrary.PathGenerator.Default do
   def for_new_media(attrs) do
     parts = [
       attrs.mediable_type,
-      attrs.mediable_id,
+      to_string(attrs.mediable_id),
       attrs.uuid,
       attrs.file_name
     ]

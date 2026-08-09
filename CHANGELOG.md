@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
+### Added
+
+- **Configurable `mediable_id_type`** — the `mediable_id` field in the `Media`
+  schema is now driven by `Application.compile_env(:phx_media_library,
+  :mediable_id_type, :binary_id)`. Supported values are `:binary_id` (default,
+  no change for existing installs), `:integer`, and `:string`. This allows
+  `PhxMediaLibrary` to associate media with models whose primary key is not a
+  UUID, while remaining fully backwards-compatible with existing applications.
+
+- **`Config.mediable_id_type/0`** — returns the resolved compile-time value.
+
+- **Path generators coerced to string** — `Default`, `DateBased`, and `Tenant`
+  path generators now call `to_string/1` on `mediable_id` before passing it to
+  `Path.join/1`, so integer and non-string IDs no longer raise
+  `FunctionClauseError`.
+
+- **`mix phx_media_library.install --id-type`** — new install flag accepts
+  `binary_id` (default), `integer`, or `string`, and generates the migration
+  with the matching column type for `mediable_id` (`:binary_id`, `:bigint`, or
+  `:string`). The `--binary-id false` shorthand is still accepted for backwards
+  compatibility and maps to `--id-type integer`.
+
+### Upgrade notes
+
+The current default for `mediable_id_type` is `:binary_id` to keep all
+existing installations working without any configuration change. **In 0.8 the
+default will change to `:string`.** New apps should set
+`config :phx_media_library, mediable_id_type: :string` today; they will
+require no change when upgrading to 0.8. Existing apps that omit the key and
+rely on the `:binary_id` default should add `mediable_id_type: :binary_id`
+explicitly before upgrading to 0.8.
+
 ## [0.6.0] - 2026-03-31
 
 ### Added

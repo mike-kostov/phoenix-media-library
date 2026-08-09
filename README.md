@@ -124,7 +124,7 @@ end
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.6.0"},
+    {:phx_media_library, "~> 0.7.0"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
@@ -145,6 +145,13 @@ end
 config :phx_media_library,
   repo: MyApp.Repo,
   default_disk: :local,
+
+  # Choose the column type that matches your models' primary key type.
+  # :binary_id — UUID (default, keeps existing installs working)
+  # :integer   — bigint (best performance for integer PK apps)
+  # :string    — varchar (works with any PK type; will become the default in 0.8)
+  mediable_id_type: :string,
+
   disks: [
     local: [
       adapter: PhxMediaLibrary.Storage.Disk,
@@ -155,9 +162,16 @@ config :phx_media_library,
 ```
 
 ```bash
-mix phx_media_library.install
+# For integer PK apps, pass --id-type to generate the right migration column:
+mix phx_media_library.install --id-type integer
 mix ecto.migrate
 ```
+
+> **`mediable_id_type`** controls the database column type for the polymorphic
+> foreign key. The current default is `:binary_id` (UUID) for backwards
+> compatibility. Starting in **0.8**, the default will change to `:string`,
+> which works out-of-the-box with any primary key type. New apps should set
+> `:string` explicitly today and will require no change on upgrade.
 
 > **Note:** The `:image` dependency is **optional**. PhxMediaLibrary works for
 > file storage without it. Image conversions require `:image` to be installed.

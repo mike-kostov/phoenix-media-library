@@ -86,7 +86,7 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
       Path.join([
         date_prefix,
         media.mediable_type,
-        media.mediable_id,
+        to_string(media.mediable_id),
         media.uuid
       ])
 
@@ -120,7 +120,7 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
     parts = [
       date_prefix,
       attrs.mediable_type,
-      attrs.mediable_id,
+      to_string(attrs.mediable_id),
       attrs.uuid,
       attrs.file_name
     ]
