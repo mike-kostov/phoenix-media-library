@@ -2,7 +2,7 @@ This is an Elixir library for associating media files with Ecto schemas, inspire
 
 ## Project overview
 
-PhxMediaLibrary provides a simple, fluent API for:
+PhxMediaLibrary provides a fluent API for:
 - Associating files with Ecto schemas
 - Organizing media into collections
 - Storing files across different storage backends
@@ -13,16 +13,16 @@ PhxMediaLibrary provides a simple, fluent API for:
 
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use `:req` (`Req`) library for HTTP requests (e.g., downloading remote files), **avoid** `:httpoison`, `:tesla`, and `:httpc`
-- This is a **library**, not an application - design APIs to be flexible and composable
+- This is a **library**, not an application. Design APIs to be flexible and composable
 - Follow semantic versioning for releases
 
 ### Library design principles
 
 - **Provide sensible defaults** but allow configuration at every level
-- **Avoid global configuration** where possible - prefer passing options explicitly or using schema-level configuration
+- **Avoid global configuration** where possible. Prefer passing options explicitly or using schema-level configuration
 - **Use behaviours** for extensibility (storage adapters, image processors, etc.)
-- **Keep dependencies minimal** - make heavy dependencies optional where feasible
-- **Write comprehensive documentation** - every public function needs `@doc` and `@spec`
+- **Keep dependencies minimal**. Make heavy dependencies optional where feasible
+- **Document the public API**. Every public function needs `@doc` and `@spec`
 - **Design fluent APIs** that are pleasant to use, similar to Spatie's approach:
 
       post
@@ -123,7 +123,7 @@ PhxMediaLibrary provides a simple, fluent API for:
 - Use `tmp_dir` ExUnit tag or create fixtures in `test/support/fixtures/`
 - **Test all storage adapters** with the same test suite using adapter-agnostic assertions
 - Write integration tests that verify the full flow (add media → store → retrieve → convert)
-- Use mocks sparingly - prefer testing against real implementations or in-memory adapters
+- Use mocks sparingly. Prefer testing against real implementations or in-memory adapters
 - **Always** test error conditions and edge cases (missing files, invalid formats, storage failures)
 
 ## Ecto guidelines
@@ -137,7 +137,7 @@ PhxMediaLibrary provides a simple, fluent API for:
 
 ### Media library Ecto patterns
 
-- Design the media schema to be **polymorphic** - it should associate with any user schema via `belongs_to :mediable, ... , polymorphic: true` or similar pattern
+- Design the media schema to be **polymorphic**. It associates with any user schema via `belongs_to :mediable, ..., polymorphic: true` or a similar pattern
 - Store file metadata (size, mime type, dimensions) in the database for querying
 - Use **JSON columns** for flexible metadata storage (custom properties, responsive image data)
 - Provide migration generators for users to create the media table in their apps
@@ -145,13 +145,13 @@ PhxMediaLibrary provides a simple, fluent API for:
 
 ## File and storage guidelines
 
-- **Abstract storage behind behaviours** - support local filesystem, S3, GCS, etc.
-- **Never** trust user-provided filenames - sanitize and/or generate safe names
+- **Abstract storage behind behaviours** to support local filesystem, S3, GCS, etc.
+- **Never** trust user-provided filenames. Sanitize or generate safe names
 - Store files with **unique names** (UUIDs or hashes) to avoid collisions
 - Preserve original filename in database metadata, not in the stored path
 - **Calculate and store checksums** (MD5/SHA256) for integrity verification
 - Support **streaming uploads** for large files to avoid memory issues
-- Handle **mime type detection** properly - don't rely solely on file extensions
+- Handle **mime type detection** properly. Don't rely on file extensions alone
 
 ### Path conventions
 
@@ -162,7 +162,7 @@ PhxMediaLibrary provides a simple, fluent API for:
 
 ## Image processing guidelines
 
-- **Make image processing optional** - don't require ImageMagick/libvips for basic usage
+- **Make image processing optional**. Don't require ImageMagick or libvips for basic usage
 - Support multiple processing backends via behaviours (Image, Mogrify, Vix, etc.)
 - Define conversions declaratively in the schema:
 
