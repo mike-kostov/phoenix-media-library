@@ -1,4 +1,4 @@
-# Multi-Tenant Media
+# Multi-tenant media
 
 This guide explains how PhxMediaLibrary works in multi-tenant applications,
 and when you need `PathGenerator.Tenant` vs. the built-in natural scoping.
@@ -6,12 +6,12 @@ and when you need `PathGenerator.Tenant` vs. the built-in natural scoping.
 ## Overview
 
 Every media record stores `mediable_type` and `mediable_id` columns that
-identify which Ecto record owns the file. This gives you **natural per-model
-scoping** out of the box: `PhxMediaLibrary.get_media/2` is already filtered
+identify which Ecto record owns the file. This gives you natural per-model
+scoping: `PhxMediaLibrary.get_media/2` is already filtered
 to the owner, and storage paths already encode the owning record's type and ID.
 
 ```elixir
-# Fully isolated — no extra tenant filtering needed
+# Fully isolated, no extra tenant filtering needed
 PhxMediaLibrary.get_media(tenant_a_post, :images)
 PhxMediaLibrary.get_media(tenant_b_post, :images)
 ```
@@ -20,14 +20,14 @@ For most SaaS applications this is enough: the `Post` (or `User`,
 `Organization`, etc.) belongs to a tenant in your domain model, and the
 media follows naturally.
 
-### When to Use PathGenerator.Tenant
+### When to use PathGenerator.Tenant
 
-If you have a top-level `Tenant` / `Organization` model and want all files —
-regardless of which sub-record owns them — namespaced under that tenant *in
-storage*, you need an extra layer. Use `PathGenerator.Tenant` and the
+If you have a top-level `Tenant` / `Organization` model and want all files
+namespaced under that tenant *in storage*, regardless of which sub-record owns
+them, you need an extra layer. Use `PathGenerator.Tenant` and the
 `path_context` escape hatch for exactly this case.
 
-## The `PathGenerator.Tenant` Built-In
+## The `PathGenerator.Tenant` built-in
 
 `PhxMediaLibrary.PathGenerator.Tenant` prepends a `tenant_id` segment to the
 standard path structure:
@@ -54,7 +54,7 @@ config :phx_media_library,
 
 ### Pass `tenant_id` via `path_context`
 
-Both atom and string keys are supported:
+The generator accepts both atom and string keys:
 
 ```elixir
 # Atom key (recommended for internal calls)
@@ -72,14 +72,14 @@ existing call sites that omit context keep working:
 PhxMediaLibrary.PathGenerator.relative_path(media, :thumb)
 ```
 
-Integer tenant IDs are coerced to strings automatically:
+The generator coerces integer tenant IDs to strings:
 
 ```elixir
 PhxMediaLibrary.PathGenerator.relative_path(media, nil, %{tenant_id: 42})
 # => "42/posts/abc/uuid/photo.jpg"
 ```
 
-### Wire `path_context` into Your Upload Flow
+### Wire `path_context` into your upload flow
 
 Pass `path_context` through your controller or LiveView when adding media:
 
@@ -99,16 +99,16 @@ def handle_event("upload", _params, socket) do
 end
 ```
 
-## Querying Media by Tenant
+## Querying media by tenant
 
-### Natural Scoping (most common)
+### Natural scoping (most common)
 
 ```elixir
 # Already scoped to this post's tenant via mediable_id
 PhxMediaLibrary.get_media(post, :images)
 ```
 
-### Cross-Model Queries
+### Cross-model queries
 
 When you need all media across every sub-record for a given tenant:
 
@@ -144,7 +144,7 @@ from(m in PhxMediaLibrary.Media,
 |> Repo.all()
 ```
 
-## Per-Tenant Storage Backends
+## Per-tenant storage backends
 
 For data-residency requirements you may want each tenant's files on a
 separate disk (e.g. different S3 buckets or regions). The `:disk` option on
@@ -169,9 +169,9 @@ post
 
 `PhxMediaLibrary.Media` records store which disk they were written to in the
 `disk` field, so `PhxMediaLibrary.url(media)` and deletion always use the
-correct backend automatically.
+correct backend.
 
-## Custom Tenant Path Generators
+## Custom tenant path generators
 
 `PathGenerator.Tenant` covers the standard case. For fully custom path
 structures, implement the `PhxMediaLibrary.PathGenerator` behaviour (see its
@@ -182,12 +182,12 @@ config :phx_media_library,
   path_generator: MyApp.TenantPathGenerator
 ```
 
-## Rolling Out to Existing Data
+## Rolling out to existing data
 
-Changing the path generator **does not retroactively rename stored files**.
-Each `Media` record's storage path is determined at upload time and stored
-implicitly via the `uuid` and `mediable_*` columns. Only new uploads use the
-new generator.
+Changing the path generator does not retroactively rename stored files.
+PhxMediaLibrary sets each `Media` record's storage path at upload time and
+stores it implicitly via the `uuid` and `mediable_*` columns. Only new uploads
+use the new generator.
 
 To migrate existing files to the new path structure:
 
@@ -195,11 +195,11 @@ To migrate existing files to the new path structure:
 2. Copy (or move) the file in storage from the old path to the new path.
 3. If you are using a custom storage adapter that tracks paths explicitly,
    update any stored path references in the database.
-4. Delete the file at the old path once the new path is verified.
+4. Delete the file at the old path once you have verified the new path.
 
-This migration is intentionally left to the application developer because the
-correct strategy (copy vs. move, rollback plan, downtime window) depends
-entirely on your deployment and storage backend.
+This library leaves the migration to you, the application developer, because the
+correct strategy (copy vs. move, rollback plan, downtime window) depends on your
+deployment and storage backend.
 
 > **Tip:** Run the migration in batches to avoid timeouts, and use
 > `mix phx_media_library.doctor` afterwards to verify no orphaned records

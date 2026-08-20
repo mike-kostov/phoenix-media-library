@@ -1,12 +1,12 @@
-# LiveView Integration
+# LiveView integration
 
 PhxMediaLibrary provides two approaches for handling media uploads in LiveView:
 
-1. **`MediaLive` LiveComponent** (recommended) — a single line of template code
-   that handles everything: drag-and-drop, previews, progress, persistence,
+1. **`MediaLive` LiveComponent** (recommended). A single line of template code
+   handles everything: drag-and-drop, previews, progress, persistence,
    gallery display, and deletion.
 
-2. **Custom Upload UI** — use the lower-level `LiveUpload` helpers and build
+2. **Custom Upload UI.** Use the lower-level `LiveUpload` helpers to build
    your own form, drop zone, and event handlers for full control.
 
 ## Setup
@@ -15,10 +15,10 @@ PhxMediaLibrary provides two approaches for handling media uploads in LiveView:
 
 Make sure your `assets/css/app.css` includes the library's source path so
 Tailwind v4 can detect the component classes (see
-[Getting Started — Tailwind CSS Setup](getting-started.md#tailwind-css-setup)):
+[the Tailwind CSS setup in Getting Started](getting-started.md#tailwind-css-setup)):
 
 ```css
-/* PhxMediaLibrary — include both paths to support Hex deps and path deps.
+/* PhxMediaLibrary: include both paths to support Hex deps and path deps.
    Tailwind v4 silently ignores paths that don't exist. */
 @source "../../deps/phx_media_library/lib";
 @source "../../../phx_media_library/lib";
@@ -43,13 +43,13 @@ end
 
 ---
 
-## Approach 1: `MediaLive` LiveComponent (Recommended)
+## Approach 1: `MediaLive` LiveComponent (recommended)
 
-The `MediaLive` LiveComponent eliminates **all** upload boilerplate. No
+The `MediaLive` LiveComponent eliminates all upload boilerplate. No
 `use PhxMediaLibrary.LiveUpload`, no `handle_event` clauses, no
 `allow_upload`, no `consume_media`. The component handles everything.
 
-### Minimal Example
+### Minimal example
 
 ```elixir
 defmodule MyAppWeb.PostLive.Show do
@@ -89,7 +89,7 @@ That's it. You get:
 - Delete-on-hover for each media item
 - Dark mode support
 
-### Full Options
+### Full options
 
 ```heex
 <.live_component
@@ -113,20 +113,20 @@ That's it. You get:
 />
 ```
 
-### Available Options
+### Available options
 
 | Option           | Type    | Default | Description                                       |
 |------------------|---------|---------|---------------------------------------------------|
-| `id`             | string  | —       | **Required.** Unique DOM id                        |
-| `model`          | struct  | —       | **Required.** The Ecto struct (e.g. `@album`)      |
-| `collection`     | atom    | —       | **Required.** Collection name (e.g. `:photos`)     |
+| `id`             | string  | n/a     | **Required.** Unique DOM id                        |
+| `model`          | struct  | n/a     | **Required.** The Ecto struct (e.g. `@album`)      |
+| `collection`     | atom    | n/a     | **Required.** Collection name (e.g. `:photos`)     |
 | `max_file_size`  | integer | nil     | Override collection's max file size (bytes)         |
 | `max_entries`    | integer | nil     | Override how many files can be selected at once     |
 | `responsive`     | boolean | false   | Generate responsive images on upload               |
 | `upload_label`   | string  | nil     | Label text above the drop zone                     |
 | `upload_sublabel`| string  | nil     | Secondary text (e.g. accepted formats)             |
 | `compact`        | boolean | false   | Compact single-line drop zone layout               |
-| `columns`        | integer | 4       | Gallery grid columns (2–6)                         |
+| `columns`        | integer | 4       | Gallery grid columns (2-6)                         |
 | `conversion`     | atom    | nil     | Conversion for gallery thumbnails                  |
 | `show_gallery`   | boolean | true    | Show the gallery below the upload zone             |
 | `class`          | string  | nil     | Additional CSS classes on the outer wrapper        |
@@ -134,16 +134,16 @@ That's it. You get:
 | `gallery_class`  | string  | nil     | Replaces default gallery grid classes              |
 | `button_class`   | string  | nil     | Replaces default submit button classes             |
 
-### How Upload Limits Are Derived
+### How upload limits are derived
 
-When `max_file_size`, `max_entries`, or accept types are not explicitly provided,
-they are derived from your schema's collection configuration automatically:
+When you don't set `max_file_size`, `max_entries`, or accept types, the component
+derives them from your schema's collection configuration:
 
 | Collection config        | Derived `max_entries`                              |
 |--------------------------|----------------------------------------------------|
-| `single_file: true`      | **1** — single file picker (no `multiple` attr)    |
-| `max_files: N`           | **N** — multi-file picker                          |
-| Neither set              | **10** — sensible default, multi-file picker       |
+| `single_file: true`      | **1**, a single-file picker (no `multiple` attr)   |
+| `max_files: N`           | **N**, a multi-file picker                         |
+| Neither set              | **10**, the default, multi-file picker             |
 
 For example, given these collections:
 
@@ -163,16 +163,16 @@ end
 
 You can always override at the component level with the `max_entries` option,
 which takes precedence over the collection config. Similarly, `max_file_size`
-overrides the collection's `:max_size`, and accept types are derived from
+overrides the collection's `:max_size`, and accept types come from
 the collection's `:accepts` list.
 
-### Customizing Styles
+### Customizing styles
 
-The component ships with sensible default styles using plain Tailwind utility
+The component ships with default styles using plain Tailwind utility
 classes (`bg-zinc-50`, `text-blue-600`, `dark:bg-zinc-800`, etc.). These work
-out of the box with any Tailwind-based project.
+with any Tailwind-based project.
 
-If your app uses a component library like **daisyUI**, or you simply want to
+If your app uses a component library like daisyUI, or you want to
 match your own design system, use the `upload_class`, `gallery_class`, and
 `button_class` options to override the defaults:
 
@@ -182,9 +182,9 @@ match your own design system, use the `upload_class`, `gallery_class`, and
 | `gallery_class` | The gallery grid container (`phx-update="stream"`)| `"mt-6 grid gap-4"` + responsive column classes derived from `columns` |
 | `button_class`  | The "Upload N file(s)" submit button              | Blue rounded button with hover/focus/dark states         |
 
-When you pass a value, it **replaces** the default classes entirely (not
-merged), giving you full control. When `nil` (the default), the built-in
-styles are used.
+When you pass a value, it replaces the default classes entirely rather than
+merging with them. When `nil` (the default), the component uses the built-in
+styles.
 
 #### Example: daisyUI integration
 
@@ -215,11 +215,11 @@ styles are used.
 ```
 
 > **Tip:** The `class` option adds classes to the outermost wrapper `<div>`
-> and is always _merged_ with the base `"phx-media-live"` class. The other
+> and always _merges_ with the base `"phx-media-live"` class. The other
 > three options (`upload_class`, `gallery_class`, `button_class`) _replace_
 > their respective defaults when set.
 
-### Reacting to Uploads and Deletions
+### Reacting to uploads and deletions
 
 The component sends messages to the parent LiveView so you can update related
 state (counters, summaries, etc.):
@@ -238,7 +238,7 @@ end
 
 You can safely ignore these messages if you don't need them.
 
-### Multiple Collections on One Page
+### Multiple collections on one page
 
 Use multiple `MediaLive` components with different `id` and `collection` values:
 
@@ -270,18 +270,18 @@ Each component manages its own upload configuration and media stream independent
 
 ---
 
-## Approach 2: Custom Upload UI
+## Approach 2: Custom upload UI
 
 For full control over the upload experience, use the lower-level `LiveUpload`
 helpers and build your own form, event handlers, and template.
 
 > **Important:** The `<.media_upload>` function component renders its own
-> internal `<.form>`. You must **not** wrap it inside another `<form>` tag —
-> nested forms are invalid HTML and will silently break file uploads. For
+> internal `<.form>`. You must **not** wrap it inside another `<form>` tag.
+> Nested forms are invalid HTML and will silently break file uploads. For
 > custom UIs, use `<.live_file_input>` directly inside your own
 > `<.form phx-submit="...">`.
 
-### Complete Custom Example
+### Complete custom example
 
 ```elixir
 defmodule MyAppWeb.PostLive.Edit do
@@ -335,10 +335,10 @@ defmodule MyAppWeb.PostLive.Edit do
 end
 ```
 
-### Custom Template
+### Custom template
 
 Build your own `<.form>` with `<.live_file_input>` inside it. This is the key
-difference from using `<.media_upload>` — you own the form, so submit works
+difference from using `<.media_upload>`. You own the form, so submit works
 correctly:
 
 ```heex
@@ -415,7 +415,7 @@ correctly:
 
 ---
 
-## Function Components
+## Function components
 
 If you prefer the ready-made function components for parts of your UI (but
 don't want the full `MediaLive` LiveComponent), here's what's available.
@@ -462,7 +462,7 @@ Compact inline upload trigger:
 
 ---
 
-## `PhxMediaLibrary.LiveUpload` Helpers
+## `PhxMediaLibrary.LiveUpload` helpers
 
 `use PhxMediaLibrary.LiveUpload` imports these functions into your LiveView:
 
@@ -479,14 +479,14 @@ Compact inline upload trigger:
 | `image_entry?/1` | Whether an entry is an image (for conditional previews) |
 | `translate_upload_error/1` | Extensible error atom → string translation |
 
-### Collection-Aware Uploads
+### Collection-aware uploads
 
-`allow_media_upload/3` reads your collection definition and automatically
+`allow_media_upload/3` reads your collection definition and
 configures the LiveView upload:
 
-- `:accept` — derived from the collection's `:accepts` MIME types
-- `:max_entries` — derived from `:max_files`
-- `:max_file_size` — derived from `:max_size`
+- `:accept` comes from the collection's `:accepts` MIME types
+- `:max_entries` comes from `:max_files`
+- `:max_file_size` comes from `:max_size`
 
 ```elixir
 # These two are equivalent when collection has accepts: ~w(image/jpeg image/png), max_files: 10, max_size: 5_000_000
@@ -501,14 +501,14 @@ allow_upload(socket, :images,
 
 ---
 
-## Event Notifications
+## Event notifications
 
 Both `consume_media/5` and `delete_media_by_id/2` accept a `:notify` option.
-When set to a pid (e.g. `self()`), lifecycle messages are sent to that process:
+Set it to a pid (e.g. `self()`) and they send lifecycle messages to that process:
 
-- `{:media_added, [Media.t()]}` — after successful upload
-- `{:media_error, reason}` — when upload fails
-- `{:media_removed, Media.t()}` — after successful deletion
+- `{:media_added, [Media.t()]}`, after a successful upload
+- `{:media_error, reason}`, when an upload fails
+- `{:media_removed, Media.t()}`, after a successful deletion
 
 Handle them in your LiveView via `handle_info/2`:
 
@@ -528,12 +528,12 @@ end
 
 ---
 
-## View Helpers
+## View helpers
 
 For rendering media in templates (both LiveView and standard views),
 PhxMediaLibrary provides rendering components.
 
-### Simple Image
+### Simple image
 
 ```heex
 <.media_img media={@media} class="rounded-lg" />
@@ -546,7 +546,7 @@ PhxMediaLibrary provides rendering components.
 > Pass `conversion={nil}` (or omit it) to use the original file, which always
 > exists.
 
-### Responsive Image
+### Responsive image
 
 ```heex
 <.responsive_img
@@ -557,7 +557,12 @@ PhxMediaLibrary provides rendering components.
 />
 ```
 
-### Picture Element (Art Direction)
+> Requires the collection to opt into responsive variants (`responsive: true`,
+> see [Collections & Conversions](collections-and-conversions.md#responsive-images)).
+> When the collection also serves WebP (`webp: true`), the generated `srcset` is
+> WebP automatically.
+
+### Picture element (art direction)
 
 ```heex
 <.picture

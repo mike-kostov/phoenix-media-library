@@ -1,4 +1,4 @@
-# Getting Started
+# Getting started
 
 This guide walks you through installing PhxMediaLibrary, configuring storage, and adding your first media files.
 
@@ -25,7 +25,7 @@ def deps do
 end
 ```
 
-> **Note:** The `:image` dependency (libvips) is **optional**. PhxMediaLibrary works for file storage (PDFs, CSVs, documents) without it. Image conversions and responsive images require `:image` to be installed. If it's missing, you'll get clear error messages guiding you to install it.
+> **Note:** The `:image` dependency (libvips) is optional. PhxMediaLibrary works for file storage (PDFs, CSVs, documents) without it. Image conversions and responsive images require `:image` to be installed. If it's missing, you'll get clear error messages that tell you how to install it.
 
 Then fetch dependencies:
 
@@ -54,7 +54,7 @@ config :phx_media_library,
 
 The `mediable_id` column stores the primary key of every associated model.
 Because Postgres is strict about column types, this must match the actual type
-of those PKs. Three values are supported:
+of those PKs. PhxMediaLibrary supports three values:
 
 | Value | Database column | Use when |
 |-------|----------------|----------|
@@ -72,20 +72,20 @@ config :phx_media_library,
 **Default and roadmap**
 
 The current default is `:binary_id`, kept for backwards compatibility with
-existing installations — no existing app needs to change anything.
+existing installations. No existing app needs to change anything.
 
-Starting in **0.8**, the default will change to `:string`. A `varchar` column
+Starting in 0.8, the default will change to `:string`. A `varchar` column
 accepts UUID strings, integer-to-string coercions, and slug values equally
-well, making it the best choice for a library used across diverse apps. The
+well. That makes it the best fit for a library used across many apps. The
 tradeoff is a marginal index overhead compared to a native `bigint` or `uuid`
 column on very large tables; if that matters, set `:integer` or `:binary_id`
 explicitly.
 
-**Recommendation for new apps:** set `:string` today. You will need no change
+For new apps, set `:string` today. You will need no change
 when 0.8 ships.
 
 ```elixir
-# New app — set explicitly now, nothing to change in 0.8
+# New app: set it explicitly now, no change needed if the default shifts later
 config :phx_media_library, mediable_id_type: :string
 
 # Integer PK app that prefers native bigint
@@ -103,9 +103,9 @@ mix phx_media_library.install --id-type string  # varchar column
 mix phx_media_library.install --id-type integer # bigint column
 ```
 
-### Storage Options
+### Storage options
 
-#### Local Disk (Default)
+#### Local disk (default)
 
 ```elixir
 config :phx_media_library,
@@ -139,7 +139,7 @@ config :ex_aws,
 
 See the [Storage guide](storage.md) for custom adapters and advanced configuration.
 
-### Responsive Images (Optional)
+### Responsive images (optional)
 
 ```elixir
 config :phx_media_library,
@@ -150,14 +150,14 @@ config :phx_media_library,
   ]
 ```
 
-### Async Processing with Oban (Optional)
+### Async processing with Oban (optional)
 
 ```elixir
 config :phx_media_library,
   async_processor: PhxMediaLibrary.AsyncProcessor.Oban
 ```
 
-## Run the Installer
+## Run the installer
 
 ```bash
 mix phx_media_library.install
@@ -173,7 +173,7 @@ mix phx_media_library.install --id-type integer  # bigint
 mix phx_media_library.install --id-type binary_id # uuid (default)
 ```
 
-## Tailwind CSS Setup
+## Tailwind CSS setup
 
 PhxMediaLibrary ships with styled LiveView components that use Tailwind CSS
 utility classes. For Tailwind v4 to detect and include these classes in your
@@ -185,7 +185,7 @@ CSS bundle, add the library's source path to your `assets/css/app.css`:
 @source "../js";
 @source "../../lib/my_app_web";
 
-/* PhxMediaLibrary — include both paths to support Hex deps and path deps.
+/* PhxMediaLibrary: include both paths to support Hex deps and path deps.
    Tailwind v4 silently ignores paths that don't exist. */
 @source "../../deps/phx_media_library/lib";
 @source "../../../phx_media_library/lib";
@@ -195,19 +195,19 @@ CSS bundle, add the library's source path to your `assets/css/app.css`:
 > `deps/phx_media_library/lib/`. When used as a path dependency (e.g.
 > `{:phx_media_library, path: "../phx_media_library"}`), it lives outside
 > your project's `deps/` folder. Tailwind v4 silently skips any `@source`
-> path that doesn't exist, so including both ensures the classes are scanned
-> regardless of how the dependency is consumed.
+> path that doesn't exist, so including both lets Tailwind scan the classes
+> no matter how the dependency is consumed.
 
-## Define Your Schema
+## Define your schema
 
-PhxMediaLibrary supports two styles for defining collections and conversions. You can use either — or mix them.
+PhxMediaLibrary supports two styles for defining collections and conversions. You can use either, or mix them.
 
-### Declarative DSL — nested style (recommended)
+### Declarative DSL, nested style (recommended)
 
 Nest `convert` calls inside `collection ... do ... end` blocks so it's
-immediately clear which conversions apply to which collections. Collections
-without image content (like `:documents`) omit the `do` block — no
-conversions will run for those uploads:
+clear which conversions apply to which collections. Collections
+without image content (like `:documents`) omit the `do` block, so no
+conversions run for those uploads:
 
 ```elixir
 defmodule MyApp.Post do
@@ -231,7 +231,7 @@ defmodule MyApp.Post do
       convert :banner, width: 1200, height: 400, fit: :crop
     end
 
-    # No conversions for documents — PDFs are stored as-is
+    # No conversions for documents, PDFs are stored as-is
     collection :documents, accepts: ~w(application/pdf text/plain)
 
     collection :avatar, single_file: true, fallback_url: "/images/default.png" do
@@ -241,10 +241,10 @@ defmodule MyApp.Post do
 end
 ```
 
-### Declarative DSL — flat style
+### Declarative DSL, flat style
 
 Define collections and conversions in separate blocks. **Always use the
-`:collections` option** to scope conversions explicitly — without it, a
+`:collections` option** to scope conversions explicitly. Without it, a
 conversion runs for every collection (including non-image ones like
 documents, which will cause processing errors):
 
@@ -312,7 +312,7 @@ post = Repo.get!(Post, id) |> Repo.preload([:media, :images, :avatar])
 
 Collection-scoped variants like `has_media(:images)` add a scoped `has_many` filtered by both model type and collection name.
 
-## Add Media
+## Add media
 
 ```elixir
 # From a file path
@@ -351,7 +351,7 @@ media = PhxMediaLibrary.to_collection!(adder, :images)
 > `file://` URLs, and automatically store the source URL in
 > `custom_properties["source_url"]`.
 
-## Retrieve Media
+## Retrieve media
 
 ```elixir
 # Get all media in a collection
@@ -376,7 +376,7 @@ PhxMediaLibrary.media_query(post, :images)
 |> Repo.all()
 ```
 
-## Metadata Extraction
+## Metadata extraction
 
 PhxMediaLibrary automatically extracts metadata from uploaded files and stores
 it in the `metadata` field:
@@ -420,7 +420,7 @@ config :phx_media_library, extract_metadata: false
 See the [Collections & Conversions](collections-and-conversions.md) guide for
 details on custom extractors and supported metadata fields.
 
-## Delete Media
+## Delete media
 
 ```elixir
 # Delete a single media item (removes files from storage too)
@@ -433,11 +433,11 @@ PhxMediaLibrary.delete(media)
 {:ok, count} = PhxMediaLibrary.clear_media(post)
 ```
 
-## Next Steps
+## Next steps
 
-- [Collections & Conversions](collections-and-conversions.md) — Validation rules, image processing, responsive images, metadata extraction
-- [LiveView Integration](liveview.md) — Drop-in upload and gallery components
-- [Storage](storage.md) — Multiple backends, custom adapters
-- [Error Handling](error-handling.md) — Tagged tuples, custom exceptions, MIME detection
-- [Telemetry](telemetry.md) — Monitoring and observability events (including download events)
-- [Advanced Usage](advanced.md) — Reordering, mix tasks, Oban setup, testing strategies
+- [Collections & Conversions](collections-and-conversions.md). Validation rules, image processing, responsive images, metadata extraction
+- [LiveView Integration](liveview.md). Drop-in upload and gallery components
+- [Storage](storage.md). Multiple backends, custom adapters
+- [Error Handling](error-handling.md). Tagged tuples, custom exceptions, MIME detection
+- [Telemetry](telemetry.md). Monitoring and observability events (including download events)
+- [Advanced Usage](advanced.md). Reordering, mix tasks, Oban setup, testing strategies

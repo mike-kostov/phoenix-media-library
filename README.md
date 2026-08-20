@@ -4,13 +4,13 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/phx_media_library)
 [![License](https://img.shields.io/hexpm/l/phx_media_library.svg)](https://github.com/mike-kostov/phx_media_library/blob/main/LICENSE)
 
-A robust, Ecto-backed media management library for Elixir and Phoenix, inspired by [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
+An Ecto-backed media library for Elixir and Phoenix, inspired by [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
 
-Associate files with any Ecto schema using a fluent, composable API — with
-collections, image conversions, LiveView components, and multiple storage
-backends out of the box.
+Associate files with any Ecto schema using a fluent, composable API. You get
+collections, image conversions, LiveView components, and several storage
+backends.
 
-## Quick Look
+## Quick look
 
 ```elixir
 defmodule MyApp.Post do
@@ -28,7 +28,8 @@ defmodule MyApp.Post do
   end
 
   media_collections do
-    collection :images, max_files: 20, max_size: 10_000_000
+    # webp: true serves WebP (keeps the original); responsive: true adds srcset variants
+    collection :images, max_files: 20, max_size: 10_000_000, webp: true, responsive: true
     collection :documents, accepts: ~w(application/pdf text/plain)
     collection :avatar, single_file: true, fallback_url: "/images/default.png"
   end
@@ -59,7 +60,7 @@ PhxMediaLibrary.delete(media)
 {:ok, count} = PhxMediaLibrary.clear_collection(post, :images)
 ```
 
-### LiveView — One-Line Uploads
+### LiveView uploads
 
 ```elixir
 defmodule MyAppWeb.PostLive.Edit do
@@ -102,11 +103,12 @@ end
 |----------|-------------|
 | **Schema integration** | Polymorphic `has_media()` macro, declarative DSL for collections & conversions |
 | **Collections** | MIME validation, file limits, size limits, single-file mode, fallback URLs |
-| **Image conversions** | Thumbnails, resizes, format conversion, responsive srcset — optional, works without libvips |
+| **Image conversions** | Thumbnails, resizes, format conversion, responsive `srcset`. Optional, works without libvips |
+| **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); responsive variants inherit WebP |
 | **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
 | **Remote URLs** | `add_from_url/3` with scheme validation, custom headers, timeout, download telemetry |
 | **Storage** | Local disk, S3, in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
-| **Streaming uploads** | Files streamed to storage in 64 KB chunks — never loaded entirely into memory |
+| **Streaming uploads** | Files streamed to storage in 64 KB chunks, never loaded entirely into memory |
 | **Direct S3 uploads** | `presigned_upload_url/3` + `complete_external_upload/4` for client-to-S3 without proxying |
 | **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2`, query scoping, and purge Mix task |
 | **Async processing** | Task (default) or Oban adapter with persistence, retries, and `process_sync/2` |
@@ -117,14 +119,14 @@ end
 | **Errors** | Tagged tuples + structured exceptions (`Error`, `StorageError`, `ValidationError`) |
 | **Queries** | `media_query/2` returns composable `Ecto.Query` |
 | **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` components |
-| **Mix tasks** | Install, regenerate conversions, clean orphans, purge deleted, generate migrations |
+| **Mix tasks** | Install, regenerate conversions / WebP / responsive variants, clean orphans, purge deleted, generate migrations |
 
 ## Installation
 
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.7.0"},
+    {:phx_media_library, "~> 0.8"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
@@ -147,9 +149,9 @@ config :phx_media_library,
   default_disk: :local,
 
   # Choose the column type that matches your models' primary key type.
-  # :binary_id — UUID (default, keeps existing installs working)
-  # :integer   — bigint (best performance for integer PK apps)
-  # :string    — varchar (works with any PK type; will become the default in 0.8)
+  # :binary_id  UUID (default, keeps existing installs working)
+  # :integer    bigint (best for integer PK apps)
+  # :string     varchar (works with any PK type; recommended for new apps)
   mediable_id_type: :string,
 
   disks: [
@@ -167,11 +169,11 @@ mix phx_media_library.install --id-type integer
 mix ecto.migrate
 ```
 
-> **`mediable_id_type`** controls the database column type for the polymorphic
-> foreign key. The current default is `:binary_id` (UUID) for backwards
-> compatibility. Starting in **0.8**, the default will change to `:string`,
-> which works out-of-the-box with any primary key type. New apps should set
-> `:string` explicitly today and will require no change on upgrade.
+> **`mediable_id_type`** sets the database column type for the polymorphic
+> foreign key. The default is `:binary_id` (UUID) for backwards compatibility.
+> `:string` works with any primary key type and is the best choice for new apps.
+> Set it explicitly today and you won't need to change anything if the default
+> shifts in a future release.
 
 > **Note:** The `:image` dependency is **optional**. PhxMediaLibrary works for
 > file storage without it. Image conversions require `:image` to be installed.
@@ -204,7 +206,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

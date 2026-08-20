@@ -1,15 +1,15 @@
 # Telemetry
 
-PhxMediaLibrary emits [Telemetry](https://hexdocs.pm/telemetry) events for all
-key operations, enabling monitoring, logging, and metrics collection in your
+PhxMediaLibrary emits [Telemetry](https://hexdocs.pm/telemetry) events for its
+key operations, so you can monitor, log, and collect metrics in your
 application. Every span follows the `:start` / `:stop` / `:exception`
 convention.
 
 ## Events
 
-All events are prefixed with `[:phx_media_library, ...]`.
+All event names begin with `[:phx_media_library, ...]`.
 
-### Media Addition
+### Media addition
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -17,7 +17,7 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :add, :stop]` | `%{duration: integer()}` | `%{collection: atom(), source_type: atom(), model: struct(), media: Media.t()}` |
 | `[:phx_media_library, :add, :exception]` | `%{duration: integer()}` | `%{collection: atom(), source_type: atom(), model: struct(), kind: atom(), reason: term(), stacktrace: list()}` |
 
-### Media Deletion
+### Media deletion
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -25,7 +25,7 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :delete, :stop]` | `%{duration: integer()}` | `%{media: Media.t()}` |
 | `[:phx_media_library, :delete, :exception]` | `%{duration: integer()}` | `%{media: Media.t(), kind: atom(), reason: term(), stacktrace: list()}` |
 
-### Image Conversions
+### Image conversions
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -33,7 +33,7 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :conversion, :stop]` | `%{duration: integer()}` | `%{media: Media.t(), conversion: atom()}` |
 | `[:phx_media_library, :conversion, :exception]` | `%{duration: integer()}` | `%{media: Media.t(), conversion: atom(), kind: atom(), reason: term(), stacktrace: list()}` |
 
-### Storage Operations
+### Storage operations
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -41,7 +41,7 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :storage, :stop]` | `%{duration: integer()}` | `%{operation: atom(), path: String.t(), adapter: module()}` |
 | `[:phx_media_library, :storage, :exception]` | `%{duration: integer()}` | `%{operation: atom(), path: String.t(), adapter: module(), kind: atom(), reason: term(), stacktrace: list()}` |
 
-### Batch Operations
+### Batch operations
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -49,9 +49,9 @@ All events are prefixed with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :batch, :stop]` | `%{duration: integer()}` | `%{operation: atom(), count: integer()}` |
 | `[:phx_media_library, :batch, :exception]` | `%{duration: integer()}` | `%{operation: atom(), count: integer(), kind: atom(), reason: term(), stacktrace: list()}` |
 
-### Remote Downloads
+### Remote downloads
 
-Emitted when media is added from a URL via `add_from_url/3`.
+Emitted when you add media from a URL via `add_from_url/3`.
 
 | Event | Measurements | Metadata |
 |-------|-------------|----------|
@@ -68,7 +68,7 @@ Emitted when media is added from a URL via `add_from_url/3`.
 > **Note:** Duration values are in native time units. Use
 > `System.convert_time_unit(duration, :native, :millisecond)` to convert.
 
-## Attaching Handlers
+## Attaching handlers
 
 Attach handlers in your application's `start/2` callback:
 
@@ -99,7 +99,7 @@ def start(_type, _args) do
 end
 ```
 
-## Example: Logging Handler
+## Example: logging handler
 
 ```elixir
 defmodule MyApp.TelemetryHandler do
@@ -157,7 +157,7 @@ defmodule MyApp.TelemetryHandler do
 end
 ```
 
-## Example: StatsD / Prometheus Metrics
+## Example: StatsD / Prometheus metrics
 
 If you use a metrics library like `telemetry_metrics`, you can define metrics
 declaratively:
@@ -216,11 +216,11 @@ defmodule MyAppWeb.Telemetry do
 end
 ```
 
-## Built-in Debug Logging
+## Built-in debug logging
 
 PhxMediaLibrary includes built-in debug-level Logger integration via
-`PhxMediaLibrary.Telemetry`. When your application's log level is set to
-`:debug`, you'll automatically see log lines for key operations without needing
-to attach any custom handlers.
+`PhxMediaLibrary.Telemetry`. When you set your application's log level to
+`:debug`, you'll see log lines for key operations without attaching any custom
+handlers.
 
 See the `PhxMediaLibrary.Telemetry` module documentation for full details.

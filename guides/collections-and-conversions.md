@@ -1,4 +1,4 @@
-# Collections & Conversions
+# Collections & conversions
 
 Collections organize your media into named groups with validation rules.
 Conversions automatically generate derived images (thumbnails, previews, etc.)
@@ -23,7 +23,7 @@ media_collections do
   # Limit number of files (oldest excess is removed)
   collection :gallery, max_files: 10
 
-  # Maximum file size (in bytes — 10 MB here)
+  # Maximum file size in bytes (10 MB here)
   collection :uploads, max_size: 10_000_000
 
   # Disable content-type verification (enabled by default)
@@ -37,7 +37,7 @@ media_collections do
 end
 ```
 
-### Collection Options
+### Collection options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -49,12 +49,14 @@ end
 | `:fallback_url` | `String.t()` | `nil` | URL returned when collection is empty |
 | `:fallback_path` | `String.t()` | `nil` | Filesystem path returned when collection is empty |
 | `:verify_content_type` | `boolean()` | `true` | Verify file content matches declared MIME type via magic bytes |
+| `:webp` | `boolean() \| keyword()` | inherits global | Transcode raster/HEIC uploads to WebP and serve them ([WebP Conversion](#webp-conversion)) |
+| `:responsive` | `boolean() \| keyword()` | inherits global | Generate multi-width `srcset` variants on add ([Responsive Images](#responsive-images)) |
 
-### Content-Type Verification
+### Content-Type verification
 
 By default, PhxMediaLibrary inspects the first bytes of every uploaded file
 (magic bytes) to detect the real MIME type. If the detected type doesn't match
-the declared content type, the upload is rejected with
+the declared content type, PhxMediaLibrary rejects the upload with
 `{:error, :content_type_mismatch}`. This covers 50+ formats including images,
 documents, audio, video, and archives.
 
@@ -83,7 +85,7 @@ config :phx_media_library,
   mime_detector: MyApp.MimeDetector
 ```
 
-### File Size Validation
+### File size validation
 
 The `:max_size` option rejects files before they reach storage. When used with
 LiveView, `allow_media_upload/3` automatically derives the `:max_file_size`
@@ -105,18 +107,17 @@ Conversions automatically generate derived images when media is added. They
 require the `:image` dependency (libvips).
 
 > **Important:** Always scope conversions to the collections they apply to.
-> Without scoping, a conversion runs for **every** collection — including
-> non-image collections like documents, which will cause processing errors.
+> Without scoping, a conversion runs for every collection, including
+> non-image collections like documents, which causes processing errors.
 > The nested syntax (recommended) handles this automatically. The flat syntax
 > requires an explicit `:collections` option on each conversion.
 
-### Nested Conversions (Recommended)
+### Nested conversions (recommended)
 
 The clearest way to define conversions is inside a `collection ... do ... end`
-block. Each conversion is automatically scoped to the enclosing collection —
-no need to pass `:collections` manually. Collections without image content
-(like `:documents`) simply omit the `do` block, so no conversions will ever
-run for those uploads:
+block. Each conversion is automatically scoped to the enclosing collection, so
+there's no need to pass `:collections` manually. Collections without image content
+(like `:documents`) omit the `do` block, so no conversions run for those uploads:
 
 ```elixir
 media_collections do
@@ -126,7 +127,7 @@ media_collections do
     convert :banner, width: 1200, height: 400, fit: :crop
   end
 
-  # No conversions for documents — just omit the do block
+  # No conversions for documents, just omit the do block
   collection :documents, accepts: ~w(application/pdf text/plain)
 
   collection :avatar, single_file: true do
@@ -138,9 +139,9 @@ end
 In this example:
 - `:thumb`, `:preview`, and `:banner` only run for `:images` uploads
 - `:thumb` also runs for `:avatar` uploads (defined separately in that block)
-- Nothing runs for `:documents` — PDFs are stored as-is
+- Nothing runs for `:documents`. PDFs are stored as-is
 
-### Flat Conversions
+### Flat conversions
 
 You can also define conversions in a separate `media_conversions` block.
 **Always use the `:collections` option** to scope each conversion explicitly:
@@ -153,7 +154,7 @@ media_collections do
 end
 
 media_conversions do
-  # Scoped to specific collections — always recommended
+  # Scoped to specific collections, always recommended
   convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
   convert :preview, width: 800, quality: 85, collections: [:images]
   convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
@@ -172,7 +173,7 @@ def media_conversions do
 end
 ```
 
-### Mixing Nested and Flat Styles
+### Mixing nested and flat styles
 
 You can combine both approaches. Use nested conversions for collection-specific
 transforms and a `media_conversions` block for anything else:
@@ -195,7 +196,7 @@ media_conversions do
 end
 ```
 
-### Conversion Options
+### Conversion options
 
 ```elixir
 convert :name,
@@ -207,7 +208,7 @@ convert :name,
   collections: [:images]   # Only apply to these collections
 ```
 
-### Fit Options
+### Fit options
 
 | Mode | Behaviour |
 |------|-----------|
@@ -216,7 +217,7 @@ convert :name,
 | `:fill` | Stretch to fill dimensions exactly |
 | `:crop` | Crop to exact dimensions from center |
 
-### Triggering Conversions Explicitly
+### Triggering conversions explicitly
 
 Conversions run automatically when media is added. You can also request specific
 conversions during the add pipeline:
@@ -228,7 +229,7 @@ post
 |> PhxMediaLibrary.to_collection(:images)
 ```
 
-### Regenerating Conversions
+### Regenerating conversions
 
 If you change conversion definitions, regenerate existing media:
 
@@ -238,9 +239,9 @@ mix phx_media_library.regenerate --collection images
 mix phx_media_library.regenerate --dry-run
 ```
 
-## Checksum & Integrity Verification
+## Checksum & integrity verification
 
-SHA-256 checksums are computed automatically during upload and stored alongside
+PhxMediaLibrary computes a SHA-256 checksum during upload and stores it alongside
 each media record.
 
 ```elixir
@@ -252,23 +253,96 @@ case PhxMediaLibrary.verify_integrity(media) do
 end
 ```
 
-## Responsive Images
+## WebP conversion
 
-Generate multiple sizes for optimal loading across devices.
+Transcode raster and HEIC/HEIF uploads to WebP for faster loads and better SEO.
+Unlike a `format: :webp` conversion (which produces a *named* derivative), this
+keeps the original and serves a co-located WebP automatically, so `<img src>` needs
+no change. Requires the `:image` (libvips) dependency; it no-ops when
+libvips is absent or the source isn't raster.
+
+Enable it per collection. `true` inherits the global config; a keyword overrides
+individual knobs:
 
 ```elixir
-# Enable when adding media
+media_collections do
+  collection :photos, webp: true                          # jpg/png/HEIC → served as WebP
+  collection :hero,   webp: [quality: 90, keep_original: false]
+end
+```
+
+Or turn it on globally (each knob overridable per collection):
+
+```elixir
+config :phx_media_library,
+  webp: [enabled: false, quality: 82, keep_original: true]
+```
+
+| Knob | Default | Description |
+|------|---------|-------------|
+| `:enabled` | `false` | Generate + serve WebP for the collection (implied by `webp: true`) |
+| `:quality` | `82` | WebP encoder quality (1-100) |
+| `:keep_original` | `true` | Keep the source file; `false` deletes it after conversions run |
+
+Behaviour when WebP is on:
+
+- On add, the original is kept as `media.file_name` and a `.webp` sibling is
+  generated in the same folder. URL helpers (`url/2`, `get_first_media_url/3`)
+  return the WebP via `custom_properties["webp"]`; they fall back to the original
+  when libvips is unavailable.
+- `keep_original: false` removes the source, but only after all conversions
+  (and responsive variants) have been derived from it. Deletion is strictly the
+  last step, so it is safe to combine with named conversions.
+- **HEIC/HEIF** (e.g. iPhone uploads): add `image/heic`/`image/heif` to
+  `:accepts`; libvips decodes them and the served WebP is browser-viewable while
+  the original HEIC is kept.
+
+Regenerate WebP from each media's original after changing `quality` (or after
+enabling WebP on existing media):
+
+```bash
+mix phx_media_library.regenerate_webp
+mix phx_media_library.regenerate_webp --collection photos --dry-run
+```
+
+> Regeneration reads the original, which is why `keep_original: true` is the
+> default. Media stored with `keep_original: false` have no source and are
+> skipped with a warning.
+
+## Responsive images
+
+Generate multiple sizes so browsers download an appropriately-sized image via
+`srcset`. Enable it per collection (the recommended path). `true` inherits
+the global widths, a keyword overrides them:
+
+```elixir
+media_collections do
+  collection :photos,  webp: true, responsive: true                  # WebP srcset, global widths
+  collection :banners, webp: true, responsive: [widths: [640, 1280, 2560]]
+end
+```
+
+When a collection also serves WebP, its responsive variants are WebP-encoded
+and the full-size `srcset` descriptor reuses the existing WebP sibling, so the
+whole `srcset` is WebP at no extra cost. Otherwise variants keep the source
+format.
+
+You can also request variants ad hoc for a single upload:
+
+```elixir
 post
 |> PhxMediaLibrary.add(upload)
 |> PhxMediaLibrary.with_responsive_images()
 |> PhxMediaLibrary.to_collection(:images)
 
-# Get srcset attribute
 PhxMediaLibrary.srcset(media)
-# => "uploads/posts/1/responsive/image-320.jpg 320w, ..."
+# => "…/responsive/image_320w.webp 320w, …/responsive/image_640w.webp 640w, …"
 ```
 
-Configure responsive image widths globally:
+Configure the default widths (and placeholder) globally. This global
+`:enabled` supplies defaults but does not auto-generate variants for every
+collection. Generation is opt-in via the per-collection `:responsive` flag (or
+`with_responsive_images/1`):
 
 ```elixir
 config :phx_media_library,
@@ -279,11 +353,12 @@ config :phx_media_library,
   ]
 ```
 
-Regenerate responsive images for existing media:
+Regenerate responsive variants for existing media (WebP-encoded when the media
+already serves WebP):
 
 ```bash
 mix phx_media_library.regenerate_responsive
-mix phx_media_library.regenerate_responsive --collection images
+mix phx_media_library.regenerate_responsive --collection photos
 ```
 
 See the [LiveView guide](liveview.md) for rendering responsive images with the

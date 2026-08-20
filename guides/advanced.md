@@ -1,13 +1,13 @@
-# Advanced Usage
+# Advanced usage
 
 This guide covers reordering, mix tasks, and testing strategies.
 
-## Reordering Media
+## Reordering media
 
 Media items within a collection have an `order_column` that controls their
 display order. PhxMediaLibrary provides two functions for managing order.
 
-### Reorder by ID List
+### Reorder by ID list
 
 Set the exact order for all items in a collection by passing an ordered list of
 IDs. This runs in a single database transaction:
@@ -21,7 +21,7 @@ IDs not present in the collection are silently ignored. Items whose IDs are not
 in the provided list keep their current order but are shifted after the
 explicitly ordered items.
 
-### Move a Single Item
+### Move a single item
 
 Move one media item to a specific 1-based position within its collection:
 
@@ -30,10 +30,10 @@ Move one media item to a specific 1-based position within its collection:
 {:ok, updated_media} = PhxMediaLibrary.move_to(media, 3)   # move to third
 ```
 
-The position is clamped to the valid range — passing a position larger than the
+The position is clamped to the valid range. Passing a position larger than the
 collection size moves the item to the end.
 
-### Drag-and-Drop Reordering
+### Drag-and-drop reordering
 
 A common pattern for LiveView drag-and-drop:
 
@@ -49,7 +49,7 @@ def handle_event("reorder", %{"ids" => ordered_ids}, socket) do
 end
 ```
 
-## Deleting Media
+## Deleting media
 
 ```elixir
 # Delete a single media item (removes files from storage too)
@@ -66,7 +66,7 @@ Both `clear_collection/2` and `clear_media/1` delete files from storage for
 each item, then remove all matching database records in a single `DELETE` query
 (avoiding N+1).
 
-## Mix Tasks
+## Mix tasks
 
 ### Install
 
@@ -76,7 +76,7 @@ Generate the `media` table migration with all required fields:
 mix phx_media_library.install
 ```
 
-### Regenerate Conversions
+### Regenerate conversions
 
 Regenerate derived images after changing conversion definitions:
 
@@ -86,26 +86,38 @@ mix phx_media_library.regenerate --collection images
 mix phx_media_library.regenerate --dry-run
 ```
 
-### Regenerate Responsive Images
+### Regenerate responsive images
 
 ```bash
 mix phx_media_library.regenerate_responsive
 mix phx_media_library.regenerate_responsive --collection images
 ```
 
-### Clean Orphaned Files
+### Regenerate WebP
+
+Re-derive the WebP sibling from each media's original using the current config
+(run after changing `quality` or enabling WebP on existing media). Media stored
+with `keep_original: false` have no source, so the task skips them and logs a
+warning.
+
+```bash
+mix phx_media_library.regenerate_webp
+mix phx_media_library.regenerate_webp --collection photos --dry-run
+```
+
+### Clean orphaned files
 
 Remove files from storage that no longer have a corresponding database record:
 
 ```bash
-# Dry run — see what would be deleted
+# Dry run: see what would be deleted
 mix phx_media_library.clean
 
 # Actually delete
 mix phx_media_library.clean --force
 ```
 
-### Generate Custom Migration
+### Generate custom migration
 
 Add custom fields to the media table:
 
@@ -113,7 +125,7 @@ Add custom fields to the media table:
 mix phx_media_library.gen.migration add_blurhash_field
 ```
 
-## Oban Setup for Async Conversions
+## Oban setup for async conversions
 
 By default, PhxMediaLibrary uses `Task.Supervisor` for background conversion
 processing. This is fine for development but doesn't survive restarts or
@@ -164,7 +176,7 @@ children = [
 ]
 ```
 
-### How It Works
+### How it works
 
 When media is uploaded and conversions are defined, PhxMediaLibrary enqueues an
 Oban job with the media ID, conversion names, and the `mediable_type`. The
@@ -175,13 +187,13 @@ Oban job with the media ID, conversion names, and the `mediable_type`. The
 3. Retrieves the full `Conversion` definitions (width, height, quality, fit, etc.)
 4. Processes each conversion and updates the media record
 
-### Retry Behaviour
+### Retry behaviour
 
 The worker is configured with `max_attempts: 3`. Failed jobs use Oban's default
 exponential backoff. You can monitor failed jobs via `Oban.Web` or your own
 telemetry handlers.
 
-### Synchronous Processing
+### Synchronous processing
 
 If you need conversions to complete immediately (e.g. generating a thumbnail
 before returning a response), call `process_sync/2` directly:
@@ -192,7 +204,7 @@ PhxMediaLibrary.AsyncProcessor.Oban.process_sync(media, conversions)
 
 ## Testing
 
-### In-Memory Storage
+### In-memory storage
 
 For tests, use the in-memory storage adapter to avoid filesystem side effects:
 
@@ -213,7 +225,7 @@ Start the memory storage agent in your `test_helper.exs`:
 {:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
 ```
 
-### Test Fixtures
+### Test fixtures
 
 Create test fixture files in `test/support/fixtures/` and use them in your
 tests:
@@ -229,7 +241,7 @@ defmodule MyApp.MediaFixtures do
 end
 ```
 
-### Testing Media Addition
+### Testing media addition
 
 ```elixir
 defmodule MyApp.PostMediaTest do
@@ -270,7 +282,7 @@ defmodule MyApp.PostMediaTest do
 end
 ```
 
-### Testing with Telemetry
+### Testing with telemetry
 
 Attach telemetry handlers in tests to verify events are emitted:
 
@@ -302,7 +314,7 @@ test "emits telemetry on media add" do
 end
 ```
 
-### Temporary Directory Pattern
+### Temporary directory pattern
 
 For tests that need real files on disk, use the `tmp_dir` ExUnit tag:
 

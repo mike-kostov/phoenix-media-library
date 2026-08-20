@@ -1,12 +1,12 @@
 # Storage
 
 PhxMediaLibrary abstracts file storage behind behaviours, so you can swap
-backends without changing application code. Out of the box it ships with local
+backends without changing application code. It ships with local
 disk, Amazon S3, and an in-memory adapter for tests.
 
-## Configuring Storage
+## Configuring storage
 
-Storage is configured via **disks** — named backend configurations. Set a
+You configure storage with **disks**, named backend configurations. Set a
 default disk and define one or more named disks:
 
 ```elixir
@@ -22,9 +22,9 @@ config :phx_media_library,
   ]
 ```
 
-### Local Disk
+### Local disk
 
-The default adapter. Files are stored on the local filesystem.
+The default adapter. It stores files on the local filesystem.
 
 | Option | Required | Description |
 |--------|----------|-------------|
@@ -65,9 +65,9 @@ config :ex_aws,
   secret_access_key: {:system, "AWS_SECRET_ACCESS_KEY"}
 ```
 
-### In-Memory (Testing)
+### In-memory (testing)
 
-Stores files in a process-backed map. Perfect for fast, isolated tests with no
+Stores files in a process-backed map. Tests run fast and isolated, with no
 filesystem side effects.
 
 ```elixir
@@ -87,7 +87,7 @@ Start the memory agent in your `test_helper.exs`:
 {:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
 ```
 
-## Per-Collection Disk Override
+## Per-collection disk override
 
 Individual collections can use a different disk than the default:
 
@@ -99,9 +99,9 @@ media_collections do
 end
 ```
 
-## Multiple Disks
+## Multiple disks
 
-You can define as many disks as you need — for example, a local disk for
+You can define as many disks as you need, for example a local disk for
 development and S3 for production:
 
 ```elixir
@@ -121,12 +121,12 @@ config :phx_media_library,
     ]
   ]
 
-# config/prod.exs — override the default in production
+# config/prod.exs: override the default in production
 config :phx_media_library,
   default_disk: :s3
 ```
 
-## Custom Storage Adapters
+## Custom storage adapters
 
 Implement the `PhxMediaLibrary.Storage` behaviour to add your own backend
 (e.g. Google Cloud Storage, Azure Blob, SFTP):
@@ -180,7 +180,7 @@ config :phx_media_library,
   ]
 ```
 
-### Behaviour Callbacks
+### Behaviour callbacks
 
 | Callback | Signature | Returns | Description |
 |----------|-----------|---------|-------------|
@@ -194,7 +194,7 @@ The `opts` map contains the disk configuration options (e.g. `:root`,
 `:base_url`, `:bucket`) so your adapter can read them at runtime without
 relying on global config.
 
-## Path Structure
+## Path structure
 
 PhxMediaLibrary stores files using a predictable path convention:
 
@@ -212,8 +212,8 @@ images/42/conversions/thumb/photo.jpg
 images/42/responsive/photo-320.jpg
 ```
 
-Original filenames provided by users are sanitized for safety. The original
-name is preserved in the database `file_name` field for display purposes.
+For safety, PhxMediaLibrary sanitizes the filenames users provide. It preserves
+the original name in the database `file_name` field for display.
 
 ## Telemetry
 

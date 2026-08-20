@@ -1,16 +1,16 @@
-# Error Handling
+# Error handling
 
 PhxMediaLibrary uses tagged tuples for all operations that can fail, and provides
-structured exception types with rich metadata for programmatic error handling.
+structured exception types with metadata for programmatic error handling.
 
-## Tagged Tuples
+## Tagged tuples
 
 All fallible functions return `{:ok, result}` or `{:error, reason}`:
 
 ```elixir
 case PhxMediaLibrary.to_collection(adder, :images) do
   {:ok, media} ->
-    # Success — media was stored and persisted
+    # Success: media was stored and persisted
 
   {:error, :invalid_mime_type} ->
     # File type not accepted by collection's :accepts list
@@ -25,11 +25,11 @@ case PhxMediaLibrary.to_collection(adder, :images) do
     # Source file doesn't exist on disk
 
   {:error, changeset} ->
-    # Ecto validation error — inspect changeset.errors for details
+    # Ecto validation error, inspect changeset.errors for details
 end
 ```
 
-### Bang Versions
+### Bang versions
 
 Functions that return tagged tuples have `!` bang counterparts that raise on
 error:
@@ -42,7 +42,7 @@ error:
 media = PhxMediaLibrary.to_collection!(adder, :images)
 ```
 
-## Common Error Reasons
+## Common error reasons
 
 | Error | When it occurs |
 |-------|---------------|
@@ -53,7 +53,7 @@ media = PhxMediaLibrary.to_collection!(adder, :images)
 | `:not_found` | Media record not found in database |
 | `%Ecto.Changeset{}` | Database validation failure |
 
-## Custom Exception Types
+## Custom exception types
 
 PhxMediaLibrary provides three structured exception types, each with fields
 designed for programmatic handling, logging, and user-facing messages.
@@ -117,7 +117,7 @@ human-readable units:
 | `:value` | `term()` | The actual value that was rejected |
 | `:constraint` | `term()` | The constraint that was violated |
 
-### Rescuing Exceptions
+### Rescuing exceptions
 
 ```elixir
 try do
@@ -134,30 +134,30 @@ rescue
 end
 ```
 
-## Content-Based MIME Detection
+## Content-based MIME detection
 
 PhxMediaLibrary uses magic-bytes inspection to verify uploaded files are what
 they claim to be. This prevents attacks like renaming an executable to `.jpg`.
 
-### How It Works
+### How it works
 
 1. The detector reads the first bytes of the file content
 2. It matches against known magic byte signatures (50+ formats)
 3. If a match is found, that becomes the detected MIME type
 4. If no match, it falls back to extension-based detection
-5. If `:verify_content_type` is `true` (the default), the detected type is
-   compared to the declared type — mismatches are rejected
+5. If `:verify_content_type` is `true` (the default), it compares the detected
+   type to the declared type and rejects any mismatch
 
-### Supported Format Categories
+### Supported format categories
 
-- **Images** — JPEG, PNG, GIF, WebP, BMP, TIFF, ICO, SVG, AVIF, HEIC, and more
-- **Documents** — PDF, Office formats (docx, xlsx, pptx), RTF
-- **Audio** — MP3, WAV, FLAC, OGG, AAC, MIDI
-- **Video** — MP4, WebM, AVI, MKV, MOV
-- **Archives** — ZIP, GZIP, TAR, RAR, 7z, BZIP2, XZ, ZSTD
-- **Executables** — ELF, Mach-O, PE/EXE (detected and rejectable)
+- **Images.** JPEG, PNG, GIF, WebP, BMP, TIFF, ICO, SVG, AVIF, HEIC, and more
+- **Documents.** PDF, Office formats (docx, xlsx, pptx), RTF
+- **Audio.** MP3, WAV, FLAC, OGG, AAC, MIDI
+- **Video.** MP4, WebM, AVI, MKV, MOV
+- **Archives.** ZIP, GZIP, TAR, RAR, 7z, BZIP2, XZ, ZSTD
+- **Executables.** ELF, Mach-O, PE/EXE (detected and rejectable)
 
-### Disabling Verification
+### Disabling verification
 
 Per-collection:
 
@@ -172,7 +172,7 @@ config :phx_media_library,
   verify_content_type: false
 ```
 
-### Custom Detector
+### Custom detector
 
 Implement the `PhxMediaLibrary.MimeDetector` behaviour to provide your own
 detection logic:
