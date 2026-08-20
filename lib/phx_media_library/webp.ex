@@ -20,17 +20,21 @@ defmodule PhxMediaLibrary.Webp do
   def convertible?(_), do: false
 
   @doc """
-  Transcode `source_path` (a local file) to WebP, store it beside the original at
-  `orig_storage_path` (`…/name.webp`), and update `media` per `settings`
-  (`:quality`, `:keep_original`).
+  Transcode `source_path` (a local file) to WebP and store it beside the original
+  at `orig_storage_path` (`…/name.webp`), recording it in
+  `custom_properties["webp"]` so URL helpers serve it. `settings` carries
+  `:quality`.
 
-  Returns the updated media, or the original media unchanged on any
-  processor/storage error (graceful degradation — the original is still served).
+  The source file is always kept here — for `keep_original: false` the original
+  is removed later by the add flow, **after** conversions run (so conversions
+  still derive from the original and nothing is deleted before them).
+
+  Returns the updated media, or the media unchanged on any processor/storage
+  error (graceful degradation — the original is still served).
   """
   @spec generate(map(), String.t(), keyword(), term(), String.t()) :: map()
   def generate(media, source_path, settings, storage, orig_storage_path) do
     quality = Keyword.get(settings, :quality, 82)
-    keep_original? = Keyword.get(settings, :keep_original, true)
     processor = Config.image_processor()
     webp_path = Path.rootname(orig_storage_path) <> ".webp"
     tmp = Path.join(System.tmp_dir!(), "#{media.uuid}-#{System.unique_integer([:positive])}.webp")
@@ -48,40 +52,14 @@ defmodule PhxMediaLibrary.Webp do
     _ = File.rm(tmp)
 
     case result do
-      {:ok, wpath, content} ->
-        apply_result(media, wpath, content, keep_original?, storage, orig_storage_path)
+      {:ok, wpath, _content} ->
+        props = Map.put(media.custom_properties || %{}, "webp", wpath)
+        {:ok, media} = media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
+        media
 
       other ->
         Logger.warning("[webp] generation failed for media #{inspect(media.id)}: #{inspect(other)}")
         media
     end
-  end
-
-  # keep_original: true — original stays as the primary file; WebP sibling is
-  # recorded in custom_properties so URL helpers serve it.
-  defp apply_result(media, webp_path, _content, true, _storage, _orig) do
-    props = Map.put(media.custom_properties || %{}, "webp", webp_path)
-
-    {:ok, media} =
-      media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
-
-    media
-  end
-
-  # keep_original: false — replace the original with the WebP.
-  defp apply_result(media, webp_path, content, false, storage, orig) do
-    if orig != webp_path, do: StorageWrapper.delete(storage, orig)
-
-    {:ok, media} =
-      media
-      |> Ecto.Changeset.change(
-        file_name: Path.basename(webp_path),
-        mime_type: "image/webp",
-        size: byte_size(content),
-        checksum: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
-      )
-      |> Config.repo().update()
-
-    media
   end
 end

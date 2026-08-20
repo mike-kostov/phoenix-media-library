@@ -27,20 +27,26 @@ defmodule PhxMediaLibrary.WebpTest do
       File.rm(jpg)
     end
 
-    test "keep_original: false — original replaced by the WebP" do
+    test "keep_original: false — source removed after conversions, WebP served" do
       post = create_test_post()
       png = create_temp_image(format: :png, width: 60, height: 60)
 
+      # :webp_only inherits the thumb/preview conversions — this exercises the
+      # ordering: conversions (from the source) must run before the source is
+      # deleted. It must not raise.
       assert {:ok, media} =
                post
                |> PhxMediaLibrary.add(png)
                |> PhxMediaLibrary.to_collection(:webp_only, disk: :local)
 
-      assert String.ends_with?(media.file_name, ".webp")
-      assert media.mime_type == "image/webp"
+      # WebP is served
+      assert %{"webp" => _} = media.custom_properties
       assert String.ends_with?(PhxMediaLibrary.url(media), ".webp")
-      # checksum reflects the served (WebP) bytes
-      assert is_binary(media.checksum)
+
+      # the source file was deleted — but only AFTER conversions produced their
+      # thumbnails from it (proving deletion is the last step, not before).
+      refute File.exists?(PhxMediaLibrary.PathGenerator.full_path(media, nil))
+      assert map_size(PhxMediaLibrary.Config.repo().reload!(media).generated_conversions) > 0
 
       File.rm(png)
     end

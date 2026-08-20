@@ -25,12 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   end
   ```
 
-  With `keep_original: true` (default) the source is kept and the WebP is served
-  automatically by `url/2` (`custom_properties["webp"]`); `false` replaces the
-  source. Requires the optional `:image` (libvips) dependency — features
-  no-op gracefully when it is absent, and any conversion error falls back to
-  serving the original. **iPhone HEIC/HEIF** uploads are converted to
-  browser-viewable WebP.
+  With `keep_original: true` (default) the source is kept; `false` removes it —
+  but only **after** conversions run (conversions derive from the source, so
+  they are generated first and the deletion is strictly last; safe to combine
+  with named conversions). Either way the WebP is served automatically by
+  `url/2` via `custom_properties["webp"]`, so `<img src>` needs no change.
+  Requires the optional `:image` (libvips) dependency — features no-op
+  gracefully when it is absent, and any conversion error falls back to serving
+  the original. **iPhone HEIC/HEIF** uploads are converted to browser-viewable
+  WebP.
 - **`mix phx_media_library.regenerate_webp`** — re-derive WebP from each media's
   original using the current config (run after changing `quality`). Media stored
   with `keep_original: false` have no source and are skipped with a warning.
@@ -41,9 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - WebP is **opt-in**; upgrading from 0.7.x changes nothing until a collection
   enables it.
-- Known limitation: `keep_original: false` combined with named conversions on the
-  same collection can race the async conversion task against source deletion —
-  prefer `keep_original: true` on collections that also define conversions.
+- With `keep_original: false`, `file_name`/`mime_type` still describe the source
+  (the WebP is served via `custom_properties["webp"]`); the source file is
+  removed after conversions. `regenerate_webp` skips such media (no source).
 
 ## [0.7.0] - 2026-08-09
 

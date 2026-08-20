@@ -120,8 +120,7 @@ defmodule PhxMediaLibrary.MediaAdder do
              {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
              {:ok, media} <-
                store_and_persist(adder, collection_name, file_info, metadata, opts) do
-          # Trigger async conversion processing
-          maybe_process_conversions(adder.model, media, collection_name)
+          media = process_conversions_and_finalize_webp(adder, media, collection_name)
           {:ok, media}
         end
 
@@ -612,12 +611,48 @@ defmodule PhxMediaLibrary.MediaAdder do
     |> Config.repo().insert()
   end
 
-  defp maybe_process_conversions(model, media, collection_name) do
-    conversions = get_conversions_for(model, collection_name)
+  # Dispatch conversions, then (for WebP keep_original: false) delete the source.
+  #
+  # Conversions derive from the original (`Conversions.process` opens the source),
+  # so when keep_original: false will remove that source we MUST run conversions
+  # first and delete last — never before. In that case conversions run
+  # synchronously so the deletion is strictly ordered after them; otherwise they
+  # stay async and the original is retained.
+  defp process_conversions_and_finalize_webp(adder, media, collection_name) do
+    conversions = get_conversions_for(adder.model, collection_name)
+    replace_original? = has_webp?(media) and not webp_keep_original?(adder.model, collection_name)
 
-    if conversions != [] do
-      Config.async_processor().process_async(media, conversions)
+    cond do
+      replace_original? and conversions != [] ->
+        Config.async_processor().process_sync(media, conversions)
+        delete_source_file(media)
+
+      replace_original? ->
+        delete_source_file(media)
+
+      conversions != [] ->
+        Config.async_processor().process_async(media, conversions)
+        media
+
+      true ->
+        media
     end
+  end
+
+  defp has_webp?(%{custom_properties: %{"webp" => _}}), do: true
+  defp has_webp?(_), do: false
+
+  defp webp_keep_original?(model, collection_name) do
+    Keyword.get(webp_settings(model, collection_name), :keep_original, true)
+  end
+
+  # Remove the source file after its WebP + conversions exist (keep_original:
+  # false). file_name is left pointing at the (now-absent) source; URL helpers
+  # serve the WebP via custom_properties, so nothing reads it.
+  defp delete_source_file(media) do
+    storage = Config.storage_adapter(media.disk)
+    StorageWrapper.delete(storage, PathGenerator.relative_path(media, nil))
+    media
   end
 
   # Helper functions
