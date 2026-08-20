@@ -104,12 +104,19 @@ defmodule PhxMediaLibrary.UrlGenerator do
     {cache_bust, adapter_opts} = Keyword.pop(opts, :cache_bust, false)
 
     storage = Config.storage_adapter(media.disk)
-    relative_path = PathGenerator.relative_path(media, conversion)
+    relative_path = served_path(media, conversion)
 
     base_url = StorageWrapper.url(storage, relative_path, adapter_opts)
 
     maybe_add_cache_bust(base_url, media.checksum, cache_bust)
   end
+
+  # When a WebP derivative was generated for the original (keep_original: true),
+  # serve it instead of the source file. Named conversions resolve normally.
+  defp served_path(%Media{custom_properties: %{"webp" => webp}}, nil) when is_binary(webp),
+    do: webp
+
+  defp served_path(media, conversion), do: PathGenerator.relative_path(media, conversion)
 
   @doc """
   Generate a URL for a specific path (used for responsive images / poster

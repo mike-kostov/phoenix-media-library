@@ -424,11 +424,101 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
+      # Generate a WebP derivative and prefer it for serving when the collection
+      # opts in (config :phx_media_library, :webp / per-collection override).
+      # Reads the source temp, so it must run before cleanup below.
+      media =
+        maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder)
+
       # Cleanup temp file if needed
       if file_info.temp, do: File.rm(file_info.path)
 
       {:ok, media}
     end
+  end
+
+  # ── WebP conversion (0.8) ───────────────────────────────────────────────────
+
+  # Raster formats libvips can decode into WebP. Excludes SVG (vector) and WebP
+  # (already WebP). image/heic + image/heif cover iPhone uploads.
+  @webp_convertible ~w(image/jpeg image/png image/heic image/heif image/tiff image/bmp image/gif)
+
+  defp maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder) do
+    settings = webp_settings(adder.model, collection_name)
+
+    if Keyword.get(settings, :enabled, false) and file_info.mime_type in @webp_convertible do
+      generate_webp(media, file_info, settings, storage, storage_path)
+    else
+      media
+    end
+  end
+
+  defp webp_settings(model, collection_name) do
+    override =
+      case get_collection_config(model, collection_name) do
+        %PhxMediaLibrary.Collection{webp: webp} -> webp
+        _ -> nil
+      end
+
+    Config.resolve_webp(override)
+  end
+
+  defp generate_webp(media, file_info, settings, storage, storage_path) do
+    processor = Config.image_processor()
+    quality = Keyword.get(settings, :quality, 82)
+    keep_original? = Keyword.get(settings, :keep_original, true)
+    webp_path = Path.rootname(storage_path) <> ".webp"
+    webp_tmp = Path.join(System.tmp_dir!(), "#{media.uuid}.webp")
+
+    result =
+      with {:ok, image} <- processor.open(file_info.path),
+           # save to a `.webp` path — libvips picks the encoder by extension, so
+           # the destination path (not just `format:`) must be `.webp`.
+           {:ok, _} <- processor.save(image, webp_tmp, format: :webp, quality: quality),
+           {:ok, content} <- File.read(webp_tmp),
+           :ok <- StorageWrapper.put(storage, webp_path, content) do
+        {:ok, webp_path, content}
+      end
+
+    _ = File.rm(webp_tmp)
+
+    case result do
+      {:ok, wpath, content} ->
+        apply_webp(media, wpath, content, keep_original?, storage, storage_path)
+
+      # Graceful: on any processor error keep the original and serve it as-is.
+      _ ->
+        media
+    end
+  end
+
+  # keep_original: true — original stays as the primary file; WebP is a sibling
+  # recorded in custom_properties so URL helpers serve it.
+  defp apply_webp(media, webp_path, _content, true, _storage, _orig_path) do
+    props = Map.put(media.custom_properties || %{}, "webp", webp_path)
+
+    {:ok, media} =
+      media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
+
+    media
+  end
+
+  # keep_original: false — replace the original with the WebP (delete the source
+  # file; the WebP becomes file_name, so URL/delete resolve to it directly).
+  defp apply_webp(media, webp_path, content, false, storage, orig_path) do
+    _ = StorageWrapper.delete(storage, orig_path)
+
+    {:ok, media} =
+      media
+      |> Ecto.Changeset.change(
+        file_name: Path.basename(webp_path),
+        mime_type: "image/webp",
+        size: byte_size(content),
+        checksum: :crypto.hash(:sha256, content) |> Base.encode16(case: :lower)
+      )
+      |> Config.repo().update()
+
+    media
   end
 
   # Stream a file to storage while computing its SHA-256 checksum in a
