@@ -14,6 +14,9 @@ config :phx_media_library, PhxMediaLibrary.TestRepo,
 
 config :phx_media_library,
   repo: PhxMediaLibrary.TestRepo,
+  # Run conversions inline so they complete within each test (no Task.Supervisor
+  # tasks outliving the sandbox → no stale/disconnect noise).
+  async_processor: PhxMediaLibrary.AsyncProcessor.Inline,
   default_disk: :memory,
   disks: [
     memory: [

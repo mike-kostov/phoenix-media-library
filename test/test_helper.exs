@@ -1,4 +1,7 @@
-ExUnit.start()
+# capture_log: keep the suite output clean — logs (incl. the deliberate error/
+# warning paths several tests exercise) are captured and only printed when a
+# test actually fails.
+ExUnit.start(capture_log: true)
 
 # Configure the library for testing
 Application.put_env(:phx_media_library, :repo, PhxMediaLibrary.TestRepo)

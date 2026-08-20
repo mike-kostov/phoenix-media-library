@@ -19,7 +19,10 @@ defmodule PhxMediaLibrary.Conversions do
   # path (memory, S3 without a downloaded copy) return nil from `full_path` —
   # skip with a warning instead of crashing on `Image.open(nil)`.
   defp no_local_source(%Media{} = media) do
-    Logger.warning(
+    # Documented limitation (not an error): conversions read a local source, so
+    # disks without a filesystem path (`:memory`, S3 without a local copy) can't
+    # produce them. Debug-level so it never spams a correctly-configured app.
+    Logger.debug(
       "[PhxMediaLibrary] conversions need a local source file; disk " <>
         "#{inspect(media.disk)} has none for media #{inspect(media.id)} — skipping"
     )
@@ -32,7 +35,21 @@ defmodule PhxMediaLibrary.Conversions do
   """
   @spec process(Media.t(), [Conversion.t()]) :: :ok | {:error, term()}
   def process(%Media{} = media, conversions) do
-    process(media, conversions, PathGenerator.full_path(media, nil))
+    # Re-read fresh: between enqueue and processing the media may have been
+    # deleted or updated (a real race — and common with async tasks in tests).
+    # Working from the current row avoids Ecto.StaleEntryError on the conversion
+    # and responsive updates below.
+    case Config.repo().get(Media, media.id) do
+      nil ->
+        Logger.debug(
+          "[PhxMediaLibrary] media #{inspect(media.id)} no longer exists — skipping conversions"
+        )
+
+        :ok
+
+      fresh ->
+        process(fresh, conversions, PathGenerator.full_path(fresh, nil))
+    end
   end
 
   defp process(%Media{} = media, _conversions, nil), do: no_local_source(media)

@@ -39,12 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with `keep_original: false` have no source and are skipped with a warning.
 - `PhxMediaLibrary.Config.resolve_webp/1` and `resolve_responsive/1` — resolve
   effective per-collection settings (per-collection over global over defaults).
+- `PhxMediaLibrary.AsyncProcessor.Inline` — a synchronous conversion processor
+  (runs conversions inline, no `Task.Supervisor`); handy for tests, scripts, or
+  small apps. Enable with
+  `config :phx_media_library, async_processor: PhxMediaLibrary.AsyncProcessor.Inline`.
 
 ### Fixed
 
+- Conversions are now resilient to their media changing between enqueue and
+  processing: `Conversions.process/2` re-reads the current row (skipping if the
+  media was deleted), avoiding `Ecto.StaleEntryError` on the async path.
 - Conversions no longer crash (`Image.open(nil)` → `Enumerable not implemented`)
-  on disks without a local source path (`:memory`, S3): `Conversions.process/2`
-  and `process_single/2` now skip with a warning when `full_path` is `nil`.
+  on disks without a local source path (`:memory`, S3): `process/2` and
+  `process_single/2` skip (debug-logged) when `full_path` is `nil`.
 
 ### Notes
 
