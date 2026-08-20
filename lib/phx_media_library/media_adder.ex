@@ -396,17 +396,25 @@ defmodule PhxMediaLibrary.MediaAdder do
       # Handle single file collections
       maybe_cleanup_collection(adder.model, collection_name, media)
 
-      # Generate responsive images if requested
+      # Generate a WebP derivative FIRST and prefer it for serving when the
+      # collection opts in (config :phx_media_library, :webp / per-collection
+      # override). Must run before responsive so variants inherit the .webp
+      # encoding. Reads the source temp, so it must run before cleanup below.
       media =
-        if adder.generate_responsive and image?(file_info.mime_type) do
-          generate_responsive_images(media)
+        maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder)
+
+      # Generate responsive images when the collection opts in (config
+      # :phx_media_library, :responsive / per-collection override) or the adder
+      # requested them via with_responsive_images/1. Variants inherit WebP when
+      # the media serves it (see the WebP step above).
+      media =
+        if responsive_enabled?(adder, collection_name) and image?(file_info.mime_type) do
+          generate_responsive_images(media, responsive_widths(adder.model, collection_name))
         else
           media
         end
 
       # Generate blurhash placeholder when enabled and Image is available.
-      # Runs after responsive images so the same open/resize work could
-      # theoretically be shared; kept separate for clarity.
       media =
         if image?(file_info.mime_type) and Config.blurhash_enabled?() do
           maybe_generate_blurhash(media, file_info.path)
@@ -423,12 +431,6 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
-      # Generate a WebP derivative and prefer it for serving when the collection
-      # opts in (config :phx_media_library, :webp / per-collection override).
-      # Reads the source temp, so it must run before cleanup below.
-      media =
-        maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder)
-
       # Cleanup temp file if needed
       if file_info.temp, do: File.rm(file_info.path)
 
@@ -441,7 +443,8 @@ defmodule PhxMediaLibrary.MediaAdder do
   defp maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder) do
     settings = webp_settings(adder.model, collection_name)
 
-    if Keyword.get(settings, :enabled, false) and PhxMediaLibrary.Webp.convertible?(file_info.mime_type) do
+    if Keyword.get(settings, :enabled, false) and
+         PhxMediaLibrary.Webp.convertible?(file_info.mime_type) do
       PhxMediaLibrary.Webp.generate(media, file_info.path, settings, storage, storage_path)
     else
       media
@@ -456,6 +459,35 @@ defmodule PhxMediaLibrary.MediaAdder do
       end
 
     Config.resolve_webp(override)
+  end
+
+  # Responsive on add is opt-in per collection (the `responsive:` field) or via
+  # with_responsive_images/1. The global `responsive_images` config supplies the
+  # default widths but — unlike WebP — does NOT auto-enable generation for every
+  # collection, preserving the historical behaviour (only an explicit request
+  # generated variants). The resolved `:enabled` still gates on libvips being
+  # available, so an opt-in silently no-ops when the image lib is missing.
+  defp responsive_enabled?(adder, collection_name) do
+    override = collection_responsive_override(adder.model, collection_name)
+    opted_in? = adder.generate_responsive or responsive_override_enabled?(override)
+
+    opted_in? and Keyword.get(Config.resolve_responsive(override), :enabled, false)
+  end
+
+  defp responsive_override_enabled?(true), do: true
+  defp responsive_override_enabled?(kw) when is_list(kw), do: Keyword.get(kw, :enabled, true)
+  defp responsive_override_enabled?(_), do: false
+
+  defp responsive_widths(model, collection_name) do
+    override = collection_responsive_override(model, collection_name)
+    Keyword.get(Config.resolve_responsive(override), :widths)
+  end
+
+  defp collection_responsive_override(model, collection_name) do
+    case get_collection_config(model, collection_name) do
+      %PhxMediaLibrary.Collection{responsive: responsive} -> responsive
+      _ -> nil
+    end
   end
 
   # Stream a file to storage while computing its SHA-256 checksum in a
@@ -569,8 +601,8 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp coerce_float(_), do: 0.0
 
-  defp generate_responsive_images(media) do
-    case PhxMediaLibrary.ResponsiveImages.generate(media, nil) do
+  defp generate_responsive_images(media, widths) do
+    case PhxMediaLibrary.ResponsiveImages.generate(media, nil, widths: widths) do
       {:ok, responsive_data} ->
         {:ok, updated} =
           media

@@ -20,6 +20,8 @@ defmodule PhxMediaLibrary.TestPost do
     has_media(:unverified)
     has_media(:webp_photos)
     has_media(:webp_only)
+    has_media(:responsive_webp)
+    has_media(:responsive_plain)
 
     timestamps(type: :utc_datetime)
   end
@@ -35,6 +37,17 @@ defmodule PhxMediaLibrary.TestPost do
       collection(:webp_photos, webp: true, accepts: ~w(image/jpeg image/png image/webp)),
       collection(:webp_only,
         webp: [keep_original: false],
+        accepts: ~w(image/jpeg image/png image/webp)
+      ),
+      # WebP + responsive: variants inherit the .webp encoding.
+      collection(:responsive_webp,
+        webp: true,
+        responsive: [widths: [160, 320]],
+        accepts: ~w(image/jpeg image/png image/webp)
+      ),
+      # Responsive without WebP: variants keep the original extension.
+      collection(:responsive_plain,
+        responsive: [widths: [160, 320]],
         accepts: ~w(image/jpeg image/png image/webp)
       )
     ]

@@ -57,16 +57,27 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   Returns updated responsive_images data to be stored on the media record.
   """
-  @spec generate(Media.t(), atom() | nil) :: {:ok, responsive_data()} | {:error, term()}
-  def generate(%Media{} = media, conversion \\ nil) do
+  @spec generate(Media.t(), atom() | nil, keyword()) ::
+          {:ok, responsive_data()} | {:error, term()}
+  def generate(%Media{} = media, conversion \\ nil, opts \\ []) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
     source_path = get_source_path(media, conversion)
+    widths = Keyword.get(opts, :widths) || Config.responsive_image_widths()
 
     with {:ok, image} <- processor.open(source_path),
          {:ok, {orig_width, orig_height}} <- processor.dimensions(image) do
       variants =
-        generate_variants(media, image, orig_width, orig_height, conversion, processor, storage)
+        generate_variants(
+          media,
+          image,
+          orig_width,
+          orig_height,
+          conversion,
+          processor,
+          storage,
+          widths
+        )
 
       data =
         build_responsive_data(
@@ -199,15 +210,20 @@ defmodule PhxMediaLibrary.ResponsiveImages do
   end
 
   defp responsive_variant_path(media, conversion, width) do
+    # Derive the variant directory from the configured path generator so
+    # variants live beside the original — this respects custom/tenant/date
+    # generators and stringifies a non-binary mediable_id, instead of assuming
+    # the default `{type}/{id}/{uuid}` layout.
     base_path =
-      Path.join([
-        media.mediable_type,
-        media.mediable_id,
-        media.uuid,
-        "responsive"
-      ])
+      media
+      |> PathGenerator.relative_path(nil)
+      |> Path.dirname()
+      |> Path.join("responsive")
 
-    ext = Path.extname(media.file_name)
+    # When the media serves a WebP derivative, emit .webp variants — the image
+    # processor picks its encoder from the destination path extension, so a
+    # .webp path yields a WebP-encoded variant (smaller than the source format).
+    ext = variant_ext(media)
     base_name = Path.rootname(media.file_name)
 
     filename =
@@ -220,8 +236,24 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     Path.join(base_path, filename)
   end
 
-  defp generate_variants(media, image, orig_width, orig_height, conversion, processor, storage) do
-    Config.responsive_image_widths()
+  # Variants follow the served format: .webp when the media carries a WebP
+  # derivative (custom_properties["webp"]), otherwise the original extension.
+  defp variant_ext(%Media{custom_properties: %{"webp" => webp}}) when is_binary(webp),
+    do: ".webp"
+
+  defp variant_ext(%Media{file_name: file_name}), do: Path.extname(file_name)
+
+  defp generate_variants(
+         media,
+         image,
+         orig_width,
+         orig_height,
+         conversion,
+         processor,
+         storage,
+         widths
+       ) do
+    widths
     |> Enum.filter(&(&1 < orig_width))
     |> Enum.map(
       &generate_variant(
@@ -248,10 +280,20 @@ defmodule PhxMediaLibrary.ResponsiveImages do
          image,
          processor
        ) do
+    # Full-size srcset descriptor. For WebP-served media the full-size WebP
+    # sibling already exists (custom_properties["webp"]) — point the largest
+    # descriptor at it so the whole srcset is WebP, at no extra cost. Only the
+    # unconverted original carries that sibling; named conversions fall back.
+    original_path =
+      case {conversion, media.custom_properties} do
+        {nil, %{"webp" => webp}} when is_binary(webp) -> webp
+        _ -> PathGenerator.relative_path(media, conversion)
+      end
+
     original_variant = %{
       "width" => orig_width,
       "height" => orig_height,
-      "path" => PathGenerator.relative_path(media, conversion)
+      "path" => original_path
     }
 
     all_variants = variants ++ [original_variant]

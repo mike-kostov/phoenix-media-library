@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-08-20
+
+### Added
+
+- **Responsive WebP variants** — responsive `srcset` variants now inherit the
+  served format. When a collection serves WebP, its variants are written to
+  `.webp` paths and encoded as WebP (the image backend picks the encoder from
+  the destination extension), and the full-size `srcset` descriptor reuses the
+  already-generated WebP sibling — so the entire `srcset` is WebP at no extra
+  cost. Non-WebP collections keep the original extension, unchanged.
+- **Per-collection responsive opt-in** — a collection enables `srcset`
+  generation on add via its `responsive:` field (bool or keyword), with widths
+  overridable per-collection:
+
+  ```elixir
+  media_collections do
+    collection(:photos,  webp: true, responsive: true)                    # WebP variants, global widths
+    collection(:banners, webp: true, responsive: [widths: [640, 1280, 2560]])
+  end
+  ```
+
+  `PhxMediaLibrary.ResponsiveImages.generate/3` gains an optional `widths:`
+  option (defaults to the global config), so per-collection widths flow through
+  the add pipeline.
+
+### Changed
+
+- On add, WebP generation now runs **before** responsive generation, so
+  variants inherit the `.webp` encoding.
+- Responsive generation on add is **opt-in per collection** (`responsive:`) or
+  via `with_responsive_images/1`. Unlike WebP, the global `responsive_images`
+  config is **not** treated as an auto-enable for every collection — it supplies
+  the default widths only. This preserves the historical behaviour where only an
+  explicit request generated variants (no surprise generation for existing hosts
+  that had `responsive_images: [enabled: true]`).
+
+### Fixed
+
+- Responsive variant paths now derive from the configured path generator
+  instead of assuming the default `{type}/{id}/{uuid}` layout. This respects
+  custom/tenant/date generators and, crucially, stringifies a non-binary
+  `mediable_id` (e.g. an integer primary key) — previously `Path.join` raised
+  when the id was not already a string.
+
 ## [0.8.0] - 2026-08-20
 
 ### Added
