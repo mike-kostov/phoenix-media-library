@@ -188,6 +188,66 @@ defmodule PhxMediaLibrary.Config do
     Keyword.get(responsive_images_config(), :tiny_placeholder, true)
   end
 
+  # ── WebP conversion (0.8) ───────────────────────────────────────────────────
+
+  @webp_defaults [enabled: false, quality: 82, keep_original: true]
+
+  @doc "Global WebP config (`config :phx_media_library, :webp`)."
+  def webp_config, do: Application.get_env(:phx_media_library, :webp, [])
+
+  @doc """
+  Resolve the effective WebP settings for a collection.
+
+  Merges the per-collection `webp:` override (a `boolean`, `keyword`, or `nil`)
+  over the global `:webp` config over the library defaults. A keyword override
+  implies `enabled: true` unless it says otherwise. Returns a keyword with
+  `:enabled`, `:quality`, `:keep_original`. WebP requires the `:image` library —
+  `:enabled` is forced `false` when it is not loaded.
+  """
+  def resolve_webp(override) do
+    @webp_defaults
+    |> merge_override(webp_config(), override)
+    |> require_image_lib()
+  end
+
+  @doc """
+  Resolve the effective responsive-images settings for a collection.
+
+  Same merge semantics as `resolve_webp/1`, over the existing `:responsive_images`
+  global config. Returns a keyword with `:enabled`, `:widths`, `:tiny_placeholder`.
+  """
+  def resolve_responsive(override) do
+    defaults = [
+      enabled: false,
+      widths: [320, 640, 960, 1280, 1920],
+      tiny_placeholder: true
+    ]
+
+    defaults
+    |> merge_override(responsive_images_config(), override)
+    |> require_image_lib()
+  end
+
+  # global over defaults; then apply the per-collection override
+  defp merge_override(defaults, global, override) do
+    base = Keyword.merge(defaults, global)
+
+    case override do
+      nil -> base
+      true -> Keyword.put(base, :enabled, true)
+      false -> Keyword.put(base, :enabled, false)
+      kw when is_list(kw) -> Keyword.merge(base, Keyword.put_new(kw, :enabled, true))
+    end
+  end
+
+  defp require_image_lib(settings) do
+    if Keyword.get(settings, :enabled, false) and not Code.ensure_loaded?(Image) do
+      Keyword.put(settings, :enabled, false)
+    else
+      settings
+    end
+  end
+
   @doc """
   Check if blurhash generation is enabled.
 
