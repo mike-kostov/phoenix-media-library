@@ -13,16 +13,33 @@ defmodule PhxMediaLibrary.Conversions do
     Telemetry
   }
 
+  require Logger
+
+  # Conversions need a local source file to read. Disks without a filesystem
+  # path (memory, S3 without a downloaded copy) return nil from `full_path` —
+  # skip with a warning instead of crashing on `Image.open(nil)`.
+  defp no_local_source(%Media{} = media) do
+    Logger.warning(
+      "[PhxMediaLibrary] conversions need a local source file; disk " <>
+        "#{inspect(media.disk)} has none for media #{inspect(media.id)} — skipping"
+    )
+
+    :ok
+  end
+
   @doc """
   Process all conversions for a media item.
   """
   @spec process(Media.t(), [Conversion.t()]) :: :ok | {:error, term()}
   def process(%Media{} = media, conversions) do
+    process(media, conversions, PathGenerator.full_path(media, nil))
+  end
+
+  defp process(%Media{} = media, _conversions, nil), do: no_local_source(media)
+
+  defp process(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-
-    # Get the original file
-    original_path = PathGenerator.full_path(media, nil)
 
     with {:ok, image} <- processor.open(original_path) do
       results =
@@ -51,9 +68,14 @@ defmodule PhxMediaLibrary.Conversions do
   """
   @spec process_single(Media.t(), Conversion.t()) :: :ok | {:error, term()}
   def process_single(%Media{} = media, %Conversion{} = conversion) do
+    process_single(media, conversion, PathGenerator.full_path(media, nil))
+  end
+
+  defp process_single(%Media{} = media, %Conversion{}, nil), do: no_local_source(media)
+
+  defp process_single(%Media{} = media, %Conversion{} = conversion, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-    original_path = PathGenerator.full_path(media, nil)
 
     with {:ok, image} <- processor.open(original_path),
          {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do

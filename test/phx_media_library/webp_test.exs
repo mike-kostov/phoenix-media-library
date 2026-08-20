@@ -65,4 +65,17 @@ defmodule PhxMediaLibrary.WebpTest do
       File.rm(jpg)
     end
   end
+
+  describe "conversions without a local source" do
+    @describetag :db
+
+    test "skip gracefully instead of crashing (memory / S3 disk)" do
+      # memory disk → PathGenerator.full_path/2 is nil; must not raise on Image.open(nil)
+      media = create_media(disk: "memory", collection_name: "images")
+      conv = PhxMediaLibrary.Conversion.new(:thumb, width: 50, height: 50)
+
+      assert PhxMediaLibrary.Conversions.process(media, [conv]) == :ok
+      assert PhxMediaLibrary.Conversions.process_single(media, conv) == :ok
+    end
+  end
 end

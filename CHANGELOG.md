@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PhxMediaLibrary.Config.resolve_webp/1` and `resolve_responsive/1` — resolve
   effective per-collection settings (per-collection over global over defaults).
 
+### Fixed
+
+- Conversions no longer crash (`Image.open(nil)` → `Enumerable not implemented`)
+  on disks without a local source path (`:memory`, S3): `Conversions.process/2`
+  and `process_single/2` now skip with a warning when `full_path` is `nil`.
+
 ### Notes
 
 - WebP is **opt-in**; upgrading from 0.7.x changes nothing until a collection
