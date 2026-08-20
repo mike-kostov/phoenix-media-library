@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-20
+
+### Added
+
+- **WebP conversion** — a collection can transcode raster/HEIC uploads to WebP
+  for faster loads and better SEO. Opt in globally or per-collection; every knob
+  is overridable per-collection:
+
+  ```elixir
+  config :phx_media_library,
+    webp: [enabled: false, quality: 82, keep_original: true]
+
+  media_collections do
+    collection(:photos, webp: true)                        # jpg/png/HEIC → served as WebP
+    collection(:hero,   webp: [quality: 90, keep_original: false])
+  end
+  ```
+
+  With `keep_original: true` (default) the source is kept and the WebP is served
+  automatically by `url/2` (`custom_properties["webp"]`); `false` replaces the
+  source. Requires the optional `:image` (libvips) dependency — features
+  no-op gracefully when it is absent, and any conversion error falls back to
+  serving the original. **iPhone HEIC/HEIF** uploads are converted to
+  browser-viewable WebP.
+- **`mix phx_media_library.regenerate_webp`** — re-derive WebP from each media's
+  original using the current config (run after changing `quality`). Media stored
+  with `keep_original: false` have no source and are skipped with a warning.
+- `PhxMediaLibrary.Config.resolve_webp/1` and `resolve_responsive/1` — resolve
+  effective per-collection settings (per-collection over global over defaults).
+
+### Notes
+
+- WebP is **opt-in**; upgrading from 0.7.x changes nothing until a collection
+  enables it.
+- Known limitation: `keep_original: false` combined with named conversions on the
+  same collection can race the async conversion task against source deletion —
+  prefer `keep_original: true` on collections that also define conversions.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added
