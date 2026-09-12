@@ -66,7 +66,12 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     widths = Keyword.get(opts, :widths) || Config.responsive_image_widths()
 
     with {:ok, image} <- processor.open(source_path),
-         {:ok, {orig_width, orig_height}} <- processor.dimensions(image) do
+         {:ok, orig_dims} <- processor.dimensions(image) do
+      # The served full-size file may be a capped WebP (webp: [max_dimension:]);
+      # variants wider than it would upscale, and the srcset's largest
+      # descriptor must carry the served size, not the source's.
+      {orig_width, orig_height} = served_dimensions(media, conversion, orig_dims)
+
       variants =
         generate_variants(
           media,
@@ -330,6 +335,16 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       _ -> %{}
     end
   end
+
+  defp served_dimensions(
+         %Media{custom_properties: %{"webp_width" => w, "webp_height" => h}},
+         nil,
+         _
+       )
+       when is_integer(w) and is_integer(h),
+       do: {w, h}
+
+  defp served_dimensions(_media, _conversion, dims), do: dims
 
   defp get_source_path(media, nil) do
     PathGenerator.full_path(media, nil)

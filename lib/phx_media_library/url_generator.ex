@@ -101,10 +101,11 @@ defmodule PhxMediaLibrary.UrlGenerator do
   """
   @spec url(Media.t(), atom() | nil, keyword()) :: String.t()
   def url(%Media{} = media, conversion \\ nil, opts \\ []) do
-    {cache_bust, adapter_opts} = Keyword.pop(opts, :cache_bust, false)
+    {cache_bust, opts} = Keyword.pop(opts, :cache_bust, false)
+    {width, adapter_opts} = Keyword.pop(opts, :width)
 
     storage = Config.storage_adapter(media.disk)
-    relative_path = served_path(media, conversion)
+    relative_path = variant_path(media, conversion, width) || served_path(media, conversion)
 
     base_url = StorageWrapper.url(storage, relative_path, adapter_opts)
 
@@ -117,6 +118,30 @@ defmodule PhxMediaLibrary.UrlGenerator do
     do: webp
 
   defp served_path(media, conversion), do: PathGenerator.relative_path(media, conversion)
+
+  # `width:` picks the smallest responsive variant at least that wide, else the
+  # widest one. `nil` when the media has no variants for the conversion, so the
+  # caller falls back to the regular served path.
+  defp variant_path(_media, _conversion, nil), do: nil
+
+  defp variant_path(%Media{responsive_images: responsive}, conversion, width)
+       when is_integer(width) and width > 0 do
+    key = if conversion, do: to_string(conversion), else: "original"
+
+    variants =
+      case Map.get(responsive || %{}, key) do
+        %{"variants" => list} when is_list(list) -> list
+        list when is_list(list) -> list
+        _ -> []
+      end
+
+    sorted = variants |> Enum.filter(&is_map/1) |> Enum.sort_by(& &1["width"])
+
+    case Enum.find(sorted, &(&1["width"] >= width)) || List.last(sorted) do
+      %{"path" => path} when is_binary(path) -> path
+      _ -> nil
+    end
+  end
 
   @doc """
   Generate a URL for a specific path (used for responsive images / poster

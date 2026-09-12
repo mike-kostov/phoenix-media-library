@@ -190,7 +190,7 @@ defmodule PhxMediaLibrary.Config do
 
   # ── WebP conversion (0.8) ───────────────────────────────────────────────────
 
-  @webp_defaults [enabled: false, quality: 82, keep_original: true]
+  @webp_defaults [enabled: false, quality: 82, keep_original: true, max_dimension: nil]
 
   @doc "Global WebP config (`config :phx_media_library, :webp`)."
   def webp_config, do: Application.get_env(:phx_media_library, :webp, [])
@@ -201,7 +201,7 @@ defmodule PhxMediaLibrary.Config do
   Merges the per-collection `webp:` override (a `boolean`, `keyword`, or `nil`)
   over the global `:webp` config over the library defaults. A keyword override
   implies `enabled: true` unless it says otherwise. Returns a keyword with
-  `:enabled`, `:quality`, `:keep_original`. WebP requires the `:image` library —
+  `:enabled`, `:quality`, `:keep_original`, `:max_dimension`. WebP requires the `:image` library —
   `:enabled` is forced `false` when it is not loaded.
   """
   def resolve_webp(override) do

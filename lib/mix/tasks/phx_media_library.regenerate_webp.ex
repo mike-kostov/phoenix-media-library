@@ -2,8 +2,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
   @moduledoc """
   Re-generates WebP derivatives for existing media from their originals.
 
-  Run this after changing WebP `quality` config, or to add WebP to media that
-  predate it. Re-derives from each media's **original**, so media stored with
+  Run this after changing WebP `quality` or `max_dimension` config, or to add
+  WebP to media that predate it. Follow with `regenerate_responsive` when the
+  cap changed, so the `srcset` reflects the new served size. Re-derives from each media's **original**, so media stored with
   `keep_original: false` (WebP replaced the source) cannot be regenerated and
   are skipped with a warning.
 
@@ -50,8 +51,15 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
         order_by: [asc: m.inserted_at]
       )
 
-    query = if opts[:collection], do: where(query, [m], m.collection_name == ^opts[:collection]), else: query
-    query = if opts[:model], do: where(query, [m], m.mediable_type == ^to_mediable_type(module)), else: query
+    query =
+      if opts[:collection],
+        do: where(query, [m], m.collection_name == ^opts[:collection]),
+        else: query
+
+    query =
+      if opts[:model],
+        do: where(query, [m], m.mediable_type == ^to_mediable_type(module)),
+        else: query
 
     media = repo.all(query)
     Mix.shell().info("Found #{length(media)} image(s)\n")
@@ -63,7 +71,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
         process(m, i, length(media), module, dry_run?) |> tally({d, s})
       end)
 
-    Mix.shell().info("\n#{IO.ANSI.green()}✓ #{done} regenerated, #{skipped} skipped#{IO.ANSI.reset()}")
+    Mix.shell().info(
+      "\n#{IO.ANSI.green()}✓ #{done} regenerated, #{skipped} skipped#{IO.ANSI.reset()}"
+    )
   end
 
   defp process(media, i, total, module, dry_run?) do
@@ -90,7 +100,11 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
         storage = Config.storage_adapter(media.disk)
         orig_path = PathGenerator.relative_path(media, nil)
         Webp.generate(media, local, settings, storage, orig_path)
-        Mix.shell().info("[#{i}/#{total}] #{IO.ANSI.green()}✓#{IO.ANSI.reset()} #{media.file_name}")
+
+        Mix.shell().info(
+          "[#{i}/#{total}] #{IO.ANSI.green()}✓#{IO.ANSI.reset()} #{media.file_name}"
+        )
+
         :done
     end
   end

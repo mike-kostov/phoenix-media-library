@@ -284,7 +284,10 @@ defmodule PhxMediaLibrary do
       PhxMediaLibrary.get_first_media_url(post, :images)
       PhxMediaLibrary.get_first_media_url(post, :images, :thumb)
       PhxMediaLibrary.get_first_media_url(post, :avatar, fallback: "/default.jpg")
+      PhxMediaLibrary.get_first_media_url(post, :images, width: 320)
 
+  Options other than `:fallback` are forwarded to `PhxMediaLibrary.Media.url/3`
+  (`:width`, `:cache_bust`, adapter options).
   """
   @spec get_first_media_url(Ecto.Schema.t(), atom(), atom() | keyword()) :: String.t() | nil
   def get_first_media_url(model, collection_name, conversion_or_opts \\ [])
@@ -299,11 +302,11 @@ defmodule PhxMediaLibrary do
 
   @spec get_first_media_url(Ecto.Schema.t(), atom(), atom() | nil, keyword()) :: String.t() | nil
   def get_first_media_url(model, collection_name, conversion, opts) do
-    fallback = Keyword.get(opts, :fallback)
+    {fallback, url_opts} = Keyword.pop(opts, :fallback)
 
     case get_first_media(model, collection_name) do
       nil -> fallback
-      media -> Media.url(media, conversion)
+      media -> Media.url(media, conversion, url_opts)
     end
   end
 

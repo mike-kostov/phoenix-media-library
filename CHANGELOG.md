@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-12
+
+### Added
+- `webp: [max_dimension: n]` fits the served WebP inside an `n`px square
+  (aspect kept, never upscaled) and records `webp_width`/`webp_height` in
+  `custom_properties`. Responsive variants wider than the cap are skipped and
+  the `srcset`'s largest descriptor carries the capped size.
+- `width:` option on `Media.url/3` and `get_first_media_url/3`: returns the
+  smallest responsive variant at least that wide (the widest when none is),
+  so fixed-size slots never download the full file.
+- `get_first_media_url/3` now forwards its options (other than `:fallback`)
+  to `Media.url/3`.
+- `PhxMediaLibrary.Webp.fit_dimensions/2`.
+
 ## [0.8.1] - 2026-08-20
 
 ### Added

@@ -283,6 +283,7 @@ config :phx_media_library,
 | `:enabled` | `false` | Generate + serve WebP for the collection (implied by `webp: true`) |
 | `:quality` | `82` | WebP encoder quality (1-100) |
 | `:keep_original` | `true` | Keep the source file; `false` deletes it after conversions run |
+| `:max_dimension` | `nil` | Fit the WebP inside a square of this many pixels (aspect kept, never upscaled). `nil` keeps the source size |
 
 Behaviour when WebP is on:
 
@@ -296,6 +297,11 @@ Behaviour when WebP is on:
 - **HEIC/HEIF** (e.g. iPhone uploads): add `image/heic`/`image/heif` to
   `:accepts`; libvips decodes them and the served WebP is browser-viewable while
   the original HEIC is kept.
+- `max_dimension: 1200` caps the served WebP at 1200px on its longest edge and
+  records the result in `custom_properties["webp_width"]`/`["webp_height"]`.
+  Combine with `keep_original: false` when uploads are far larger than any
+  view needs, so storage grows with what you display rather than what was
+  uploaded. Responsive variants wider than the cap are skipped.
 
 Regenerate WebP from each media's original after changing `quality` (or after
 enabling WebP on existing media):
@@ -325,7 +331,19 @@ end
 When a collection also serves WebP, its responsive variants are WebP-encoded
 and the full-size `srcset` descriptor reuses the existing WebP sibling, so the
 whole `srcset` is WebP at no extra cost. Otherwise variants keep the source
-format.
+format. With `webp: [max_dimension: n]` the largest descriptor is the capped
+WebP at its real size, and widths above it are not generated.
+
+For a fixed-size slot (a cart thumbnail, a search result) ask for a single
+variant instead of a `srcset`. `width:` returns the smallest variant at least
+that wide, the widest one when none is, or the regular URL for media without
+variants:
+
+```elixir
+PhxMediaLibrary.get_first_media_url(product, :photos, width: 320)
+PhxMediaLibrary.Media.url(media, nil, width: 320)
+# => "…/responsive/photo_320w.webp"
+```
 
 You can also request variants ad hoc for a single upload:
 

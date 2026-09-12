@@ -519,6 +519,10 @@ Active bugs or problems in the current codebase.
 
 ## Parking lot
 
+- ✅ **Cap served size at ingest** (`webp: [max_dimension:]`, `width:` URL
+  option). Came from sharo-shop spec 29: uploads of 17MB were stored and
+  served at native size while no view showed more than 1200px.
+
 Ideas and suggestions that don't have a home yet.
 
 - **Naming discussion.** Consider renaming the library for a shorter, more memorable name

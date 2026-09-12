@@ -17,7 +17,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:fallback_path` — filesystem path to use when the collection is empty
   - `:verify_content_type` — when `true`, verify file content matches its declared MIME type (default: `true`)
   - `:webp` — WebP conversion override for this collection: `true`/`false` or a
-    keyword of knobs (`quality:`, `keep_original:`) deep-merged over the global
+    keyword of knobs (`quality:`, `keep_original:`, `max_dimension:`) deep-merged over the global
     `config :phx_media_library, :webp`. `nil` (default) inherits the global.
   - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.

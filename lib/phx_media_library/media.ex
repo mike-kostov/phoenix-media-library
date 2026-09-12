@@ -112,6 +112,13 @@ defmodule PhxMediaLibrary.Media do
   Pass `opts` to forward adapter-specific options such as `signed: true`,
   `download: true`, or `cache_bust: true`. See `PhxMediaLibrary.UrlGenerator`
   for the full list.
+
+  `width: 320` returns the URL of the smallest responsive variant at least that
+  wide (the widest one when none is), so a thumbnail slot never downloads the
+  full-size file. Media without responsive variants return their regular URL.
+
+      Media.url(media, nil, width: 320)
+      # => "/uploads/products/1/uuid/responsive/photo_320w.webp"
   """
   @spec url(t(), atom() | nil, keyword()) :: String.t()
   def url(%__MODULE__{} = media, conversion \\ nil, opts \\ []) do

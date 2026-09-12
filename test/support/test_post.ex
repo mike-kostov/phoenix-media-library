@@ -22,6 +22,7 @@ defmodule PhxMediaLibrary.TestPost do
     has_media(:webp_only)
     has_media(:responsive_webp)
     has_media(:responsive_plain)
+    has_media(:webp_capped)
 
     timestamps(type: :utc_datetime)
   end
@@ -48,6 +49,12 @@ defmodule PhxMediaLibrary.TestPost do
       # Responsive without WebP: variants keep the original extension.
       collection(:responsive_plain,
         responsive: [widths: [160, 320]],
+        accepts: ~w(image/jpeg image/png image/webp)
+      ),
+      # Capped WebP: the served file fits in 100px; variants above it are skipped.
+      collection(:webp_capped,
+        webp: [max_dimension: 100],
+        responsive: [widths: [50, 80, 200]],
         accepts: ~w(image/jpeg image/png image/webp)
       )
     ]
