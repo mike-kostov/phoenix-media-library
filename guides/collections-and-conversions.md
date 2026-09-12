@@ -315,6 +315,16 @@ mix phx_media_library.regenerate_webp --collection photos --dry-run
 > default. Media stored with `keep_original: false` have no source and are
 > skipped with a warning.
 
+Switching an existing collection to `keep_original: false` (or adding a
+`max_dimension`) is a three-step migration, in this order:
+
+```bash
+mix phx_media_library.regenerate_webp --model MyApp.Catalog.Product
+mix phx_media_library.regenerate_responsive --model products
+mix phx_media_library.drop_originals --model MyApp.Catalog.Product   # last: the two above read the original
+mix phx_media_library.clean --files-only                              # then --force to delete stale variants
+```
+
 ## Responsive images
 
 Generate multiple sizes so browsers download an appropriately-sized image via

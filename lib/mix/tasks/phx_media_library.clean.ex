@@ -136,7 +136,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
     db_paths =
       from(m in PhxMediaLibrary.Media, where: m.disk == ^to_string(disk_name))
       |> repo.all()
-      |> Enum.flat_map(&get_all_paths/1)
+      |> Enum.flat_map(&PhxMediaLibrary.Media.owned_paths/1)
       |> MapSet.new()
 
     # Find orphaned files
@@ -144,16 +144,17 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
     report_orphaned_files(orphaned, root, force?)
   end
 
-  defp report_orphaned_files(orphaned, _root, _force?) when map_size(orphaned) == 0 do
-    Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
-  end
-
   defp report_orphaned_files(orphaned, root, force?) do
-    Mix.shell().info("  Found #{MapSet.size(orphaned)} orphaned file(s):")
+    # `map_size/1` on a MapSet counts struct fields, never 0 — compare the set size.
+    if MapSet.size(orphaned) == 0 do
+      Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
+    else
+      Mix.shell().info("  Found #{MapSet.size(orphaned)} orphaned file(s):")
 
-    Enum.each(orphaned, fn path ->
-      delete_or_report_file(path, root, force?)
-    end)
+      Enum.each(orphaned, fn path ->
+        delete_or_report_file(path, root, force?)
+      end)
+    end
   end
 
   defp delete_or_report_file(path, root, true = _force?) do
@@ -218,27 +219,6 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
 
   defp delete_or_report_record(media, _repo, false = _force?) do
     Mix.shell().info("    #{media.file_name} (#{media.id})")
-  end
-
-  defp get_all_paths(media) do
-    # Original file path
-    original = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
-
-    # Conversion paths
-    conversion_paths =
-      media.generated_conversions
-      |> Map.keys()
-      |> Enum.map(&PhxMediaLibrary.PathGenerator.relative_path(media, &1))
-
-    # Responsive image paths
-    responsive_paths =
-      media.responsive_images
-      |> Map.values()
-      |> List.flatten()
-      |> Enum.map(& &1["path"])
-      |> Enum.filter(& &1)
-
-    [original | conversion_paths ++ responsive_paths]
   end
 
   defp return(value), do: value

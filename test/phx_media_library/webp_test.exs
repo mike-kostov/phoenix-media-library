@@ -202,6 +202,52 @@ defmodule PhxMediaLibrary.WebpTest do
     end
   end
 
+  describe "owned_paths/1 and drop_original/1" do
+    test "owned paths cover original, webp and every responsive variant" do
+      post = create_test_post()
+      jpg = create_temp_image(format: :jpg, width: 400, height: 200)
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(jpg)
+               |> PhxMediaLibrary.to_collection(:webp_capped, disk: :local)
+
+      paths = PhxMediaLibrary.Media.owned_paths(media)
+
+      assert PhxMediaLibrary.PathGenerator.relative_path(media, nil) in paths
+      assert media.custom_properties["webp"] in paths
+
+      for %{"path" => p} <- media.responsive_images["original"]["variants"],
+          do: assert(p in paths)
+
+      refute Enum.any?(paths, &is_nil/1)
+
+      File.rm(jpg)
+    end
+
+    test "drop_original removes the source and keeps the WebP served" do
+      post = create_test_post()
+      jpg = create_temp_image(format: :jpg, width: 60, height: 60)
+
+      assert {:ok, media} =
+               post
+               |> PhxMediaLibrary.add(jpg)
+               |> PhxMediaLibrary.to_collection(:webp_photos, disk: :local)
+
+      original = PhxMediaLibrary.PathGenerator.full_path(media, nil)
+      assert File.exists?(original)
+
+      assert :ok = PhxMediaLibrary.Webp.drop_original(media)
+      refute File.exists?(original)
+      assert String.ends_with?(PhxMediaLibrary.url(media), ".webp")
+
+      # nothing to fall back on → skip
+      assert :skip = PhxMediaLibrary.Webp.drop_original(%{media | custom_properties: %{}})
+
+      File.rm(jpg)
+    end
+  end
+
   describe "conversions without a local source" do
     @describetag :db
 

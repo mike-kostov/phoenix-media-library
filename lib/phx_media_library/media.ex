@@ -219,6 +219,41 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  Every storage path this media record owns: the original, named conversions,
+  the served WebP sibling, responsive variants and the video poster. Used by
+  `mix phx_media_library.clean` to tell orphans from live files.
+  """
+  @spec owned_paths(t()) :: [String.t()]
+  def owned_paths(%__MODULE__{} = media) do
+    original = PathGenerator.relative_path(media, nil)
+
+    conversions =
+      (media.generated_conversions || %{})
+      |> Map.keys()
+      |> Enum.map(&PathGenerator.relative_path(media, &1))
+
+    webp =
+      case media.custom_properties do
+        %{"webp" => path} when is_binary(path) -> [path]
+        _ -> []
+      end
+
+    responsive =
+      (media.responsive_images || %{})
+      |> Map.values()
+      |> Enum.flat_map(&paths_in/1)
+
+    Enum.uniq([original | conversions ++ webp ++ responsive])
+  end
+
+  defp paths_in(%{"variants" => variants} = entry) when is_list(variants),
+    do: Enum.flat_map(variants, &paths_in/1) ++ paths_in(Map.delete(entry, "variants"))
+
+  defp paths_in(%{"path" => path}) when is_binary(path), do: [path]
+  defp paths_in(list) when is_list(list), do: Enum.flat_map(list, &paths_in/1)
+  defp paths_in(_), do: []
+
+  @doc """
   Get the srcset attribute value for responsive images.
   """
   @spec srcset(t(), atom() | nil) :: String.t() | nil

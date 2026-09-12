@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-12
+
+### Added
+- `mix phx_media_library.drop_originals` deletes the source file of
+  WebP-served media in collections resolved to `keep_original: false`. Run it
+  last, after `regenerate_webp` and `regenerate_responsive`.
+- `Media.owned_paths/1` and `Webp.drop_original/1`.
+
+### Fixed
+- `mix phx_media_library.clean` did not count the served WebP sibling or the
+  nested `"variants"` responsive layout as owned files, so `--force` would
+  have deleted them. It now uses `Media.owned_paths/1`.
+- `clean` reported "Found 0 orphaned file(s)" instead of "No orphaned files"
+  (guard on a `MapSet` never matched; flagged by Elixir 1.20's type checker).
+
 ## [0.8.2] - 2026-09-12
 
 ### Added

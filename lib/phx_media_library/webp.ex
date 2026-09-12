@@ -80,6 +80,26 @@ defmodule PhxMediaLibrary.Webp do
   end
 
   @doc """
+  Delete the source file of a media that already serves a WebP, for the
+  `keep_original: false` policy applied after the fact (`mix
+  phx_media_library.drop_originals`). The record is untouched: `file_name`
+  keeps naming the absent source, exactly as an add with `keep_original: false`
+  leaves it. Returns `:skip` when there is no WebP to fall back on.
+  """
+  @spec drop_original(map()) :: :ok | :skip | {:error, term()}
+  def drop_original(%{custom_properties: %{"webp" => webp}} = media) when is_binary(webp) do
+    original = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
+
+    if original == webp do
+      :skip
+    else
+      StorageWrapper.delete(Config.storage_adapter(media.disk), original)
+    end
+  end
+
+  def drop_original(_media), do: :skip
+
+  @doc """
   Dimensions of a `width` x `height` image scaled to fit inside a
   `max_dimension` square, aspect preserved. Never upscales.
 
