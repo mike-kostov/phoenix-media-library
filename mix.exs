@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.8.3"
+  @version "0.8.4"
   @source_url "https://github.com/mike-kostov/phoenix-media-library"
 
   def project do
@@ -69,6 +69,7 @@ defmodule PhxMediaLibrary.MixProject do
 
   defp dialyzer do
     [
+      plt_add_apps: [:mix],
       ignore_warnings: ".dialyzer_ignore.exs"
     ]
   end

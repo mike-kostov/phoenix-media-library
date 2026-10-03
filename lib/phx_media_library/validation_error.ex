@@ -84,6 +84,12 @@ defmodule PhxMediaLibrary.ValidationError do
     "File is too large (#{format_bytes(size)}, maximum allowed is #{format_bytes(max_size)})"
   end
 
+  defp default_message(:image_too_large, _field, pixels, max_pixels)
+       when is_integer(pixels) and is_integer(max_pixels) do
+    "Image is too large (#{format_megapixels(pixels)}, maximum allowed is " <>
+      "#{format_megapixels(max_pixels)})"
+  end
+
   defp default_message(:invalid_mime_type, _field, mime_type, accepted)
        when is_binary(mime_type) and is_list(accepted) do
     "MIME type #{inspect(mime_type)} is not accepted. Allowed types: #{Enum.join(accepted, ", ")}"
@@ -107,6 +113,8 @@ defmodule PhxMediaLibrary.ValidationError do
 
   defp maybe_append_reason(parts, :validation_failed), do: parts
   defp maybe_append_reason(parts, reason), do: parts ++ [": #{reason}"]
+
+  defp format_megapixels(pixels), do: "#{Float.round(pixels / 1_000_000, 1)} megapixels"
 
   defp format_bytes(bytes) when bytes >= 1_000_000 do
     mb = Float.round(bytes / 1_000_000, 1)

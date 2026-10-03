@@ -85,7 +85,8 @@ defmodule PhxMediaLibrary.Media do
   """
   @spec for_model(Ecto.Schema.t(), atom() | nil) :: [t()]
   def for_model(model, collection_name \\ nil) do
-    {mediable_type, mediable_id} = get_mediable_info(model)
+    mediable_type = PhxMediaLibrary.Model.mediable_type(model)
+    mediable_id = model.id
 
     query =
       from(m in __MODULE__,
@@ -221,7 +222,7 @@ defmodule PhxMediaLibrary.Media do
   @doc """
   Every storage path this media record owns: the original, named conversions,
   the served WebP sibling, responsive variants and the video poster. Used by
-  `mix phx_media_library.clean` to tell orphans from live files.
+  `delete_files/1` and `mix phx_media_library.clean`.
   """
   @spec owned_paths(t()) :: [String.t()]
   def owned_paths(%__MODULE__{} = media) do
@@ -244,6 +245,21 @@ defmodule PhxMediaLibrary.Media do
       |> Enum.flat_map(&paths_in/1)
 
     Enum.uniq([original | conversions ++ webp ++ responsive])
+  end
+
+  @doc """
+  Delete every file this media record owns (see `owned_paths/1`) from
+  storage, without touching the database record. Missing files are ignored.
+
+  ## Examples
+
+      :ok = PhxMediaLibrary.Media.delete_files(media)
+
+  """
+  @spec delete_files(t()) :: :ok
+  def delete_files(%__MODULE__{disk: disk} = media) do
+    storage = Config.storage_adapter(disk)
+    media |> owned_paths() |> Enum.each(&StorageWrapper.delete(storage, &1))
   end
 
   defp paths_in(%{"variants" => variants} = entry) when is_list(variants),
@@ -444,27 +460,6 @@ defmodule PhxMediaLibrary.Media do
 
   # Private functions
 
-  defp get_mediable_info(model) do
-    type =
-      if function_exported?(model.__struct__, :__media_type__, 0) do
-        model.__struct__.__media_type__()
-      else
-        # Fallback for schemas that don't `use PhxMediaLibrary.HasMedia`:
-        # derive from Ecto table name if available, otherwise fall back to
-        # underscored module name (without naive pluralization).
-        if function_exported?(model.__struct__, :__schema__, 1) do
-          model.__struct__.__schema__(:source)
-        else
-          model.__struct__
-          |> Module.split()
-          |> List.last()
-          |> Macro.underscore()
-        end
-      end
-
-    {type, model.id}
-  end
-
   defp conversion_key(nil), do: "original"
   defp conversion_key(conversion), do: to_string(conversion)
 
@@ -473,41 +468,5 @@ defmodule PhxMediaLibrary.Media do
       url = UrlGenerator.url_for_path(media, path)
       "#{url} #{width}w"
     end)
-  end
-
-  defp delete_files(%__MODULE__{disk: disk} = media) do
-    storage = Config.storage_adapter(disk)
-
-    # Delete original
-    original_path = PathGenerator.relative_path(media, nil)
-    StorageWrapper.delete(storage, original_path)
-
-    # Delete conversions
-    media.generated_conversions
-    |> Map.keys()
-    |> Enum.each(fn conversion ->
-      conversion_path = PathGenerator.relative_path(media, conversion)
-      StorageWrapper.delete(storage, conversion_path)
-    end)
-
-    # Delete responsive image variants and poster frames.
-    # Values may be:
-    #   - %{"variants" => [...], "placeholder" => ...}  (responsive images)
-    #   - %{"path" => "...", "url" => "..."}             (poster frame)
-    Enum.each(media.responsive_images, fn
-      {_key, %{"variants" => variants}} when is_list(variants) ->
-        Enum.each(variants, fn
-          %{"path" => path} when is_binary(path) -> StorageWrapper.delete(storage, path)
-          _ -> :ok
-        end)
-
-      {_key, %{"path" => path}} when is_binary(path) ->
-        StorageWrapper.delete(storage, path)
-
-      _ ->
-        :ok
-    end)
-
-    :ok
   end
 end

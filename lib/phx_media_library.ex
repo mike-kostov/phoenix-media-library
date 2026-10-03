@@ -58,8 +58,10 @@ defmodule PhxMediaLibrary do
   alias PhxMediaLibrary.{
     Config,
     Error,
+    FileName,
     Media,
     MediaAdder,
+    Model,
     PathGenerator,
     StorageWrapper,
     Telemetry
@@ -88,13 +90,17 @@ defmodule PhxMediaLibrary do
   @doc """
   Add media from a remote URL.
 
-  The file will be downloaded and stored locally before processing.
-  URL validation ensures only `http` and `https` schemes are accepted.
+  The file is streamed to a temporary file before processing. Only `http`
+  and `https` URLs are accepted, and hosts on private or loopback networks
+  are refused (including after redirects) — see `PhxMediaLibrary.Downloader`.
 
   ## Options
 
   - `:headers` — custom request headers (e.g. `[{"Authorization", "Bearer token"}]`)
-  - `:timeout` — download timeout in milliseconds
+  - `:timeout` — receive timeout between chunks, in milliseconds
+  - `:total_timeout` — limit for the whole download (default 5 minutes)
+  - `:max_size` — maximum size in bytes (defaults to the collection's `max_size`)
+  - `:allow_private_hosts` — allow private/loopback hosts, e.g. an intranet
 
   ## Telemetry
 
@@ -230,7 +236,7 @@ defmodule PhxMediaLibrary do
   """
   @spec media_query(Ecto.Schema.t(), atom() | nil) :: Ecto.Query.t()
   def media_query(model, collection_name \\ nil) do
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
     mediable_id = model.id
 
     query =
@@ -484,7 +490,7 @@ defmodule PhxMediaLibrary do
   """
   @spec get_trashed_media(Ecto.Schema.t(), atom() | nil) :: [Media.t()]
   def get_trashed_media(model, collection_name \\ nil) do
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
     mediable_id = model.id
 
     query =
@@ -528,7 +534,7 @@ defmodule PhxMediaLibrary do
           {:ok, non_neg_integer()} | {:error, term()}
   def purge_trashed(model, opts \\ []) do
     cutoff = Keyword.get(opts, :before)
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
     mediable_id = model.id
 
     query =
@@ -551,7 +557,7 @@ defmodule PhxMediaLibrary do
       [:phx_media_library, :batch],
       %{operation: :purge_trashed, count: length(trashed_items)},
       fn ->
-        Enum.each(trashed_items, &delete_files/1)
+        Enum.each(trashed_items, &Media.delete_files/1)
 
         {count, _} =
           query
@@ -622,7 +628,7 @@ defmodule PhxMediaLibrary do
         %{operation: :clear_collection, count: length(media_items)},
         fn ->
           # Delete files from storage for each item
-          Enum.each(media_items, &delete_files/1)
+          Enum.each(media_items, &Media.delete_files/1)
 
           # Delete all matching records in a single query
           {count, _} =
@@ -674,7 +680,7 @@ defmodule PhxMediaLibrary do
         %{operation: :clear_media, count: length(media_items)},
         fn ->
           # Delete files from storage for each item
-          Enum.each(media_items, &delete_files/1)
+          Enum.each(media_items, &Media.delete_files/1)
 
           # Delete all matching records in a single query
           {count, _} =
@@ -830,12 +836,12 @@ defmodule PhxMediaLibrary do
   @spec presigned_upload_url(Ecto.Schema.t(), atom(), keyword()) ::
           {:ok, String.t(), map(), String.t()} | {:error, term()}
   def presigned_upload_url(model, collection_name, opts \\ []) do
-    filename = Keyword.fetch!(opts, :filename)
-    disk = Keyword.get(opts, :disk) || get_default_disk(model, collection_name)
+    filename = opts |> Keyword.fetch!(:filename) |> FileName.safe()
+    disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
     storage = Config.storage_adapter(disk)
 
     uuid = Ecto.UUID.generate()
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
 
     storage_path =
       PathGenerator.for_new_media(%{
@@ -895,7 +901,7 @@ defmodule PhxMediaLibrary do
     filename = Keyword.fetch!(opts, :filename)
     content_type = Keyword.fetch!(opts, :content_type)
     size = Keyword.fetch!(opts, :size)
-    disk = Keyword.get(opts, :disk) || get_default_disk(model, collection_name)
+    disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
     custom_properties = Keyword.get(opts, :custom_properties, %{})
     checksum = Keyword.get(opts, :checksum)
     checksum_algorithm = Keyword.get(opts, :checksum_algorithm, "sha256")
@@ -906,12 +912,12 @@ defmodule PhxMediaLibrary do
       |> Path.split()
       |> Enum.at(2) || Ecto.UUID.generate()
 
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
 
     attrs = %{
       uuid: uuid,
       collection_name: to_string(collection_name),
-      name: sanitize_name(filename),
+      name: FileName.slug(filename),
       file_name: filename,
       mime_type: content_type,
       disk: to_string(disk),
@@ -920,7 +926,7 @@ defmodule PhxMediaLibrary do
       metadata: %{},
       mediable_type: mediable_type,
       mediable_id: model.id,
-      order_column: get_next_order(model, collection_name),
+      order_column: Model.next_order(model, collection_name),
       checksum: checksum,
       checksum_algorithm: if(checksum, do: checksum_algorithm, else: nil)
     }
@@ -931,7 +937,7 @@ defmodule PhxMediaLibrary do
       fn ->
         result =
           with {:ok, media} <- insert_media(attrs) do
-            maybe_cleanup_collection(model, collection_name, media)
+            Model.enforce_collection_limits(model, collection_name, media)
             maybe_process_conversions(model, media, collection_name)
             {:ok, media}
           end
@@ -952,7 +958,7 @@ defmodule PhxMediaLibrary do
   # ---------------------------------------------------------------------------
 
   defp do_reorder_transaction(model, collection_name, ordered_ids) do
-    mediable_type = get_mediable_type(model)
+    mediable_type = Model.mediable_type(model)
     collection_str = to_string(collection_name)
 
     Config.repo().transaction(fn ->
@@ -980,132 +986,17 @@ defmodule PhxMediaLibrary do
     end
   end
 
-  defp get_default_disk(model, collection_name) do
-    case get_collection_config(model, collection_name) do
-      %{disk: disk} when not is_nil(disk) -> disk
-      _ -> Config.default_disk()
-    end
-  end
-
-  defp get_collection_config(model, collection_name) do
-    if function_exported?(model.__struct__, :get_media_collection, 1) do
-      model.__struct__.get_media_collection(collection_name)
-    else
-      nil
-    end
-  end
-
-  defp get_next_order(model, collection_name) do
-    mediable_type = get_mediable_type(model)
-    collection_str = to_string(collection_name)
-
-    query =
-      from(m in Media,
-        where: m.mediable_type == ^mediable_type,
-        where: m.mediable_id == ^model.id,
-        where: m.collection_name == ^collection_str,
-        select: max(m.order_column)
-      )
-
-    case Config.repo().one(query) do
-      nil -> 1
-      max -> max + 1
-    end
-  end
-
-  defp sanitize_name(filename) do
-    filename
-    |> Path.rootname()
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9_-]/, "-")
-    |> String.replace(~r/-+/, "-")
-    |> String.trim("-")
-  end
-
   defp insert_media(attrs) do
     %Media{}
     |> Media.changeset(attrs)
     |> Config.repo().insert()
   end
 
-  defp maybe_cleanup_collection(model, collection_name, new_media) do
-    case get_collection_config(model, collection_name) do
-      %{single_file: true} ->
-        # Delete older media in collection, keep only the new one
-        media_items = get_media(model, collection_name)
-
-        media_items
-        |> Enum.reject(&(&1.id == new_media.id))
-        |> Enum.each(&Media.permanently_delete/1)
-
-      %{max_files: max} when is_integer(max) and max > 0 ->
-        media_items = get_media(model, collection_name)
-
-        if length(media_items) > max do
-          media_items
-          |> Enum.drop(-max)
-          |> Enum.each(&Media.permanently_delete/1)
-        end
-
-      _ ->
-        :ok
-    end
-  end
-
   defp maybe_process_conversions(model, media, collection_name) do
-    conversions =
-      if function_exported?(model.__struct__, :get_media_conversions, 1) do
-        model.__struct__.get_media_conversions(collection_name)
-      else
-        []
-      end
+    conversions = Model.conversions(model, collection_name)
 
     if conversions != [] do
       Config.async_processor().process_async(media, conversions)
     end
-  end
-
-  defp get_mediable_type(model) do
-    if function_exported?(model.__struct__, :__media_type__, 0) do
-      model.__struct__.__media_type__()
-    else
-      if function_exported?(model.__struct__, :__schema__, 1) do
-        model.__struct__.__schema__(:source)
-      else
-        model.__struct__
-        |> Module.split()
-        |> List.last()
-        |> Macro.underscore()
-      end
-    end
-  end
-
-  # Delete all files (original + conversions + responsive) from storage
-  # for a media item, without touching the database record.
-  defp delete_files(%Media{disk: disk} = media) do
-    storage = Config.storage_adapter(disk)
-
-    # Delete original
-    original_path = PathGenerator.relative_path(media, nil)
-    StorageWrapper.delete(storage, original_path)
-
-    # Delete conversions
-    media.generated_conversions
-    |> Map.keys()
-    |> Enum.each(fn conversion ->
-      conversion_path = PathGenerator.relative_path(media, conversion)
-      StorageWrapper.delete(storage, conversion_path)
-    end)
-
-    # Delete responsive image variants
-    media.responsive_images
-    |> Map.values()
-    |> List.flatten()
-    |> Enum.each(fn
-      %{"path" => path} -> StorageWrapper.delete(storage, path)
-      _ -> :ok
-    end)
-
-    :ok
   end
 end

@@ -118,11 +118,14 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
   defp clean_local_disk(disk_name, config, repo, force?) do
     root = config[:root]
 
-    unless File.exists?(root) do
+    if File.exists?(root) do
+      find_and_report_orphaned_files(disk_name, root, repo, force?)
+    else
       Mix.shell().info("  Storage root doesn't exist: #{root}")
-      return(:ok)
     end
+  end
 
+  defp find_and_report_orphaned_files(disk_name, root, repo, force?) do
     # Get all files in storage
     storage_files =
       root
@@ -193,10 +196,13 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
     end)
   end
 
+  # A record is orphaned only when none of its files exist. Checking just the
+  # original would flag WebP-only media (keep_original: false, drop_originals).
   defp find_orphaned_records(media_items, storage) do
-    Enum.filter(media_items, fn media ->
-      path = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
-      not PhxMediaLibrary.StorageWrapper.exists?(storage, path)
+    Enum.reject(media_items, fn media ->
+      media
+      |> PhxMediaLibrary.Media.owned_paths()
+      |> Enum.any?(&PhxMediaLibrary.StorageWrapper.exists?(storage, &1))
     end)
   end
 
@@ -220,6 +226,4 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
   defp delete_or_report_record(media, _repo, false = _force?) do
     Mix.shell().info("    #{media.file_name} (#{media.id})")
   end
-
-  defp return(value), do: value
 end

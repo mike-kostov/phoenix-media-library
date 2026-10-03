@@ -168,7 +168,7 @@ defmodule PhxMediaLibrary.LiveUpload do
     {model, opts} = Keyword.pop!(opts, :model)
     {collection_name, opts} = Keyword.pop!(opts, :collection)
 
-    collection_config = get_collection_config(model, collection_name)
+    collection_config = PhxMediaLibrary.Model.collection(model, collection_name)
 
     upload_opts =
       opts
@@ -444,14 +444,6 @@ defmodule PhxMediaLibrary.LiveUpload do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
-
-  defp get_collection_config(model, collection_name) do
-    if function_exported?(model.__struct__, :get_media_collection, 1) do
-      model.__struct__.get_media_collection(collection_name)
-    else
-      nil
-    end
-  end
 
   defp maybe_put_accept(opts, %Collection{accepts: accepts})
        when is_list(accepts) and accepts != [] do

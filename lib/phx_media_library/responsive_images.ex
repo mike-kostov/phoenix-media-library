@@ -40,7 +40,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   """
 
-  alias PhxMediaLibrary.{Config, Media, PathGenerator, UrlGenerator}
+  alias PhxMediaLibrary.{Config, LocalSource, Media, PathGenerator, UrlGenerator}
 
   @type responsive_data :: %{
           String.t() => [
@@ -60,9 +60,13 @@ defmodule PhxMediaLibrary.ResponsiveImages do
   @spec generate(Media.t(), atom() | nil, keyword()) ::
           {:ok, responsive_data()} | {:error, term()}
   def generate(%Media{} = media, conversion \\ nil, opts \\ []) do
+    # Remote storage (S3) has no local path; LocalSource fetches a temp copy.
+    LocalSource.with_path(media, conversion, &generate_from(media, conversion, opts, &1))
+  end
+
+  defp generate_from(media, conversion, opts, source_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-    source_path = get_source_path(media, conversion)
     widths = Keyword.get(opts, :widths) || Config.responsive_image_widths()
 
     with {:ok, image} <- processor.open(source_path),
@@ -345,14 +349,6 @@ defmodule PhxMediaLibrary.ResponsiveImages do
        do: {w, h}
 
   defp served_dimensions(_media, _conversion, dims), do: dims
-
-  defp get_source_path(media, nil) do
-    PathGenerator.full_path(media, nil)
-  end
-
-  defp get_source_path(media, conversion) do
-    PathGenerator.full_path(media, conversion)
-  end
 
   defp conversion_key(nil), do: "original"
   defp conversion_key(conversion), do: to_string(conversion)

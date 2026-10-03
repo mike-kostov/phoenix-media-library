@@ -463,6 +463,58 @@ defmodule PhxMediaLibrary.MetadataExtractorTest do
         # We just verify extraction doesn't crash
         assert is_map(metadata)
       end
+
+      # Image decodes EXIF date strings to NaiveDateTime structs, which used
+      # to hit the map clause of the sanitizer and fail the whole extraction.
+      test "stores EXIF dates as ISO 8601 strings" do
+        path = jpeg_with_exif_dates()
+
+        assert {:ok, metadata} = Default.extract(path, "image/jpeg")
+        assert metadata["width"] == 8
+        assert metadata["height"] == 8
+        assert metadata["exif"]["modify_date"] == "2024-05-01T10:20:30"
+        assert metadata["exif"]["exif"]["datetime_original"] == "2023-12-24T18:05:00"
+        assert {:ok, _} = Jason.encode(metadata)
+      end
+
+      test "extract_metadata keeps dimensions and EXIF for a photo with dates" do
+        path = jpeg_with_exif_dates()
+
+        assert {:ok, metadata} = MetadataExtractor.extract_metadata(path, "image/jpeg")
+        assert metadata["width"] == 8
+        assert metadata["exif"]["modify_date"] == "2024-05-01T10:20:30"
+      end
+    end
+  end
+
+  if Code.ensure_loaded?(Image) do
+    defp jpeg_with_exif_dates do
+      alias Vix.Vips.MutableImage
+
+      {:ok, img} = Image.new(8, 8, color: :red)
+
+      {:ok, img} =
+        Image.mutate(img, fn mut ->
+          :ok = MutableImage.set(mut, "exif-ifd0-DateTime", :gchararray, "2024:05:01 10:20:30")
+
+          :ok =
+            MutableImage.set(
+              mut,
+              "exif-ifd2-DateTimeOriginal",
+              :gchararray,
+              "2023:12:24 18:05:00"
+            )
+        end)
+
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "meta_test_#{:erlang.unique_integer([:positive])}_exif_dates.jpg"
+        )
+
+      Image.write!(img, path)
+      on_exit(fn -> File.rm(path) end)
+      path
     end
   end
 

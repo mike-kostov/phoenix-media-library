@@ -13,6 +13,9 @@ defmodule PhxMediaLibrary.Collection do
   - `:single_file` — when `true`, only one file is kept in this collection (default: `false`)
   - `:max_files` — maximum number of files allowed in the collection
   - `:max_size` — maximum file size in bytes (e.g. `10_000_000` for 10 MB)
+  - `:max_pixels` — maximum image size in pixels (width × height), or
+    `:infinity`. `nil` (default) uses `config :phx_media_library, :max_image_pixels`
+    (100 megapixels unless configured).
   - `:fallback_url` — URL to use when the collection is empty
   - `:fallback_path` — filesystem path to use when the collection is empty
   - `:verify_content_type` — when `true`, verify file content matches its declared MIME type (default: `true`)
@@ -31,6 +34,7 @@ defmodule PhxMediaLibrary.Collection do
     :single_file,
     :max_files,
     :max_size,
+    :max_pixels,
     :fallback_url,
     :fallback_path,
     :verify_content_type,
@@ -47,6 +51,7 @@ defmodule PhxMediaLibrary.Collection do
           single_file: boolean(),
           max_files: pos_integer() | nil,
           max_size: pos_integer() | nil,
+          max_pixels: pos_integer() | :infinity | nil,
           fallback_url: String.t() | nil,
           fallback_path: String.t() | nil,
           verify_content_type: boolean(),
@@ -64,6 +69,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:single_file` - Only keep one file (default: false)
   - `:max_files` - Maximum number of files
   - `:max_size` - Maximum file size in bytes (e.g. `10_000_000` for 10 MB)
+  - `:max_pixels` - Maximum image size in pixels, or `:infinity` (default: global `:max_image_pixels`)
   - `:fallback_url` - URL when collection is empty
   - `:fallback_path` - Path when collection is empty
   - `:verify_content_type` - Verify file content matches declared MIME type (default: true)
@@ -97,6 +103,7 @@ defmodule PhxMediaLibrary.Collection do
       single_file: Keyword.get(opts, :single_file, false),
       max_files: Keyword.get(opts, :max_files),
       max_size: Keyword.get(opts, :max_size),
+      max_pixels: Keyword.get(opts, :max_pixels),
       fallback_url: Keyword.get(opts, :fallback_url),
       fallback_path: Keyword.get(opts, :fallback_path),
       verify_content_type: Keyword.get(opts, :verify_content_type, true),

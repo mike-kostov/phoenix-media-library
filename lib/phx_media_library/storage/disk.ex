@@ -53,51 +53,47 @@ defmodule PhxMediaLibrary.Storage.Disk do
 
   @impl true
   def put(path, content, opts) do
-    root = Keyword.fetch!(opts, :root)
-    full_path = Path.join(root, path)
+    with {:ok, full_path} <- inside_root(path, opts) do
+      # Ensure directory exists
+      full_path |> Path.dirname() |> File.mkdir_p!()
+      write(full_path, content)
+    end
+  end
 
-    # Ensure directory exists
-    full_path |> Path.dirname() |> File.mkdir_p!()
+  defp write(full_path, {:stream, stream}) do
+    File.open!(full_path, [:write, :binary], fn file ->
+      Enum.each(stream, &IO.binwrite(file, &1))
+    end)
 
-    case content do
-      {:stream, stream} ->
-        File.open!(full_path, [:write, :binary], fn file ->
-          Enum.each(stream, &IO.binwrite(file, &1))
-        end)
+    :ok
+  end
 
-        :ok
+  defp write(full_path, binary) when is_binary(binary), do: File.write(full_path, binary)
 
-      binary when is_binary(binary) ->
-        File.write(full_path, binary)
+  @impl true
+  def get(path, opts \\ []) do
+    with {:ok, full_path} <- inside_root(path, opts) do
+      File.read(full_path)
     end
   end
 
   @impl true
-  def get(path, opts \\ []) do
-    root = Keyword.fetch!(opts, :root)
-    full_path = Path.join(root, path)
-
-    File.read(full_path)
-  end
-
-  @impl true
   def delete(path, opts \\ []) do
-    root = Keyword.fetch!(opts, :root)
-    full_path = Path.join(root, path)
-
-    case File.rm(full_path) do
-      :ok -> :ok
-      {:error, :enoent} -> :ok
-      error -> error
+    with {:ok, full_path} <- inside_root(path, opts) do
+      case File.rm(full_path) do
+        :ok -> :ok
+        {:error, :enoent} -> :ok
+        error -> error
+      end
     end
   end
 
   @impl true
   def exists?(path, opts \\ []) do
-    root = Keyword.fetch!(opts, :root)
-    full_path = Path.join(root, path)
-
-    File.exists?(full_path)
+    case inside_root(path, opts) do
+      {:ok, full_path} -> File.exists?(full_path)
+      {:error, _} -> false
+    end
   end
 
   @impl true
@@ -127,6 +123,19 @@ defmodule PhxMediaLibrary.Storage.Disk do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  # Resolve `path` under the disk root, refusing anything that escapes it
+  # (e.g. a `..` segment from an unsanitized filename).
+  defp inside_root(path, opts) do
+    root = opts |> Keyword.fetch!(:root) |> Path.expand()
+    full_path = root |> Path.join(path) |> Path.expand()
+
+    if String.starts_with?(full_path, root <> "/") do
+      {:ok, full_path}
+    else
+      {:error, :path_outside_root}
+    end
+  end
 
   # Generates an HMAC-signed URL routed through PhxMediaLibrary.Plug.MediaDownload.
   # The token covers the path + expiry timestamp to prevent tampering with either.

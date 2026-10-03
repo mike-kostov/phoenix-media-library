@@ -106,7 +106,7 @@ end
 | **Image conversions** | Thumbnails, resizes, format conversion, responsive `srcset`. Optional, works without libvips |
 | **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); responsive variants inherit WebP |
 | **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
-| **Remote URLs** | `add_from_url/3` with scheme validation, custom headers, timeout, download telemetry |
+| **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits, custom headers, download telemetry |
 | **Storage** | Local disk, S3, in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
 | **Streaming uploads** | Files streamed to storage in 64 KB chunks, never loaded entirely into memory |
 | **Direct S3 uploads** | `presigned_upload_url/3` + `complete_external_upload/4` for client-to-S3 without proxying |

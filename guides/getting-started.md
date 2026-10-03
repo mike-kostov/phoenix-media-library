@@ -349,7 +349,11 @@ media = PhxMediaLibrary.to_collection!(adder, :images)
 
 > URL downloads validate the scheme (`http`/`https` only), reject `ftp://` and
 > `file://` URLs, and automatically store the source URL in
-> `custom_properties["source_url"]`.
+> `custom_properties["source_url"]`. Hosts on private or loopback networks
+> (`localhost`, `10.x`, `169.254.169.254`, ...) are refused, including after
+> redirects; pass `allow_private_hosts: true` for an intranet. The download
+> streams to disk and stops at `:max_size` (the collection's `max_size` by
+> default) or `:total_timeout` (5 minutes by default).
 
 ## Retrieve media
 

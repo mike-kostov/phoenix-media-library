@@ -19,6 +19,5 @@ defmodule PhxMediaLibrary.AsyncProcessor.Inline do
   @impl true
   def process_sync(media, conversions) do
     Conversions.process(media, conversions)
-    :ok
   end
 end

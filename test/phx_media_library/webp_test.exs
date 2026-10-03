@@ -251,13 +251,14 @@ defmodule PhxMediaLibrary.WebpTest do
   describe "conversions without a local source" do
     @describetag :db
 
-    test "skip gracefully instead of crashing (memory / S3 disk)" do
-      # memory disk → PathGenerator.full_path/2 is nil; must not raise on Image.open(nil)
+    test "return an error instead of crashing when the source isn't in storage" do
+      # memory disk → no local path, so the source is fetched from storage;
+      # this record has no stored file. See HardeningTest for the success path.
       media = create_media(disk: "memory", collection_name: "images")
       conv = PhxMediaLibrary.Conversion.new(:thumb, width: 50, height: 50)
 
-      assert PhxMediaLibrary.Conversions.process(media, [conv]) == :ok
-      assert PhxMediaLibrary.Conversions.process_single(media, conv) == :ok
+      assert {:error, :not_found} = PhxMediaLibrary.Conversions.process(media, [conv])
+      assert {:error, :not_found} = PhxMediaLibrary.Conversions.process_single(media, conv)
     end
   end
 end

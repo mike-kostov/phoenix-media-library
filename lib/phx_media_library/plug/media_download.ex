@@ -116,6 +116,9 @@ if Code.ensure_loaded?(Plug.Conn) do
         |> put_content_type(filename)
         |> maybe_add_content_disposition(filename, download?)
         |> put_resp_header("cache-control", "private, no-store")
+        # Serve strictly as the declared type; never let the browser sniff
+        # an upload into HTML.
+        |> put_resp_header("x-content-type-options", "nosniff")
         |> send_resp(200, content)
         |> halt()
       else
@@ -127,11 +130,6 @@ if Code.ensure_loaded?(Plug.Conn) do
         {:error, :not_found} ->
           conn
           |> send_resp(404, "Not Found")
-          |> halt()
-
-        {:error, _reason} ->
-          conn
-          |> send_resp(500, "Internal Server Error")
           |> halt()
       end
     end

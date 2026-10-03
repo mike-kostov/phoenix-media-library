@@ -268,6 +268,26 @@ defmodule PhxMediaLibrary.Config do
       Code.ensure_loaded?(Image)
   end
 
+  @default_max_image_pixels 100_000_000
+
+  @doc """
+  Maximum image size in pixels (width × height) accepted on upload.
+
+  Decoding takes about 4 bytes per pixel, and a tiny compressed PNG can
+  declare 40000 × 40000 pixels — gigabytes once decoded. Larger images are
+  rejected before anything decodes them. Defaults to 100 megapixels; a
+  collection's `max_pixels:` overrides it. `:infinity` disables the check.
+
+  ## Configuration
+
+      config :phx_media_library, max_image_pixels: 50_000_000
+
+  """
+  @spec max_image_pixels() :: pos_integer() | :infinity
+  def max_image_pixels do
+    Application.get_env(:phx_media_library, :max_image_pixels, @default_max_image_pixels)
+  end
+
   @doc """
   Return the global HMAC secret key used for signing local-disk URLs.
 

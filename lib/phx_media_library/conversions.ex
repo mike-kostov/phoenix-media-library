@@ -6,6 +6,7 @@ defmodule PhxMediaLibrary.Conversions do
   alias PhxMediaLibrary.{
     Config,
     Conversion,
+    LocalSource,
     Media,
     PathGenerator,
     ResponsiveImages,
@@ -15,23 +16,16 @@ defmodule PhxMediaLibrary.Conversions do
 
   require Logger
 
-  # Conversions need a local source file to read. Disks without a filesystem
-  # path (memory, S3 without a downloaded copy) return nil from `full_path` —
-  # skip with a warning instead of crashing on `Image.open(nil)`.
-  defp no_local_source(%Media{} = media) do
-    # Documented limitation (not an error): conversions read a local source, so
-    # disks without a filesystem path (`:memory`, S3 without a local copy) can't
-    # produce them. Debug-level so it never spams a correctly-configured app.
-    Logger.debug(
-      "[PhxMediaLibrary] conversions need a local source file; disk " <>
-        "#{inspect(media.disk)} has none for media #{inspect(media.id)} — skipping"
-    )
-
-    :ok
-  end
-
   @doc """
   Process all conversions for a media item.
+
+  The source is read from local disk, or fetched into a temporary file for
+  storage without a local path (S3, memory). Conversions that succeed are
+  recorded even when others fail.
+
+  Returns `:ok` when every conversion succeeded, otherwise
+  `{:error, {:conversions_failed, failures}}` (logged as a warning) so that
+  job runners such as Oban retry.
   """
   @spec process(Media.t(), [Conversion.t()]) :: :ok | {:error, term()}
   def process(%Media{} = media, conversions) do
@@ -48,11 +42,9 @@ defmodule PhxMediaLibrary.Conversions do
         :ok
 
       fresh ->
-        process(fresh, conversions, PathGenerator.full_path(fresh, nil))
+        LocalSource.with_path(fresh, nil, &process(fresh, conversions, &1))
     end
   end
-
-  defp process(%Media{} = media, _conversions, nil), do: no_local_source(media)
 
   defp process(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
@@ -76,7 +68,18 @@ defmodule PhxMediaLibrary.Conversions do
       # Generate responsive images for conversions if enabled
       maybe_generate_responsive_for_conversions(media, results)
 
-      :ok
+      case Enum.reject(results, &match?({:ok, _}, &1)) do
+        [] ->
+          :ok
+
+        failures ->
+          Logger.warning(
+            "[PhxMediaLibrary] conversions failed for media #{inspect(media.id)}: " <>
+              inspect(failures)
+          )
+
+          {:error, {:conversions_failed, failures}}
+      end
     end
   end
 
@@ -85,10 +88,8 @@ defmodule PhxMediaLibrary.Conversions do
   """
   @spec process_single(Media.t(), Conversion.t()) :: :ok | {:error, term()}
   def process_single(%Media{} = media, %Conversion{} = conversion) do
-    process_single(media, conversion, PathGenerator.full_path(media, nil))
+    LocalSource.with_path(media, nil, &process_single(media, conversion, &1))
   end
-
-  defp process_single(%Media{} = media, %Conversion{}, nil), do: no_local_source(media)
 
   defp process_single(%Media{} = media, %Conversion{} = conversion, original_path) do
     processor = Config.image_processor()
@@ -105,18 +106,22 @@ defmodule PhxMediaLibrary.Conversions do
     telemetry_metadata = %{media: media, conversion: conversion.name}
 
     Telemetry.span([:phx_media_library, :conversion], telemetry_metadata, fn ->
+      conversion_path = PathGenerator.relative_path(media, conversion.name)
+      temp_path = temp_file_path(conversion_path)
+
       result =
-        with {:ok, converted} <- processor.apply_conversion(image, conversion),
-             conversion_path <- PathGenerator.relative_path(media, conversion.name),
-             temp_path <- temp_file_path(conversion_path),
-             {:ok, _} <- save_image(processor, converted, temp_path, conversion),
-             {:ok, content} <- File.read(temp_path),
-             :ok <- StorageWrapper.put(storage, conversion_path, content) do
+        try do
+          with {:ok, converted} <- processor.apply_conversion(image, conversion),
+               {:ok, _} <- save_image(processor, converted, temp_path, conversion),
+               {:ok, content} <- File.read(temp_path),
+               :ok <- StorageWrapper.put(storage, conversion_path, content) do
+            {:ok, conversion.name}
+          else
+            error ->
+              {:error, {conversion.name, error}}
+          end
+        after
           File.rm(temp_path)
-          {:ok, conversion.name}
-        else
-          error ->
-            {:error, {conversion.name, error}}
         end
 
       stop_metadata =

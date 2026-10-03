@@ -246,9 +246,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.Stats do
   defp lpad(str, width), do: String.pad_trailing(to_string(str || ""), width)
 
   # Right-aligned padding (pad on the left)
-  defp rpad(str, width), do: String.pad_leading(to_string(str || ""), width)
+  defp rpad(str, width), do: String.pad_leading(str, width)
 
-  defp format_size(nil), do: "—"
   defp format_size(0), do: "0 B"
 
   defp format_size(bytes) when bytes >= 1_000_000_000 do

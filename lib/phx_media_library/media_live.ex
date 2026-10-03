@@ -660,7 +660,7 @@ defmodule PhxMediaLibrary.MediaLive do
   end
 
   defp build_upload_opts(model, collection_name, assigns) do
-    collection_config = get_collection_config(model, collection_name)
+    collection_config = PhxMediaLibrary.Model.collection(model, collection_name)
 
     opts = [max_file_size: 10_000_000]
 
@@ -701,26 +701,6 @@ defmodule PhxMediaLibrary.MediaLive do
       socket
       |> stream_configure(:media_items, dom_id: &"media-#{&1.id}")
       |> stream(:media_items, [])
-    end
-  end
-
-  defp get_collection_config(model, collection_name) do
-    module = model.__struct__
-
-    if function_exported?(module, :media_collections, 0) do
-      module.media_collections()
-      |> Enum.find(fn
-        %Collection{name: ^collection_name} ->
-          true
-
-        %Collection{name: name} when is_atom(name) ->
-          to_string(name) == to_string(collection_name)
-
-        _ ->
-          false
-      end)
-    else
-      nil
     end
   end
 

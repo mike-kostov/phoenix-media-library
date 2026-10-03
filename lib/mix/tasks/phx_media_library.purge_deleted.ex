@@ -202,31 +202,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
     {:ok, db_count}
   end
 
-  defp delete_files(%PhxMediaLibrary.Media{disk: disk} = media) do
-    storage = PhxMediaLibrary.Config.storage_adapter(disk)
-
-    # Delete original
-    original_path = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
-    PhxMediaLibrary.StorageWrapper.delete(storage, original_path)
-
-    # Delete conversions
-    media.generated_conversions
-    |> Map.keys()
-    |> Enum.each(fn conversion ->
-      conversion_path = PhxMediaLibrary.PathGenerator.relative_path(media, conversion)
-      PhxMediaLibrary.StorageWrapper.delete(storage, conversion_path)
-    end)
-
-    # Delete responsive image variants
-    media.responsive_images
-    |> Map.values()
-    |> List.flatten()
-    |> Enum.each(fn
-      %{"path" => path} -> PhxMediaLibrary.StorageWrapper.delete(storage, path)
-      _ -> :ok
-    end)
-
-    :ok
+  defp delete_files(media) do
+    PhxMediaLibrary.Media.delete_files(media)
   rescue
     _ -> :error
   end

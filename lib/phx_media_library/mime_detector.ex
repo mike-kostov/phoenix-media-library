@@ -96,6 +96,20 @@ defmodule PhxMediaLibrary.MimeDetector do
   `{:error, {:content_type_mismatch, detected, declared}}` if the content
   clearly doesn't match the declared type.
 
+  Compatible types are not a mismatch:
+
+    * the same family — `image/*`, `audio/*`, `video/*` (a PNG saved as
+      `.jpg`, `audio/wav` vs `audio/x-wav`). SVG is the exception: it can
+      carry scripts, so it only matches SVG.
+    * ZIP content declared as a ZIP-based format (`.docx`, `.xlsx`, `.odt`,
+      `.epub`, ...)
+    * `application/xml` vs `text/xml`
+    * an unknown declared type (`application/octet-stream`)
+
+  A file whose bytes are an image but whose extension says `.html` is still
+  rejected — that is the case that matters, since the extension decides how
+  the file is served.
+
   ## Parameters
 
   - `content` — the raw binary file content (or its first few KB)
@@ -111,6 +125,14 @@ defmodule PhxMediaLibrary.MimeDetector do
       iex> png_header = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, "rest">>
       iex> PhxMediaLibrary.MimeDetector.verify(png_header, "fake.exe", "application/x-msdownload")
       {:error, {:content_type_mismatch, "image/png", "application/x-msdownload"}}
+
+      iex> png_header = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, "rest">>
+      iex> PhxMediaLibrary.MimeDetector.verify(png_header, "page.html", "text/html")
+      {:error, {:content_type_mismatch, "image/png", "text/html"}}
+
+      iex> png_header = <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, "rest">>
+      iex> PhxMediaLibrary.MimeDetector.verify(png_header, "photo.jpg", "image/jpeg")
+      :ok
 
   """
   @spec verify(binary(), String.t(), String.t()) ::
@@ -158,12 +180,37 @@ defmodule PhxMediaLibrary.MimeDetector do
   # Private: MIME type comparison
   # ---------------------------------------------------------------------------
 
-  # Check if two MIME types are compatible. Handles cases where content
-  # detection might return a slightly different but compatible type
-  # (e.g. "image/svg+xml" vs "image/svg+xml;charset=utf-8").
+  # ZIP containers that MIME.from_path/1 reports under their own type.
+  @zip_based_prefixes [
+    "application/vnd.openxmlformats-officedocument.",
+    "application/vnd.oasis.opendocument.",
+    "application/vnd.ms-",
+    "application/epub+zip",
+    "application/java-archive",
+    "application/vnd.android.package-archive",
+    "application/x-zip-compressed"
+  ]
+
+  @media_families ["image", "audio", "video"]
+  @svg "image/svg+xml"
+
+  # Check if two MIME types are compatible — see verify/3 for the rules.
   defp mime_types_match?(detected, declared) do
-    normalize_mime(detected) == normalize_mime(declared)
+    detected = normalize_mime(detected)
+    declared = normalize_mime(declared)
+    [detected_family | _] = String.split(detected, "/")
+
+    cond do
+      detected == declared -> true
+      declared == "application/octet-stream" -> true
+      @svg in [detected, declared] -> false
+      detected_family in @media_families -> String.starts_with?(declared, detected_family <> "/")
+      detected == "application/zip" -> String.starts_with?(declared, @zip_based_prefixes)
+      true -> xml?(detected) and xml?(declared)
+    end
   end
+
+  defp xml?(mime), do: mime in ["application/xml", "text/xml"]
 
   defp normalize_mime(mime) do
     mime

@@ -80,6 +80,8 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
       end
     end
 
+    # EXIF is best-effort: a value we can't read or sanitize drops the
+    # "exif" key only, keeping the dimensions already extracted.
     defp maybe_put_exif(metadata, image) do
       case Image.exif(image) do
         {:ok, exif} when is_map(exif) and map_size(exif) > 0 ->
@@ -88,13 +90,24 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
         _ ->
           metadata
       end
+    rescue
+      _ -> metadata
     end
 
     # Sanitize EXIF data to ensure it's JSON-serializable.
-    # EXIF values can contain binaries, tuples, and other non-JSON types.
+    # EXIF values can contain binaries, tuples, structs (dates are decoded to
+    # NaiveDateTime) and other non-JSON types.
     defp sanitize_exif(exif) when is_map(exif) do
       Map.new(exif, fn {k, v} -> {to_string(k), sanitize_exif_value(v)} end)
     end
+
+    # Structs are maps, so these clauses must come before the is_map/1 one.
+    defp sanitize_exif_value(%struct{} = value)
+         when struct in [NaiveDateTime, DateTime, Date, Time] do
+      struct.to_iso8601(value)
+    end
+
+    defp sanitize_exif_value(value) when is_struct(value), do: inspect(value)
 
     defp sanitize_exif_value(value) when is_map(value) do
       Map.new(value, fn {k, v} -> {to_string(k), sanitize_exif_value(v)} end)

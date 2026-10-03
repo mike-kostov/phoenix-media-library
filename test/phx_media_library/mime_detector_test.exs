@@ -4,6 +4,8 @@ defmodule PhxMediaLibrary.MimeDetectorTest do
   alias PhxMediaLibrary.MimeDetector
   alias PhxMediaLibrary.MimeDetector.Default
 
+  doctest MimeDetector
+
   # ---------------------------------------------------------------------------
   # Helper: build minimal binary content with known magic bytes
   # ---------------------------------------------------------------------------
@@ -504,6 +506,94 @@ defmodule PhxMediaLibrary.MimeDetectorTest do
   # ---------------------------------------------------------------------------
   # Edge cases and real-world scenarios
   # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Compatibility matrix — how MediaAdder calls verify/3: the declared type
+  # comes from the filename's extension. Guards the tolerance rules against
+  # future loosening.
+  # ---------------------------------------------------------------------------
+
+  describe "verify/3 compatibility matrix" do
+    @wav <<"RIFF", 0, 0, 0, 0, "WAVE", "fmt ">>
+    @mp4 <<0, 0, 0, 0x18, "ftyp", "isom", 0, 0>>
+    @zip <<0x50, 0x4B, 0x03, 0x04, 0x14, 0x00>>
+    @elf <<0x7F, "ELF", 2, 1, 1>>
+    @exe <<"MZ", 0x90, 0x00>>
+    @png <<0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00>>
+    @jpeg <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, "JFIF">>
+    @gif <<"GIF89a", 0x01, 0x00, 0x01, 0x00>>
+    @pdf <<"%PDF-1.7", 0x0A>>
+    @svg ~s{<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>}
+    @xml ~s(<?xml version="1.0"?><root/>)
+
+    defp check(content, filename),
+      do: MimeDetector.verify(content, filename, MIME.from_path(filename))
+
+    # Extensions a browser may execute or render as a document.
+    @risky ~w(page.html page.htm script.js page.xhtml drawing.svg)
+
+    for {label, content} <- [
+          png: @png,
+          jpeg: @jpeg,
+          gif: @gif,
+          pdf: @pdf,
+          zip: @zip,
+          elf: @elf,
+          exe: @exe,
+          mp4: @mp4,
+          wav: @wav
+        ],
+        name <- @risky do
+      test "rejects #{label} content named #{name}" do
+        assert {:error, {:content_type_mismatch, _, _}} = check(unquote(content), unquote(name))
+      end
+    end
+
+    for {label, content, name} <- [
+          {"PDF", @pdf, "photo.png"},
+          {"ZIP", @zip, "photo.jpg"},
+          {"ELF binary", @elf, "photo.jpg"},
+          {"Windows executable", @exe, "report.pdf"},
+          {"PNG", @png, "report.pdf"},
+          {"video", @mp4, "photo.jpg"},
+          {"SVG", @svg, "photo.png"},
+          {"PNG", @png, "song.wav"}
+        ] do
+      test "rejects #{label} content named #{name}" do
+        assert {:error, {:content_type_mismatch, _, _}} = check(unquote(content), unquote(name))
+      end
+    end
+
+    for {label, content, name} <- [
+          {"PNG", @png, "photo.png"},
+          {"PNG", @png, "photo.jpg"},
+          {"JPEG", @jpeg, "photo.png"},
+          {"GIF", @gif, "anim.webp"},
+          {"SVG", @svg, "drawing.svg"},
+          {"PDF", @pdf, "report.pdf"},
+          {"ZIP", @zip, "letter.docx"},
+          {"ZIP", @zip, "sheet.xlsx"},
+          {"ZIP", @zip, "slides.pptx"},
+          {"ZIP", @zip, "text.odt"},
+          {"ZIP", @zip, "book.epub"},
+          {"ZIP", @zip, "archive.zip"},
+          {"WAV", @wav, "sound.wav"},
+          {"MP4", @mp4, "clip.mp4"},
+          {"MP4", @mp4, "clip.mov"},
+          {"XML", @xml, "data.xml"},
+          {"PNG", @png, "upload.bin"},
+          {"PNG", @png, "no_extension"}
+        ] do
+      test "accepts #{label} content named #{name}" do
+        assert :ok = check(unquote(content), unquote(name))
+      end
+    end
+
+    test "content without known magic bytes is trusted (plain HTML, text, CSV)" do
+      assert :ok = check("<!DOCTYPE html><p>hi</p>", "page.html")
+      assert :ok = check("a,b\n1,2", "data.csv")
+    end
+  end
 
   describe "real-world scenarios" do
     test "correctly detects a minimal valid PNG (from Fixtures.create_minimal_png)" do
