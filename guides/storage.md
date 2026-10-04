@@ -133,6 +133,70 @@ The fingerprint comes from the original's checksum. Files regenerated in
 place (`mix phx_media_library.doctor --rebuild`) keep their URL, so purge
 your CDN after a rebuild.
 
+## Direct uploads to S3
+
+Large files can go from the browser straight to S3 without passing through
+your server. The server signs the upload, the browser sends the file, and
+the server records it afterwards.
+
+```elixir
+{:ok, url, fields, key} =
+  PhxMediaLibrary.presigned_upload_url(post, :videos,
+    filename: "launch.mp4",
+    content_type: "video/mp4"
+  )
+```
+
+`fields` carries a signed policy, so S3 itself rejects an upload with a
+different key, a size over the collection's `max_size` (or `:max_size`), or
+another content type. The browser sends a `multipart/form-data` POST to
+`url` with every field and the file last. With LiveView external uploads,
+pass `url` and `fields` as the entry's meta and use an uploader like this
+one in `app.js`:
+
+```javascript
+let Uploaders = {}
+
+Uploaders.S3 = function (entries, onViewError) {
+  entries.forEach(entry => {
+    let formData = new FormData()
+    let {url, fields} = entry.meta
+    Object.entries(fields).forEach(([key, value]) => formData.append(key, value))
+    formData.append("file", entry.file)
+
+    let xhr = new XMLHttpRequest()
+    onViewError(() => xhr.abort())
+    xhr.onload = () => (xhr.status === 204 ? entry.progress(100) : entry.error())
+    xhr.onerror = () => entry.error()
+    xhr.upload.addEventListener("progress", event => {
+      if (event.lengthComputable) {
+        let percent = Math.round((event.loaded / event.total) * 100)
+        if (percent < 100) entry.progress(percent)
+      }
+    })
+
+    xhr.open("POST", url, true)
+    xhr.send(formData)
+  })
+}
+
+let liveSocket = new LiveSocket("/live", Socket, {uploaders: Uploaders, params: {_csrf_token: csrfToken}})
+```
+
+When the upload has finished, create the media record:
+
+```elixir
+{:ok, media} =
+  PhxMediaLibrary.complete_external_upload(post, :videos, key,
+    filename: "launch.mp4",
+    content_type: "video/mp4",
+    size: size
+  )
+```
+
+Before 0.9 the upload was a presigned `PUT`. A client that still sends a
+`PUT` gets an error from S3; switch it to the POST above.
+
 ## Per-collection disk override
 
 Individual collections can use a different disk than the default:

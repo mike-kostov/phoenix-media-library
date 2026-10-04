@@ -73,8 +73,8 @@ defmodule PhxMediaLibrary.Storage do
   Generate a presigned URL for direct client-to-storage uploads.
 
   Returns `{:ok, url, fields}` where `url` is the upload endpoint and
-  `fields` is a map of form fields (for POST-based uploads) or an empty
-  map (for PUT-based uploads).
+  `fields` is a map of form fields the client sends with the file in a
+  `multipart/form-data` POST.
 
   Only applicable to remote storage backends (e.g. S3). Local storage
   adapters do not need to implement this callback.

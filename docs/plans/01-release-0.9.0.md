@@ -91,9 +91,9 @@ POST with conditions: exact key, `content-length-range` up to `:max_size`
 (else the collection's `max_size`), and `Content-Type` when given.
 `PhxMediaLibrary.presigned_upload_url/3` passes the collection limits.
 **Acceptance criteria:**
-- [ ] The returned fields carry the policy with those conditions (decoded
+- [x] The returned fields carry the policy with those conditions (decoded
       and asserted in tests).
-- [ ] `max_size` defaults to the collection's.
+- [x] `max_size` defaults to the collection's.
 **Verification:** S3 adapter tests with a fixed `ExAws` config; `mix precommit`.
 **Dependencies:** Task 1
 **Files:** `storage/s3.ex`, `storage.ex` (docs), `phx_media_library.ex`, tests

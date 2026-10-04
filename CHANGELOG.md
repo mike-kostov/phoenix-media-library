@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- **Direct uploads to S3 enforce their limits** (behaviour change).
+  `presigned_upload_url/3` returns a presigned POST whose signed policy
+  makes S3 reject a different key, a size over the limit (`:max_size`, by
+  default the collection's `max_size`) or another content type. The old
+  presigned PUT couldn't limit the size at all, and the size option was
+  silently ignored. Clients must send a `multipart/form-data` POST with the
+  returned fields; the storage guide has a LiveView uploader.
 - SVG uploads could run JavaScript when someone opened their URL directly.
   `PhxMediaLibrary.Plug.StaticHeaders` serves SVG sandboxed (a restrictive
   `Content-Security-Policy` plus `nosniff`) for the `Plug.Static` that

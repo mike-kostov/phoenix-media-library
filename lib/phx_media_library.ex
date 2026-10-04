@@ -848,9 +848,13 @@ defmodule PhxMediaLibrary do
   `Media` record via `complete_external_upload/4`.
 
   Returns `{:ok, url, fields, upload_key}` on success, where:
-  - `url` — the presigned upload endpoint
-  - `fields` — a map of form fields for POST-based uploads (empty for PUT)
+  - `url` — the endpoint the browser POSTs the file to
+  - `fields` — form fields to send with the file (S3 checks them against a
+    signed policy: the exact key, the size limit and the content type)
   - `upload_key` — the storage path to pass back to `complete_external_upload/4`
+
+  The browser sends a `multipart/form-data` POST with every field and the
+  file last. See the "Direct uploads to S3" section of the storage guide.
 
   Returns `{:error, :not_supported}` if the storage adapter doesn't support
   presigned URLs (e.g. local disk storage).
@@ -861,7 +865,8 @@ defmodule PhxMediaLibrary do
   - `:filename` — the filename for the upload (required)
   - `:content_type` — expected MIME type of the upload
   - `:expires_in` — URL expiration in seconds (default: 3600)
-  - `:max_size` — maximum upload size in bytes
+  - `:max_size` — maximum upload size in bytes (default: the collection's
+    `max_size`); S3 rejects larger uploads
 
   ## Examples
 
@@ -913,7 +918,7 @@ defmodule PhxMediaLibrary do
     presigned_opts =
       opts
       |> Keyword.take([:expires_in, :content_type])
-      |> maybe_add_size_constraint(opts)
+      |> maybe_add_size_constraint(max_upload_size(model, collection_name, opts))
 
     case StorageWrapper.presigned_upload_url(storage, storage_path, presigned_opts) do
       {:ok, url, fields} ->
@@ -1039,10 +1044,22 @@ defmodule PhxMediaLibrary do
     end)
   end
 
-  defp maybe_add_size_constraint(presigned_opts, opts) do
-    case Keyword.get(opts, :max_size) do
-      nil -> presigned_opts
-      max -> Keyword.put(presigned_opts, :content_length_range, {0, max})
+  defp maybe_add_size_constraint(presigned_opts, nil), do: presigned_opts
+
+  defp maybe_add_size_constraint(presigned_opts, max),
+    do: Keyword.put(presigned_opts, :content_length_range, {0, max})
+
+  # An explicit :max_size, else the collection's.
+  defp max_upload_size(model, collection_name, opts) do
+    case Keyword.fetch(opts, :max_size) do
+      {:ok, max} ->
+        max
+
+      :error ->
+        case Model.collection(model, collection_name) do
+          %{max_size: max} -> max
+          nil -> nil
+        end
     end
   end
 

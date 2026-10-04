@@ -145,53 +145,37 @@ if Code.ensure_loaded?(ExAws.S3) do
       end
     end
 
+    # A presigned POST (not PUT) so S3 itself enforces the policy: the exact
+    # key, the size range and the content type. A presigned PUT can't limit
+    # the size at all.
     @impl true
     def presigned_upload_url(path, presigned_opts, opts) do
       bucket = Keyword.fetch!(opts, :bucket)
-      expires_in = Keyword.get(presigned_opts, :expires_in, 3600)
+      content_type = Keyword.get(presigned_opts, :content_type)
 
-      presign_opts =
-        [expires_in: expires_in]
-        |> maybe_add_content_type(presigned_opts)
-        |> maybe_add_content_length_range(presigned_opts)
+      post_opts =
+        [expires_in: Keyword.get(presigned_opts, :expires_in, 3600)]
+        |> put_length_range(Keyword.get(presigned_opts, :content_length_range))
+        |> put_content_type_condition(content_type)
 
-      config = ExAws.Config.new(:s3, ex_aws_opts(opts))
+      %{url: url, fields: fields} =
+        ExAws.S3.presigned_post(ExAws.Config.new(:s3, ex_aws_opts(opts)), bucket, path, post_opts)
 
-      case ExAws.S3.presigned_url(config, :put, bucket, path, presign_opts) do
-        {:ok, url} ->
-          fields = build_upload_fields(presigned_opts)
-          {:ok, url, fields}
-
-        {:error, _} = error ->
-          error
-      end
+      # The client must send every field, including the Content-Type the
+      # policy requires.
+      fields = if content_type, do: Map.put(fields, "Content-Type", content_type), else: fields
+      {:ok, url, fields}
     end
 
-    defp maybe_add_content_type(presign_opts, opts) do
-      case Keyword.get(opts, :content_type) do
-        nil -> presign_opts
-        ct -> Keyword.put(presign_opts, :content_type, ct)
-      end
-    end
+    defp put_length_range(post_opts, {min, max}),
+      do: Keyword.put(post_opts, :content_length_range, [min, max])
 
-    defp maybe_add_content_length_range(presign_opts, opts) do
-      case Keyword.get(opts, :content_length_range) do
-        {_min, _max} = range ->
-          Keyword.put(presign_opts, :content_length_range, range)
+    defp put_length_range(post_opts, nil), do: post_opts
 
-        nil ->
-          presign_opts
-      end
-    end
+    defp put_content_type_condition(post_opts, nil), do: post_opts
 
-    defp build_upload_fields(presigned_opts) do
-      fields = %{}
-
-      case Keyword.get(presigned_opts, :content_type) do
-        nil -> fields
-        ct -> Map.put(fields, "Content-Type", ct)
-      end
-    end
+    defp put_content_type_condition(post_opts, content_type),
+      do: Keyword.put(post_opts, :custom_conditions, [["eq", "$Content-Type", content_type]])
 
     defp signed_url(bucket, path, opts) do
       expires_in = Keyword.get(opts, :expires_in, 3600)
