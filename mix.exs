@@ -77,7 +77,7 @@ defmodule PhxMediaLibrary.MixProject do
   defp aliases do
     [
       precommit: [
-        "format",
+        "format --check-formatted",
         "credo --strict",
         "dialyzer",
         "cmd --cd . sh -c 'MIX_ENV=test mix test'"
