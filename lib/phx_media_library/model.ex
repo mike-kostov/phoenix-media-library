@@ -155,7 +155,8 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
-  The width of a collection's `:blur` placeholders, in pixels (default 32).
+  The longest side of a collection's `:blur` placeholders, in pixels
+  (default 32), whatever the image's orientation.
 
   ## Examples
 

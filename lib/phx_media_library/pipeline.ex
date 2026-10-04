@@ -140,7 +140,8 @@ defmodule PhxMediaLibrary.Pipeline do
 
   @doc """
   Make the placeholder images show while they load, as the collection's
-  `placeholder:` says: `:blur` (a 16px WebP without metadata) or `:color`
+  `placeholder:` says: `:blur` (a 32px WebP without metadata, or the
+  collection's `size:`, on its longest side) or `:color`
   (the average color). Stored in `responsive_images` under
   `"placeholder"`, beside any variants.
 

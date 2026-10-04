@@ -78,9 +78,10 @@ What apps must change when upgrading:
   (`conversion`, `sizes`, `priority`, `class`, ...) pass through.
 - Placeholders for every image, not only those with responsive variants:
   `placeholder: :blur | :color | false | [size: px]` globally or per
-  collection (default `:blur`). `:blur` is a 32px WebP without metadata
-  (median 260 bytes on 235 product photos; `[size: 16]` halves that,
-  `[size: 48]` or `64` look smoother); `:color` is the average color. Crop
+  collection (default `:blur`). `:blur` is a WebP without metadata, 32px
+  on its longest side whatever the orientation (median 260 bytes on 235
+  product photos; `[size: 16]` halves that, `[size: 48]` or `64` look
+  smoother); `:color` is the average color. Crop
   conversions get their own; same-shape ones use the original's. Images
   with transparency get none, as it would show through them. Stored
   in `responsive_images` under `"placeholder"`; no migration. Made in the
@@ -232,7 +233,7 @@ What apps must change when upgrading:
 
 ### Fixed
 - The tiny placeholder kept the photo's metadata (EXIF, color profile),
-  making it 2 to 5 KB instead of about 150 bytes. It is now a 16px WebP
+  making it 2 to 5 KB instead of about 260 bytes. It is now a 32px WebP
   without metadata.
 - Uploads to a collection with responsive images raised with a custom
   image processor: variants were saved with `save/2`, which the

@@ -54,6 +54,13 @@ defmodule PhxMediaLibrary.PlaceholderTest do
     assert {placeholder(media)["width"], placeholder(media)["height"]} == {32, 24}
   end
 
+  test "the size is the longest side, whatever the orientation" do
+    portrait = create_photo_with_profile(300, 400)
+    on_exit(fn -> File.rm(portrait) end)
+
+    assert %{"width" => 24, "height" => 32} = placeholder(add(portrait, :images))
+  end
+
   test "a collection sets the blur's size", %{photo: photo} do
     assert placeholder(add(photo, :big_placeholder))["width"] == 48
   end

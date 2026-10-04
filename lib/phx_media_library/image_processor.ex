@@ -32,7 +32,7 @@ defmodule PhxMediaLibrary.ImageProcessor do
               | {:error, term()}
 
   @doc """
-  Like `c:tiny_placeholder/1`, at `size` pixels wide. Optional: without it,
+  Like `c:tiny_placeholder/1`, `size` pixels on its longest side. Optional: without it,
   `c:tiny_placeholder/1` is used whatever the size setting.
   """
   @callback tiny_placeholder(image(), size :: pos_integer()) ::

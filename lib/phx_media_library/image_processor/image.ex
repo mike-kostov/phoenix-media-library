@@ -63,7 +63,8 @@ if Code.ensure_loaded?(Image) do
     @impl true
     def tiny_placeholder(image), do: tiny_placeholder(image, 32)
 
-    # A WebP without EXIF or color profile: at 32px, about 240 bytes on
+    # A WebP without EXIF or color profile, `size` on its longest side
+    # (Image.thumbnail/2): at 32px, about 260 bytes on
     # product photos (docs/ideas/placeholders.md).
     @impl true
     def tiny_placeholder(image, size) do

@@ -29,7 +29,8 @@ defmodule PhxMediaLibrary.Collection do
     `quality:`), merged over `config :phx_media_library, :avif`. Off unless
     set; the AVIF is made beside the served file.
   - `:placeholder` — what images show while they load: `:blur` (a tiny
-    WebP, 32px wide), `[size: 48]` (the same at another width), `:color`
+    WebP, 32px on its longest side), `[size: 48]` (the same at another
+    size), `:color`
     (the average color) or `false`. `nil` (default) uses
     `config :phx_media_library, :placeholder` (`:blur` unless configured).
   - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
