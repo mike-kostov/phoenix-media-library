@@ -172,6 +172,75 @@ defmodule PhxMediaLibrary.ViewHelpers do
   end
 
   @doc """
+  Renders an image with its caption: a `<figure>` with a
+  `<.responsive_img>` and a `<figcaption>`.
+
+  The caption is the `caption` attribute, else
+  `custom_properties["caption"]`; without one there is no `<figcaption>`.
+
+  ## Attributes
+
+  - `media` (required) - The media item to render
+  - `caption` - Caption text (default: `custom_properties["caption"]`)
+  - `conversion`, `sizes`, `alt`, `width`, `height`, `loading`,
+    `priority`, `placeholder` - as for `responsive_img/1`
+  - `class` - CSS classes for the image
+  - `figure_class`, `caption_class` - CSS classes for the figure and the
+    caption
+
+  ## Examples
+
+      <.media_figure media={@post.cover} caption="Our new shop in Sofia" priority />
+
+      <.media_figure
+        media={@image}
+        conversion={:preview}
+        sizes="(max-width: 768px) 100vw, 50vw"
+        class="rounded-lg"
+        caption_class="text-sm text-zinc-500"
+      />
+
+  """
+  attr(:media, Media, required: true)
+  attr(:caption, :string, default: nil)
+  attr(:conversion, :atom, default: nil)
+  attr(:sizes, :string, default: nil)
+  attr(:alt, :string, default: nil)
+  attr(:width, :integer, default: nil)
+  attr(:height, :integer, default: nil)
+  attr(:loading, :string, default: "lazy")
+  attr(:priority, :boolean, default: false)
+  attr(:placeholder, :boolean, default: true)
+  attr(:class, :string, default: nil)
+  attr(:figure_class, :string, default: nil)
+  attr(:caption_class, :string, default: nil)
+  attr(:rest, :global)
+
+  def media_figure(assigns) do
+    caption = assigns.caption || (assigns.media.custom_properties || %{})["caption"]
+    assigns = assign(assigns, :caption, caption)
+
+    ~H"""
+    <figure class={@figure_class}>
+      <.responsive_img
+        media={@media}
+        conversion={@conversion}
+        sizes={@sizes}
+        alt={@alt}
+        width={@width}
+        height={@height}
+        loading={@loading}
+        priority={@priority}
+        placeholder={@placeholder}
+        class={@class}
+        {@rest}
+      />
+      <figcaption :if={@caption not in [nil, ""]} class={@caption_class}>{@caption}</figcaption>
+    </figure>
+    """
+  end
+
+  @doc """
   Renders a picture element with multiple sources.
 
   For the original, it offers the media's modern formats as typed sources,

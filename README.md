@@ -127,7 +127,7 @@ end
 | **Telemetry** | `:start`/`:stop`/`:exception` spans for add, delete, conversion, storage, batch, download |
 | **Errors** | Tagged tuples + structured exceptions (`Error`, `StorageError`, `ValidationError`) |
 | **Queries** | `media_query/2` returns composable `Ecto.Query` |
-| **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` components |
+| **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>` (image with caption) components |
 | **Mix tasks** | Install, regenerate conversions / WebP / responsive variants, clean orphans, purge deleted, generate migrations |
 
 ## Installation

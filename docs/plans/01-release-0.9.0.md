@@ -408,9 +408,9 @@ metadata.
 **Description:** Figure component with caption from attribute or
 `custom_properties["caption"]`, passing image options through.
 **Acceptance criteria:**
-- [ ] Renders `<figure>`, the image and `<figcaption>`; no caption, no
+- [x] Renders `<figure>`, the image and `<figcaption>`; no caption, no
       figcaption.
-- [ ] `priority`, `sizes`, `conversion` and `class` reach the image.
+- [x] `priority`, `sizes`, `conversion` and `class` reach the image.
 **Verification:** component tests; `mix precommit`.
 **Dependencies:** Task 17
 **Files:** `view_helpers.ex`, tests

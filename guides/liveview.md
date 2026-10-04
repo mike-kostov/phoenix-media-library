@@ -568,6 +568,24 @@ PhxMediaLibrary provides rendering components.
 > When the collection also serves WebP (`webp: true`), the generated `srcset` is
 > WebP automatically.
 
+### Image with a caption
+
+`<.media_figure>` wraps a responsive image and its caption in `<figure>`.
+The caption is the `caption` attribute, else the media's
+`custom_properties["caption"]` (set it with
+`PhxMediaLibrary.update_custom_properties/2`); without one there is no
+`<figcaption>`.
+
+```heex
+<.media_figure
+  media={@post.cover}
+  conversion={:preview}
+  sizes="(max-width: 768px) 100vw, 50vw"
+  class="rounded-lg"
+  caption_class="mt-2 text-sm text-zinc-500"
+/>
+```
+
 ### Picture element (art direction)
 
 ```heex

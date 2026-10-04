@@ -71,6 +71,9 @@ What apps must change when upgrading:
   longer crash the LiveView.
 
 ### Added
+- `<.media_figure>`: a responsive image and its caption in `<figure>`, from
+  a `caption` attribute or `custom_properties["caption"]`; image options
+  (`conversion`, `sizes`, `priority`, `class`, ...) pass through.
 - Placeholders for every image, not only those with responsive variants:
   `placeholder: :blur | :color | false` globally or per collection
   (default `:blur`). `:blur` is a 16px WebP without metadata (median 122
