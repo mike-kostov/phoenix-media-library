@@ -1,6 +1,7 @@
 # Implementation Plan: Release 0.9.0
 
 Spec: `docs/specs/01-release-0.9.0.md` (approved 2026-10-04)
+Status: approved (Mike, 2026-10-04)
 Decisions: ADR-014 to ADR-024
 
 ## Overview
