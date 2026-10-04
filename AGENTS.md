@@ -93,6 +93,8 @@ A change is done when all of these hold. "Seems right" is not one of them.
 - Operations that can fail return `{:ok, _}`/`{:error, _}`; expected
   failures never raise.
 - User-visible changes have a `CHANGELOG.md` entry under `[Unreleased]`.
+- A user-facing feature appears in the README's feature list and in the
+  relevant guide, with a short example.
 - Prose went through `unslop`.
 
 ## Anti-rationalization
