@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `priority` on `media_img`, `responsive_img` and `picture` for the page's
+  main image: `loading="eager"` and `fetchpriority="high"`. Other images get
+  `decoding="async"`.
+- `picture` takes `sizes` and applies it to every source; it had none, so
+  browsers assumed full width.
 - `media_img`, `responsive_img` and `picture` output `width` and `height`
   (the served file's size, from `Media.dimensions/2`), so the browser
   reserves the space before the image loads and the page doesn't jump
@@ -72,6 +77,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mix phx_media_library.doctor --rebuild --only conversions|webp|responsive`
   and `--drop-originals`. They still work and print a notice; they will be
   removed in 0.10.0.
+
+### Changed
+- `responsive_img` defaults `sizes` to `"auto, 100vw"` for lazy images
+  (`"100vw"` before), so supporting browsers pick a file for the image's
+  real width instead of the full screen; in a 4-column grid that is about a
+  quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
 - Maintenance tasks ignored per-collection settings unless given `--model`,

@@ -33,6 +33,9 @@ defmodule PhxMediaLibrary.ViewHelpers do
   - `media` (required) - The media item to render
   - `conversion` - Conversion name to use (default: original)
   - `alt` - Alt text (falls back to `PhxMediaLibrary.Media.alt_text/1`)
+  - `width`, `height` - default to the served file's size
+  - `loading` - `"lazy"` or `"eager"` (default: not set, i.e. eager)
+  - `priority` - the page's main image: loads immediately and first
   - `class` - CSS classes
   - All other attributes are passed through to the img tag
 
@@ -40,7 +43,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
       <.media_img media={@post.avatar} class="w-20 h-20 rounded-full" />
 
-      <.media_img media={@image} conversion={:thumb} alt="Product thumbnail" />
+      <.media_img media={@image} conversion={:thumb} alt="Product thumbnail" loading="lazy" />
 
   """
   attr(:media, Media, required: true)
@@ -48,11 +51,13 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:alt, :string, default: nil)
   attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
   attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
+  attr(:loading, :string, default: nil, doc: ~s("lazy" or "eager"; unset means eager))
+  attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
   attr(:class, :string, default: nil)
   attr(:rest, :global)
 
   def media_img(assigns) do
-    assigns = with_image_defaults(assigns)
+    assigns = assigns |> with_image_defaults() |> with_loading()
 
     ~H"""
     <img
@@ -60,6 +65,9 @@ defmodule PhxMediaLibrary.ViewHelpers do
       alt={@alt}
       width={@width}
       height={@height}
+      loading={@loading}
+      fetchpriority={@fetchpriority}
+      decoding={@decoding}
       class={@class}
       {@rest}
     />
@@ -76,41 +84,42 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
   - `media` (required) - The media item to render
   - `conversion` - Conversion name to use
-  - `sizes` - The sizes attribute for responsive images
+  - `sizes` - How wide the image is shown. Defaults to `"auto, 100vw"` for
+    lazy images (browsers that support `auto` measure the real slot, others
+    assume full width) and `"100vw"` otherwise. Set it for layouts you know,
+    e.g. `"(max-width: 768px) 50vw, 25vw"` for a 4-column grid.
   - `alt` - Alt text
+  - `width`, `height` - default to the served file's size
+  - `loading` - `"lazy"` (default) or `"eager"`
+  - `priority` - the page's main image (hero): loads immediately and first
   - `class` - CSS classes
-  - `loading` - Loading strategy ("lazy" or "eager", default: "lazy")
   - `placeholder` - Show blur placeholder (default: true)
 
   ## Examples
 
-      <.responsive_img
-        media={@hero_image}
-        sizes="100vw"
-        class="w-full h-auto"
-      />
+      <.responsive_img media={@hero_image} priority class="w-full h-auto" />
 
       <.responsive_img
-        media={@thumbnail}
+        media={@product.image}
         conversion={:preview}
-        sizes="(max-width: 768px) 100vw, 33vw"
-        loading="eager"
+        sizes="(max-width: 768px) 50vw, 25vw"
       />
 
   """
   attr(:media, Media, required: true)
   attr(:conversion, :atom, default: nil)
-  attr(:sizes, :string, default: "100vw")
+  attr(:sizes, :string, default: nil)
   attr(:alt, :string, default: nil)
   attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
   attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
   attr(:class, :string, default: nil)
   attr(:loading, :string, default: "lazy")
+  attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
   attr(:placeholder, :boolean, default: true)
   attr(:rest, :global)
 
   def responsive_img(assigns) do
-    assigns = with_image_defaults(assigns)
+    assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()
 
     srcset = PhxMediaLibrary.srcset(assigns.media, assigns.conversion)
     src = PhxMediaLibrary.url(assigns.media, assigns.conversion)
@@ -126,12 +135,14 @@ defmodule PhxMediaLibrary.ViewHelpers do
     <img
       src={@src}
       srcset={@srcset}
-      sizes={@sizes}
+      sizes={@srcset && @sizes}
       alt={@alt}
       width={@width}
       height={@height}
       class={@class}
       loading={@loading}
+      fetchpriority={@fetchpriority}
+      decoding={@decoding}
       style={if @placeholder && @placeholder_uri, do: placeholder_style(@placeholder_uri)}
       {@rest}
     />
@@ -148,6 +159,9 @@ defmodule PhxMediaLibrary.ViewHelpers do
   - `media` (required) - The media item to render
   - `conversion` - Conversion name
   - `alt` - Alt text
+  - `width`, `height` - default to the served file's size
+  - `sizes` - as for `responsive_img/1`; applied to every source
+  - `loading`, `priority` - as for `media_img/1`
   - `class` - CSS classes for the img element
   - `sources` - List of source configurations
 
@@ -167,12 +181,15 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:alt, :string, default: nil)
   attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
   attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
+  attr(:sizes, :string, default: nil)
+  attr(:loading, :string, default: nil, doc: ~s("lazy" or "eager"; unset means eager))
+  attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
   attr(:class, :string, default: nil)
   attr(:sources, :list, default: [])
   attr(:rest, :global)
 
   def picture(assigns) do
-    assigns = with_image_defaults(assigns)
+    assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()
 
     ~H"""
     <picture>
@@ -180,14 +197,19 @@ defmodule PhxMediaLibrary.ViewHelpers do
         <source
           media={source[:media]}
           srcset={PhxMediaLibrary.srcset(@media, source[:conversion])}
+          sizes={@sizes}
         />
       <% end %>
       <img
         src={PhxMediaLibrary.url(@media, @conversion)}
         srcset={PhxMediaLibrary.srcset(@media, @conversion)}
+        sizes={@sizes}
         alt={@alt}
-      width={@width}
-      height={@height}
+        width={@width}
+        height={@height}
+        loading={@loading}
+        fetchpriority={@fetchpriority}
+        decoding={@decoding}
         class={@class}
         {@rest}
       />
@@ -196,6 +218,25 @@ defmodule PhxMediaLibrary.ViewHelpers do
   end
 
   # Private helpers
+
+  # A priority image loads immediately and first; everything else decodes
+  # off the main thread.
+  defp with_loading(assigns) do
+    if assigns.priority do
+      assigns
+      |> assign(:loading, "eager")
+      |> assign(:fetchpriority, "high")
+      |> assign(:decoding, nil)
+    else
+      assigns |> assign(:fetchpriority, nil) |> assign(:decoding, "async")
+    end
+  end
+
+  # sizes="auto" lets the browser measure the slot, but only for lazy images.
+  defp with_sizes(assigns) do
+    default = if assigns.loading == "lazy", do: "auto, 100vw", else: "100vw"
+    assign(assigns, :sizes, assigns.sizes || default)
+  end
 
   # Alt text and intrinsic size, unless given. width/height let the browser
   # reserve the image's space before it loads (no layout shift).

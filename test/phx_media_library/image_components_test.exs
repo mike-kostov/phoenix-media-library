@@ -86,4 +86,65 @@ defmodule PhxMediaLibrary.ImageComponentsTest do
       refute html =~ "height="
     end
   end
+
+  describe "loading" do
+    defp with_variants do
+      media(
+        responsive_images: %{
+          "original" => %{
+            "variants" => [
+              %{"width" => 320, "height" => 213, "path" => "posts/x/a_320w.jpg"},
+              %{"width" => 1200, "height" => 800, "path" => "posts/x/a.jpg"}
+            ]
+          }
+        }
+      )
+    end
+
+    test "responsive_img is lazy, measures its slot and decodes async by default" do
+      html = render_component(&ViewHelpers.responsive_img/1, media: with_variants())
+
+      assert html =~ ~s(loading="lazy")
+      assert html =~ ~s(sizes="auto, 100vw")
+      assert html =~ ~s(decoding="async")
+      refute html =~ "fetchpriority"
+    end
+
+    test "priority loads immediately and first" do
+      html =
+        render_component(&ViewHelpers.responsive_img/1, media: with_variants(), priority: true)
+
+      assert html =~ ~s(loading="eager")
+      assert html =~ ~s(fetchpriority="high")
+      assert html =~ ~s(sizes="100vw")
+      refute html =~ "decoding="
+    end
+
+    test "explicit sizes win" do
+      html =
+        render_component(&ViewHelpers.responsive_img/1, media: with_variants(), sizes: "25vw")
+
+      assert html =~ ~s(sizes="25vw")
+    end
+
+    test "media_img stays eager by default" do
+      html = render_component(&ViewHelpers.media_img/1, media: media(%{}))
+      refute html =~ "loading="
+      assert html =~ ~s(decoding="async")
+
+      assert render_component(&ViewHelpers.media_img/1, media: media(%{}), priority: true) =~
+               ~s(fetchpriority="high")
+    end
+
+    test "picture gives every source the sizes" do
+      html =
+        render_component(&ViewHelpers.picture/1,
+          media: with_variants(),
+          sources: [%{media: "(max-width: 768px)", conversion: nil}],
+          sizes: "50vw"
+        )
+
+      assert length(Regex.scan(~r/sizes="50vw"/, html)) == 2
+    end
+  end
 end
