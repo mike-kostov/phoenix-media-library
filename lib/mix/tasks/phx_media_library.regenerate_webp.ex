@@ -15,8 +15,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
 
   ## Options
 
-      --model         Only this model type (also needed to read per-collection
-                      WebP overrides; without it the global :webp config is used)
+      --model         Only this model (e.g. MyApp.Catalog.Product)
       --collection    Only this collection
       --dry-run       Show what would be regenerated
   """
@@ -27,7 +26,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
 
   import Ecto.Query
 
-  alias PhxMediaLibrary.{Config, PathGenerator, Webp}
+  alias PhxMediaLibrary.{Config, Model, Pipeline}
 
   @impl Mix.Task
   def run(args) do
@@ -37,6 +36,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
       )
 
     Mix.Task.run("app.start")
+
+
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()
     module = opts[:model] && Module.concat([opts[:model]])
@@ -68,7 +69,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
       media
       |> Enum.with_index(1)
       |> Enum.reduce({0, 0}, fn {m, i}, {d, s} ->
-        process(m, i, length(media), module, dry_run?) |> tally({d, s})
+        process(m, i, length(media), dry_run?) |> tally({d, s})
       end)
 
     Mix.shell().info(
@@ -76,53 +77,38 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
     )
   end
 
-  defp process(media, i, total, module, dry_run?) do
-    settings = webp_settings(module, media.collection_name)
-    local = PathGenerator.full_path(media, nil)
+  # Settings come from the media's own collection (PhxMediaLibrary.Model), the
+  # same as on upload.
+  defp process(media, i, total, true = _dry_run?) do
+    if Keyword.get(Model.webp_settings(media, media.collection_name), :enabled, false) do
+      Mix.shell().info("[#{i}/#{total}] would regenerate: #{media.file_name}")
+    else
+      Mix.shell().info("[#{i}/#{total}] skip (webp off): #{media.file_name}")
+    end
 
-    cond do
-      not Keyword.get(settings, :enabled, false) ->
-        Mix.shell().info("[#{i}/#{total}] skip (webp off): #{media.file_name}")
-        :skip
+    :skip
+  end
 
-      is_nil(local) or not File.exists?(local) ->
-        Mix.shell().info(
-          "[#{i}/#{total}] #{IO.ANSI.yellow()}skip (no local original)#{IO.ANSI.reset()}: #{media.file_name}"
-        )
-
-        :skip
-
-      dry_run? ->
-        Mix.shell().info("[#{i}/#{total}] would regenerate: #{media.file_name}")
-        :skip
-
-      true ->
-        storage = Config.storage_adapter(media.disk)
-        orig_path = PathGenerator.relative_path(media, nil)
-        Webp.generate(media, local, settings, storage, orig_path)
-
+  defp process(media, i, total, false = _dry_run?) do
+    case Pipeline.webp(media) do
+      {:ok, _media} ->
         Mix.shell().info(
           "[#{i}/#{total}] #{IO.ANSI.green()}✓#{IO.ANSI.reset()} #{media.file_name}"
         )
 
         :done
+
+      {:skip, reason} ->
+        Mix.shell().info("[#{i}/#{total}] skip (#{reason}): #{media.file_name}")
+        :skip
+
+      {:error, reason} ->
+        Mix.shell().info(
+          "[#{i}/#{total}] #{IO.ANSI.red()}failed#{IO.ANSI.reset()} #{media.file_name}: #{inspect(reason)}"
+        )
+
+        :skip
     end
-  end
-
-  # Resolve per-collection WebP settings when the model module is known, else
-  # fall back to the global :webp config.
-  defp webp_settings(nil, _collection), do: Config.resolve_webp(nil)
-
-  defp webp_settings(module, collection) do
-    override =
-      if function_exported?(module, :get_media_collection, 1) do
-        case module.get_media_collection(String.to_atom(collection)) do
-          %PhxMediaLibrary.Collection{webp: webp} -> webp
-          _ -> nil
-        end
-      end
-
-    Config.resolve_webp(override)
   end
 
   defp to_mediable_type(module), do: module.__schema__(:source)

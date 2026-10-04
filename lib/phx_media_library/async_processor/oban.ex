@@ -199,15 +199,13 @@ if Code.ensure_loaded?(Oban) do
 
     @doc false
     def resolve_conversions(mediable_type, conversion_names, media) do
-      requested_atoms = Enum.map(conversion_names, &safe_to_atom/1)
+      requested = Enum.map(conversion_names, &to_string/1)
 
       case ModelRegistry.find_model_module(mediable_type) do
         {:ok, module} ->
-          collection_name = safe_to_atom(media.collection_name)
-
           module
-          |> ModelRegistry.get_model_conversions(collection_name)
-          |> Enum.filter(fn %Conversion{name: name} -> name in requested_atoms end)
+          |> PhxMediaLibrary.Model.conversions(media.collection_name)
+          |> Enum.filter(&(to_string(&1.name) in requested))
 
         :error ->
           Logger.warning(
@@ -219,7 +217,7 @@ if Code.ensure_loaded?(Oban) do
           # These will have default values (:contain fit, no width/height)
           # which is better than silently doing nothing, but may produce
           # unexpected results. The warning above alerts the developer.
-          Enum.map(requested_atoms, &Conversion.new(&1, []))
+          Enum.map(conversion_names, &Conversion.new(safe_to_atom(&1), []))
       end
     end
 

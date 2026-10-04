@@ -13,8 +13,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
 
   ## Options
 
-      --model         Only this model (needed to resolve per-collection settings;
-                      without it only the global :webp config is consulted)
+      --model         Only this model (e.g. MyApp.Catalog.Product)
       --collection    Only this collection
       --dry-run       List what would be deleted
   """
@@ -25,7 +24,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
 
   import Ecto.Query
 
-  alias PhxMediaLibrary.{Config, PathGenerator, Webp}
+  alias PhxMediaLibrary.{Config, Pipeline}
 
   @impl Mix.Task
   def run(args) do
@@ -33,6 +32,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
       OptionParser.parse(args, strict: [model: :string, collection: :string, dry_run: :boolean])
 
     Mix.Task.run("app.start")
+
+
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()
     module = opts[:model] && Module.concat([opts[:model]])
@@ -64,7 +65,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
       media
       |> Enum.with_index(1)
       |> Enum.reduce({0, 0}, fn {m, i}, {d, s} ->
-        case process(m, i, total, module, dry_run?) do
+        case process(m, i, total, dry_run?) do
           :dropped -> {d + 1, s}
           :skip -> {d, s + 1}
         end
@@ -77,60 +78,25 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
     )
   end
 
-  defp process(media, i, total, module, dry_run?) do
-    settings = webp_settings(module, media.collection_name)
-    local = PathGenerator.full_path(media, nil)
+  # Settings come from the media's own collection (PhxMediaLibrary.Model), the
+  # same as on upload.
+  defp process(media, i, total, dry_run?) do
+    case Pipeline.drop_original(media, dry_run: dry_run?) do
+      :ok ->
+        verb = if dry_run?, do: "would drop", else: "#{IO.ANSI.green()}✓#{IO.ANSI.reset()}"
+        Mix.shell().info("[#{i}/#{total}] #{verb} #{media.file_name}")
+        :dropped
 
-    cond do
-      Keyword.get(settings, :keep_original, true) ->
-        Mix.shell().info("[#{i}/#{total}] skip (keep_original): #{media.file_name}")
+      {:skip, reason} ->
+        Mix.shell().info("[#{i}/#{total}] skip (#{reason}): #{media.file_name}")
         :skip
 
-      not match?(%{"webp" => w} when is_binary(w), media.custom_properties) ->
+      {:error, reason} ->
         Mix.shell().info(
-          "[#{i}/#{total}] #{IO.ANSI.yellow()}skip (no webp)#{IO.ANSI.reset()}: #{media.file_name}"
+          "[#{i}/#{total}] #{IO.ANSI.red()}failed#{IO.ANSI.reset()} #{media.file_name}: #{inspect(reason)}"
         )
 
         :skip
-
-      is_nil(local) or not File.exists?(local) ->
-        Mix.shell().info("[#{i}/#{total}] skip (already gone): #{media.file_name}")
-        :skip
-
-      dry_run? ->
-        Mix.shell().info("[#{i}/#{total}] would drop: #{media.file_name}")
-        :dropped
-
-      true ->
-        case Webp.drop_original(media) do
-          :ok ->
-            Mix.shell().info(
-              "[#{i}/#{total}] #{IO.ANSI.green()}✓#{IO.ANSI.reset()} #{media.file_name}"
-            )
-
-            :dropped
-
-          other ->
-            Mix.shell().info(
-              "[#{i}/#{total}] #{IO.ANSI.red()}failed#{IO.ANSI.reset()} #{media.file_name}: #{inspect(other)}"
-            )
-
-            :skip
-        end
     end
-  end
-
-  defp webp_settings(nil, _collection), do: Config.resolve_webp(nil)
-
-  defp webp_settings(module, collection) do
-    override =
-      if function_exported?(module, :get_media_collection, 1) do
-        case module.get_media_collection(String.to_atom(collection)) do
-          %PhxMediaLibrary.Collection{webp: webp} -> webp
-          _ -> nil
-        end
-      end
-
-    Config.resolve_webp(override)
   end
 end

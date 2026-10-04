@@ -19,6 +19,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     MimeDetector,
     Model,
     PathGenerator,
+    Pipeline,
     StorageWrapper,
     Telemetry,
     UrlGenerator
@@ -268,7 +269,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   # check itself decodes nothing. Files the processor can't open pass through,
   # as before; nothing will decode them either.
   defp validate_image_pixels(%__MODULE__{model: model}, collection_name, file_info) do
-    max_pixels = max_pixels(model, collection_name)
+    max_pixels = Model.max_pixels(model, collection_name)
     processor = Config.image_processor()
 
     with true <- image?(file_info.mime_type) and is_integer(max_pixels),
@@ -278,13 +279,6 @@ defmodule PhxMediaLibrary.MediaAdder do
       {:error, {:image_too_large, width * height, max_pixels}}
     else
       _ -> :ok
-    end
-  end
-
-  defp max_pixels(model, collection_name) do
-    case Model.collection(model, collection_name) do
-      %Collection{max_pixels: max_pixels} when not is_nil(max_pixels) -> max_pixels
-      _ -> Config.max_image_pixels()
     end
   end
 
@@ -394,20 +388,16 @@ defmodule PhxMediaLibrary.MediaAdder do
       # Handle single file collections
       Model.enforce_collection_limits(adder.model, collection_name, media)
 
-      # Generate a WebP derivative FIRST and prefer it for serving when the
-      # collection opts in (config :phx_media_library, :webp / per-collection
-      # override). Must run before responsive so variants inherit the .webp
-      # encoding. Reads the source temp, so it must run before cleanup below.
-      media =
-        maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder)
+      # The same Pipeline steps repairs use. WebP runs FIRST so responsive
+      # variants inherit the .webp encoding; it reads the uploaded temp file.
+      media = step(media, Pipeline.webp(media, model: adder.model, source: file_info.path))
 
-      # Generate responsive images when the collection opts in (config
-      # :phx_media_library, :responsive / per-collection override) or the adder
-      # requested them via with_responsive_images/1. Variants inherit WebP when
-      # the media serves it (see the WebP step above).
       media =
-        if responsive_enabled?(adder, collection_name) and image?(file_info.mime_type) do
-          generate_responsive_images(media, responsive_widths(adder.model, collection_name))
+        if image?(file_info.mime_type) do
+          step(
+            media,
+            Pipeline.responsive(media, model: adder.model, requested: adder.generate_responsive)
+          )
         else
           media
         end
@@ -433,57 +423,10 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  # ── WebP conversion (0.8) — see PhxMediaLibrary.Webp ─────────────────────────
-
-  defp maybe_generate_webp(media, file_info, collection_name, storage, storage_path, adder) do
-    settings = webp_settings(adder.model, collection_name)
-
-    if Keyword.get(settings, :enabled, false) and
-         PhxMediaLibrary.Webp.convertible?(file_info.mime_type) do
-      PhxMediaLibrary.Webp.generate(media, file_info.path, settings, storage, storage_path)
-    else
-      media
-    end
-  end
-
-  defp webp_settings(model, collection_name) do
-    override =
-      case Model.collection(model, collection_name) do
-        %PhxMediaLibrary.Collection{webp: webp} -> webp
-        _ -> nil
-      end
-
-    Config.resolve_webp(override)
-  end
-
-  # Responsive on add is opt-in per collection (the `responsive:` field) or via
-  # with_responsive_images/1. The global `responsive_images` config supplies the
-  # default widths but — unlike WebP — does NOT auto-enable generation for every
-  # collection, preserving the historical behaviour (only an explicit request
-  # generated variants). The resolved `:enabled` still gates on libvips being
-  # available, so an opt-in silently no-ops when the image lib is missing.
-  defp responsive_enabled?(adder, collection_name) do
-    override = collection_responsive_override(adder.model, collection_name)
-    opted_in? = adder.generate_responsive or responsive_override_enabled?(override)
-
-    opted_in? and Keyword.get(Config.resolve_responsive(override), :enabled, false)
-  end
-
-  defp responsive_override_enabled?(true), do: true
-  defp responsive_override_enabled?(kw) when is_list(kw), do: Keyword.get(kw, :enabled, true)
-  defp responsive_override_enabled?(_), do: false
-
-  defp responsive_widths(model, collection_name) do
-    override = collection_responsive_override(model, collection_name)
-    Keyword.get(Config.resolve_responsive(override), :widths)
-  end
-
-  defp collection_responsive_override(model, collection_name) do
-    case Model.collection(model, collection_name) do
-      %PhxMediaLibrary.Collection{responsive: responsive} -> responsive
-      _ -> nil
-    end
-  end
+  # A failed or skipped derivative never fails the upload; the original is
+  # still served.
+  defp step(_media, {:ok, updated}), do: updated
+  defp step(media, _skipped_or_failed), do: media
 
   # Stream a file to storage while computing its SHA-256 checksum in a
   # single pass.  Each chunk is fed to both the storage adapter (via a
@@ -596,22 +539,6 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp coerce_float(_), do: 0.0
 
-  defp generate_responsive_images(media, widths) do
-    case PhxMediaLibrary.ResponsiveImages.generate(media, nil, widths: widths) do
-      {:ok, responsive_data} ->
-        {:ok, updated} =
-          media
-          |> Ecto.Changeset.change(responsive_images: responsive_data)
-          |> Config.repo().update()
-
-        updated
-
-      {:error, _reason} ->
-        # Log error but don't fail the upload
-        media
-    end
-  end
-
   defp maybe_generate_blurhash(media, file_path) do
     case PhxMediaLibrary.Blurhash.generate(file_path) do
       {:ok, hash} ->
@@ -645,27 +572,26 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  # Dispatch conversions, then (for WebP keep_original: false) delete the source.
+  # Dispatch conversions, then (for WebP keep_original: false) drop the source.
   #
-  # Conversions derive from the original (`Conversions.process` opens the source),
-  # so when keep_original: false will remove that source we MUST run conversions
-  # first and delete last — never before. In that case conversions run
-  # synchronously so the deletion is strictly ordered after them; otherwise they
-  # stay async and the original is retained.
+  # Conversions read the original, so when it is about to be dropped they run
+  # synchronously first; if any fails, the original is kept so they can be
+  # retried. Otherwise conversions stay async and the original is retained.
   defp process_conversions_and_finalize_webp(adder, media, collection_name) do
     conversions = Model.conversions(adder.model, collection_name)
-    replace_original? = has_webp?(media) and not webp_keep_original?(adder.model, collection_name)
+
+    drop_original? =
+      Pipeline.webp_served?(media) and
+        not Keyword.get(Model.webp_settings(adder.model, collection_name), :keep_original, true)
 
     cond do
-      # Keep the source if any conversion failed, so it can be retried.
-      replace_original? and conversions != [] ->
-        case Config.async_processor().process_sync(media, conversions) do
-          :ok -> delete_source_file(media)
-          _ -> media
-        end
+      drop_original? and conversions != [] ->
+        if Config.async_processor().process_sync(media, conversions) == :ok,
+          do: drop_original(media, adder),
+          else: media
 
-      replace_original? ->
-        delete_source_file(media)
+      drop_original? ->
+        drop_original(media, adder)
 
       conversions != [] ->
         Config.async_processor().process_async(media, conversions)
@@ -676,23 +602,11 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  defp has_webp?(%{custom_properties: %{"webp" => _}}), do: true
-  defp has_webp?(_), do: false
-
-  defp webp_keep_original?(model, collection_name) do
-    Keyword.get(webp_settings(model, collection_name), :keep_original, true)
-  end
-
-  # Remove the source file after its WebP + conversions exist (keep_original:
-  # false). file_name is left pointing at the (now-absent) source; URL helpers
-  # serve the WebP via custom_properties, so nothing reads it.
-  defp delete_source_file(media) do
-    storage = Config.storage_adapter(media.disk)
-    StorageWrapper.delete(storage, PathGenerator.relative_path(media, nil))
+  # file_name keeps naming the (now absent) source; URL helpers serve the WebP.
+  defp drop_original(media, adder) do
+    Pipeline.drop_original(media, model: adder.model)
     media
   end
-
-  # Helper functions
 
   defp generate_uuid, do: Ecto.UUID.generate()
 

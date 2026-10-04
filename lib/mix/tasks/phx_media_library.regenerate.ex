@@ -56,6 +56,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
     # Start the application
     Mix.Task.run("app.start")
 
+
     conversions = Keyword.get_values(opts, :conversion)
     collection = opts[:collection]
     model = opts[:model]
@@ -161,27 +162,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
     end
   end
 
+  # The same lookup uploads use (PhxMediaLibrary.Model).
   defp get_conversions_for_media(media) do
-    media.mediable_type
-    |> get_model_module()
-    |> get_conversions_from_module(media.collection_name)
-  end
-
-  defp get_conversions_from_module(nil, _collection_name), do: []
-
-  defp get_conversions_from_module(module, collection_name) when is_atom(module) do
-    if function_exported?(module, :get_media_conversions, 1) do
-      module.get_media_conversions(String.to_atom(collection_name))
-    else
-      []
-    end
-  end
-
-  @spec get_model_module(String.t()) :: module() | nil
-  defp get_model_module(mediable_type) do
-    case PhxMediaLibrary.ModelRegistry.find_model_module(mediable_type) do
-      {:ok, module} -> module
-      :error -> nil
-    end
+    PhxMediaLibrary.Model.conversions(media, media.collection_name)
   end
 end

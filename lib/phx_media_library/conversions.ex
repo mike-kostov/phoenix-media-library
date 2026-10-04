@@ -9,7 +9,7 @@ defmodule PhxMediaLibrary.Conversions do
     LocalSource,
     Media,
     PathGenerator,
-    ResponsiveImages,
+    Pipeline,
     StorageWrapper,
     Telemetry
   }
@@ -155,28 +155,13 @@ defmodule PhxMediaLibrary.Conversions do
     :ok
   end
 
+  # Responsive variants of the new conversions (see
+  # Model.conversion_responsive?/2 for when), with the collection's widths.
   defp maybe_generate_responsive_for_conversions(media, results) do
-    if Config.responsive_images_enabled?() do
-      generate_responsive_for_conversions(media, results)
+    case successful_conversion_names(results) do
+      [] -> :ok
+      names -> Pipeline.responsive(Config.repo().reload!(media), of: names)
     end
-  end
-
-  defp generate_responsive_for_conversions(media, results) do
-    # Get fresh media with updated conversions
-    media = Config.repo().reload!(media)
-    conversion_names = successful_conversion_names(results)
-
-    responsive_data =
-      Enum.reduce(conversion_names, media.responsive_images, fn conversion_name, acc ->
-        case ResponsiveImages.generate(media, conversion_name) do
-          {:ok, data} -> Map.merge(acc, data)
-          _ -> acc
-        end
-      end)
-
-    media
-    |> Ecto.Changeset.change(responsive_images: responsive_data)
-    |> Config.repo().update()
   end
 
   defp successful_conversion_names(results) do

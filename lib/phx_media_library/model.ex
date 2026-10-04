@@ -3,15 +3,24 @@ defmodule PhxMediaLibrary.Model do
   Reads media settings from a model — an Ecto schema that `use`s
   `PhxMediaLibrary.HasMedia` — and keeps its collections within their limits.
 
-  This is the one place that knows how to get a model's mediable type,
-  collection and conversion definitions and default disk, so the different
-  ways of adding media (`MediaAdder`, direct uploads, LiveView helpers)
-  agree with each other.
+  This is the one place that answers "what are the settings for this
+  media?": mediable type, collection and conversion definitions, default
+  disk, and the resolved WebP, responsive-image and pixel-limit settings.
+  Uploads (`MediaAdder`, direct uploads, LiveView helpers) and repairs (mix
+  tasks, `PhxMediaLibrary.Pipeline`) all ask here, so they can't drift apart.
+
+  Functions taking a `target` accept a model struct (`%MyApp.Post{}`), a
+  model module (`MyApp.Post`), or a `PhxMediaLibrary.Media` record, whose
+  model is found through `PhxMediaLibrary.ModelRegistry`. Collection names
+  may be atoms or strings.
   """
 
   import Ecto.Query, only: [from: 2]
 
-  alias PhxMediaLibrary.{Collection, Config, Conversion, Media}
+  alias PhxMediaLibrary.{Collection, Config, Conversion, Media, ModelRegistry}
+
+  @typedoc "A model struct, a model module, or a media record."
+  @type target :: struct() | module()
 
   @doc """
   The polymorphic type stored in `mediable_type` for this model.
@@ -26,7 +35,7 @@ defmodule PhxMediaLibrary.Model do
       #=> "posts"
 
   """
-  @spec mediable_type(Ecto.Schema.t() | struct()) :: String.t()
+  @spec mediable_type(struct()) :: String.t()
   def mediable_type(%module{}) do
     cond do
       function_exported?(module, :__media_type__, 0) -> module.__media_type__()
@@ -45,9 +54,11 @@ defmodule PhxMediaLibrary.Model do
       #=> %PhxMediaLibrary.Collection{name: :images, ...}
 
   """
-  @spec collection(struct(), atom() | String.t()) :: Collection.t() | nil
-  def collection(%module{}, collection_name) do
-    if function_exported?(module, :media_collections, 0) do
+  @spec collection(target(), atom() | String.t()) :: Collection.t() | nil
+  def collection(target, collection_name) do
+    module = model_module(target)
+
+    if module && function_exported?(module, :media_collections, 0) do
       name = to_string(collection_name)
       Enum.find(module.media_collections(), &(to_string(&1.name) == name))
     end
@@ -62,14 +73,161 @@ defmodule PhxMediaLibrary.Model do
       #=> [%PhxMediaLibrary.Conversion{name: :thumb, ...}]
 
   """
-  @spec conversions(struct(), atom()) :: [Conversion.t()]
-  def conversions(%module{}, collection_name) do
-    if function_exported?(module, :get_media_conversions, 1) do
-      module.get_media_conversions(collection_name)
+  @spec conversions(target(), atom() | String.t()) :: [Conversion.t()]
+  def conversions(target, collection_name) do
+    module = model_module(target)
+
+    if module && function_exported?(module, :media_conversions, 0) do
+      name = to_string(collection_name)
+
+      Enum.filter(module.media_conversions(), fn %Conversion{collections: collections} ->
+        collections == [] or Enum.any?(collections, &(to_string(&1) == name))
+      end)
     else
       []
     end
   end
+
+  @doc """
+  The model module behind a target, or `nil` when a media record's
+  `mediable_type` matches no known model.
+
+  ## Examples
+
+      PhxMediaLibrary.Model.model_module(media)
+      #=> MyApp.Post
+
+  """
+  @spec model_module(target()) :: module() | nil
+  def model_module(%Media{mediable_type: type}) do
+    case ModelRegistry.find_model_module(type) do
+      {:ok, module} -> module
+      :error -> nil
+    end
+  end
+
+  def model_module(%module{}), do: module
+  def model_module(module) when is_atom(module), do: module
+
+  @doc """
+  Resolved WebP settings for a collection: its `webp:` override merged over
+  the global `:webp` config (see `PhxMediaLibrary.Config.resolve_webp/1`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.webp_settings(media, media.collection_name)
+      #=> [enabled: true, quality: 82, keep_original: true, max_dimension: nil]
+
+  """
+  @spec webp_settings(target(), atom() | String.t()) :: keyword()
+  def webp_settings(target, collection_name) do
+    Config.resolve_webp(override(target, collection_name, :webp))
+  end
+
+  @doc """
+  Resolved responsive-image settings for a collection: its `responsive:`
+  override merged over the global config (see
+  `PhxMediaLibrary.Config.resolve_responsive/1`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.responsive_settings(post, :images)[:widths]
+      #=> [320, 640, 960, 1280, 1920]
+
+  """
+  @spec responsive_settings(target(), atom() | String.t()) :: keyword()
+  def responsive_settings(target, collection_name) do
+    Config.resolve_responsive(override(target, collection_name, :responsive))
+  end
+
+  @doc """
+  Whether responsive variants are generated for a collection.
+
+  Responsive images are opt-in: the collection's `responsive:` setting must
+  ask for them and the resolved settings must be enabled. The global config
+  supplies defaults such as widths but doesn't opt every collection in.
+
+  `requested?` (from `with_responsive_images/1`) asks for them for one
+  upload; only an explicit "off" — the collection's `responsive: false` or a
+  global `responsive_images: [enabled: false]` — still blocks it. Both paths
+  need the `:image` library.
+
+  ## Examples
+
+      PhxMediaLibrary.Model.responsive?(post, :gallery)
+      #=> true
+
+  """
+  @spec responsive?(target(), atom() | String.t(), boolean()) :: boolean()
+  def responsive?(target, collection_name, requested? \\ false) do
+    override = override(target, collection_name, :responsive)
+
+    cond do
+      explicitly_off?(override) ->
+        false
+
+      requested? ->
+        Keyword.get(Config.responsive_images_config(), :enabled) != false and image_library?()
+
+      true ->
+        opted_in?(override) and Keyword.get(Config.resolve_responsive(override), :enabled, false)
+    end
+  end
+
+  defp explicitly_off?(false), do: true
+  defp explicitly_off?(keyword) when is_list(keyword), do: Keyword.get(keyword, :enabled) == false
+  defp explicitly_off?(_), do: false
+
+  defp image_library?, do: Code.ensure_loaded?(Image)
+
+  @doc """
+  Whether responsive variants are generated for a collection's conversions.
+
+  Unlike the original, conversions get variants whenever the global
+  `responsive_images` switch is on (its default), or when the collection
+  opts in. This is the long-standing default, kept until a minor release
+  unifies the two rules.
+
+  ## Examples
+
+      PhxMediaLibrary.Model.conversion_responsive?(post, :images)
+      #=> true
+
+  """
+  @spec conversion_responsive?(target(), atom() | String.t()) :: boolean()
+  def conversion_responsive?(target, collection_name) do
+    Config.responsive_images_enabled?() or responsive?(target, collection_name)
+  end
+
+  @doc """
+  The maximum image size in pixels for a collection: its `max_pixels:`, or
+  the global `:max_image_pixels` (see
+  `PhxMediaLibrary.Config.max_image_pixels/0`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.max_pixels(post, :images)
+      #=> 100_000_000
+
+  """
+  @spec max_pixels(target(), atom() | String.t()) :: pos_integer() | :infinity
+  def max_pixels(target, collection_name) do
+    case collection(target, collection_name) do
+      %Collection{max_pixels: max_pixels} when not is_nil(max_pixels) -> max_pixels
+      _ -> Config.max_image_pixels()
+    end
+  end
+
+  defp override(target, collection_name, key) do
+    case collection(target, collection_name) do
+      %Collection{} = collection -> Map.fetch!(collection, key)
+      nil -> nil
+    end
+  end
+
+  defp opted_in?(true), do: true
+  defp opted_in?(keyword) when is_list(keyword), do: Keyword.get(keyword, :enabled, true)
+  defp opted_in?(_), do: false
 
   @doc """
   The disk for `collection_name`: the collection's `disk:` setting, or the
@@ -81,7 +239,7 @@ defmodule PhxMediaLibrary.Model do
       #=> :local
 
   """
-  @spec default_disk(struct(), atom()) :: atom() | String.t()
+  @spec default_disk(target(), atom() | String.t()) :: atom() | String.t()
   def default_disk(model, collection_name) do
     case collection(model, collection_name) do
       %Collection{disk: disk} when not is_nil(disk) -> disk

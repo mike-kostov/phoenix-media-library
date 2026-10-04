@@ -2,9 +2,9 @@ defmodule PhxMediaLibrary.Webp do
   @moduledoc """
   WebP transcoding for media originals (0.8).
 
-  Used both on add (`PhxMediaLibrary.MediaAdder`) and for bulk re-generation
-  (`mix phx_media_library.regenerate`). Encapsulates the encode + store + record
-  so the two call sites stay in sync.
+  Called through `PhxMediaLibrary.Pipeline.webp/2`, which resolves the
+  collection's settings, both on add and for re-generation. Encapsulates the
+  encode + store + record.
   """
 
   alias PhxMediaLibrary.{Config, StorageWrapper}
@@ -35,10 +35,29 @@ defmodule PhxMediaLibrary.Webp do
   still derive from the original and nothing is deleted before them).
 
   Returns the updated media, or the media unchanged on any processor/storage
-  error (graceful degradation — the original is still served).
+  error (graceful degradation — the original is still served). Use
+  `encode/5` to tell the two apart.
   """
   @spec generate(map(), String.t(), keyword(), term(), String.t()) :: map()
   def generate(media, source_path, settings, storage, orig_storage_path) do
+    case encode(media, source_path, settings, storage, orig_storage_path) do
+      {:ok, media} -> media
+      {:error, _reason} -> media
+    end
+  end
+
+  @doc """
+  Same as `generate/5`, but returns `{:ok, media}` or `{:error, reason}`
+  (logged as a warning) so callers can report failures.
+
+  ## Examples
+
+      {:ok, media} = Webp.encode(media, "/tmp/photo.jpg", [quality: 82], storage, "posts/1/u/photo.jpg")
+
+  """
+  @spec encode(map(), String.t(), keyword(), term(), String.t()) ::
+          {:ok, map()} | {:error, term()}
+  def encode(media, source_path, settings, storage, orig_storage_path) do
     quality = Keyword.get(settings, :quality, 82)
     max_dimension = Keyword.get(settings, :max_dimension)
     processor = Config.image_processor()
@@ -65,17 +84,14 @@ defmodule PhxMediaLibrary.Webp do
           |> Map.put("webp", wpath)
           |> put_dims(dims)
 
-        {:ok, media} =
-          media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
-
-        media
+        media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
 
       other ->
         Logger.warning(
           "[webp] generation failed for media #{inspect(media.id)}: #{inspect(other)}"
         )
 
-        media
+        {:error, unwrap_error(other)}
     end
   end
 
@@ -124,6 +140,9 @@ defmodule PhxMediaLibrary.Webp do
       {max(round(w * scale), 1), max(round(h * scale), 1)}
     end
   end
+
+  defp unwrap_error({:error, reason}), do: reason
+  defp unwrap_error(reason), do: reason
 
   # No cap: dimensions are unknown here and left unrecorded (`nil`).
   defp fit_within(image, nil, _processor), do: {:ok, {image, nil}}

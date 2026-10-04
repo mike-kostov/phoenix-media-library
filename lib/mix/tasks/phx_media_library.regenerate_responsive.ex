@@ -47,6 +47,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateResponsive do
 
     Mix.Task.run("app.start")
 
+
     dry_run? = opts[:dry_run] || false
 
     Mix.shell().info("""
@@ -87,22 +88,25 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateResponsive do
     Mix.shell().info("[#{index}/#{total}] Would regenerate: #{media.file_name}")
   end
 
-  defp process_item({media, index}, total, false = _dry_run?, repo) do
-    Mix.shell().info("[#{index}/#{total}] Processing: #{media.file_name}")
+  # Widths and the opt-in come from the media's own collection
+  # (PhxMediaLibrary.Model), the same as on upload. Variants are regenerated
+  # for the original and every generated conversion.
+  defp process_item({media, index}, total, false = _dry_run?, _repo) do
+    of = [nil | Map.keys(media.generated_conversions || %{})]
 
-    case PhxMediaLibrary.ResponsiveImages.generate_all(media) do
-      {:ok, responsive_data} ->
-        update_responsive_images(media, responsive_data, repo)
-        Mix.shell().info("  #{IO.ANSI.green()}✓ Done#{IO.ANSI.reset()}")
+    case PhxMediaLibrary.Pipeline.responsive(media, of: of) do
+      {:ok, _media} ->
+        Mix.shell().info(
+          "[#{index}/#{total}] #{IO.ANSI.green()}✓#{IO.ANSI.reset()} #{media.file_name}"
+        )
+
+      {:skip, reason} ->
+        Mix.shell().info("[#{index}/#{total}] skip (#{reason}): #{media.file_name}")
 
       {:error, reason} ->
-        Mix.shell().error("  #{IO.ANSI.red()}Error: #{inspect(reason)}#{IO.ANSI.reset()}")
+        Mix.shell().error(
+          "[#{index}/#{total}] #{IO.ANSI.red()}Error: #{inspect(reason)}#{IO.ANSI.reset()} #{media.file_name}"
+        )
     end
-  end
-
-  defp update_responsive_images(media, responsive_data, repo) do
-    media
-    |> Ecto.Changeset.change(responsive_images: responsive_data)
-    |> repo.update!()
   end
 end

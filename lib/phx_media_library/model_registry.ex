@@ -98,11 +98,24 @@ defmodule PhxMediaLibrary.ModelRegistry do
 
     case Map.get(registry, mediable_type) do
       nil ->
-        # Strategy 2: Scan loaded modules
-        scan_for_model_module(mediable_type)
+        # Strategy 2: Scan loaded modules. In mix tasks and dev (interactive
+        # mode) schemas load lazily, so on a miss load every application's
+        # modules and scan once more.
+        with :error <- scan_for_model_module(mediable_type) do
+          load_application_modules()
+          scan_for_model_module(mediable_type)
+        end
 
       module when is_atom(module) ->
         {:ok, module}
+    end
+  end
+
+  defp load_application_modules do
+    for {app, _desc, _vsn} <- :application.loaded_applications(),
+        {:ok, modules} <- [:application.get_key(app, :modules)],
+        module <- modules do
+      Code.ensure_loaded(module)
     end
   end
 

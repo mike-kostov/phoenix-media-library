@@ -15,7 +15,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `:model` and `:collection` options for the same check. Malformed IDs no
   longer crash the LiveView.
 
+### Added
+- `PhxMediaLibrary.Pipeline`: one function per processing step (metadata,
+  WebP, responsive variants, conversions, dropping the original). Uploads
+  and repairs run the same steps; `metadata/2` can repair media stored with
+  empty metadata.
+- `PhxMediaLibrary.Model` resolves all per-collection settings (WebP,
+  responsive, pixel limit, conversions) from a model struct, module or media
+  record.
+- `Webp.encode/5`, like `generate/5` but returns `{:ok, media}` or
+  `{:error, reason}`.
+
 ### Fixed
+- Maintenance tasks ignored per-collection settings unless given `--model`,
+  and some even with it:
+  - `regenerate_webp` used the global WebP settings (quality, size cap), and
+    printed ✓ when generation failed.
+  - `drop_originals` ignored a collection's `keep_original`.
+  - `regenerate_responsive` used the global widths, and created variants
+    of the original for collections that never opted in (uploads don't).
+  - `regenerate` looked up conversions its own way.
+
+  All now go through `Pipeline`/`Model`, the same as uploads.
+- Responsive variants of conversions ignored the collection's
+  `responsive: [widths: ...]` and always used the global widths. They now
+  use the collection's widths when it sets them. When they're generated is
+  unchanged: whenever the global `responsive_images` switch is on (the
+  default).
+- `with_responsive_images/1` did nothing unless the app also set
+  `responsive_images: [enabled: true]` (the library's own dev/test config
+  set it, hiding the bug). An explicit request now works on its own; only
+  the collection's `responsive: false` or a global `enabled: false` blocks
+  it.
+- Model lookups by `mediable_type` failed in mix tasks for schemas not yet
+  loaded; `ModelRegistry` now loads application modules on a miss.
 - Two uploads racing on a `single_file` collection could each delete the
   other, leaving it empty. An upload now only deletes media older than
   itself, so the newest always survives.
