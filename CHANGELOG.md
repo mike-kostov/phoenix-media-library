@@ -71,6 +71,13 @@ What apps must change when upgrading:
   longer crash the LiveView.
 
 ### Added
+- Placeholders for every image, not only those with responsive variants:
+  `placeholder: :blur | :color | false` globally or per collection
+  (default `:blur`). `:blur` is a 16px WebP without metadata (median 122
+  bytes on 235 product photos); `:color` is the average color. Crop
+  conversions get their own; same-shape ones use the original's. Stored
+  in `responsive_images` under `"placeholder"`; no migration.
+  `responsive_images: [tiny_placeholder: false]` still turns them off.
 - AVIF, opt-in: `avif: true` (or `[quality: n]`) globally or per
   collection stores an AVIF beside the original, at the served file's size
   (`custom_properties["avif"]`). Conversions in such a collection are AVIF
@@ -201,6 +208,9 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- The tiny placeholder kept the photo's metadata (EXIF, color profile),
+  making it 2 to 5 KB instead of about 150 bytes. It is now a 16px WebP
+  without metadata.
 - Uploads to a collection with responsive images raised with a custom
   image processor: variants were saved with `save/2`, which the
   `ImageProcessor` behaviour doesn't define. They now use `save/3`.

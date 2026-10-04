@@ -61,23 +61,40 @@ if Code.ensure_loaded?(Image) do
     end
 
     @impl true
+    # 16px wide WebP without EXIF or color profile: about 120 bytes on
+    # product photos (docs/ideas/placeholders.md).
     def tiny_placeholder(image) do
-      # Generate a 32px wide tiny placeholder
-      with {:ok, tiny} <- Image.thumbnail(image, 32),
-           {:ok, buffer} <- Image.write(tiny, :memory, suffix: ".jpg", quality: 40) do
-        base64 = Base.encode64(buffer)
-        # Image.width/height return integers directly, not tuples
-        width = Image.width(tiny)
-        height = Image.height(tiny)
-
-        # Return as data URI with dimensions
+      with {:ok, tiny} <- Image.thumbnail(image, 16),
+           {:ok, buffer} <- Image.write(tiny, :memory, suffix: ".webp", strip_metadata: true) do
         {:ok,
          %{
-           data_uri: "data:image/jpeg;base64,#{base64}",
-           width: width,
-           height: height
+           data_uri: "data:image/webp;base64," <> Base.encode64(buffer),
+           width: Image.width(tiny),
+           height: Image.height(tiny)
          }}
       end
+    end
+
+    @impl true
+    def average_color(image) do
+      # Image.average/1 flattens alpha and returns one value per band.
+      case Image.average(image) do
+        {:error, _} = error -> error
+        [gray] -> {:ok, hex_color([gray, gray, gray])}
+        [r, g, b | _] -> {:ok, hex_color([r, g, b])}
+      end
+    end
+
+    defp hex_color(rgb), do: "#" <> Enum.map_join(rgb, &hex_byte/1)
+
+    defp hex_byte(value) do
+      value
+      |> round()
+      |> max(0)
+      |> min(255)
+      |> Integer.to_string(16)
+      |> String.pad_leading(2, "0")
+      |> String.downcase()
     end
 
     # Private functions

@@ -137,6 +137,115 @@ defmodule PhxMediaLibrary.Pipeline do
   end
 
   @doc """
+  Make the placeholder images show while they load, as the collection's
+  `placeholder:` says: `:blur` (a 16px WebP without metadata) or `:color`
+  (the average color). Stored in `responsive_images` under
+  `"placeholder"`, beside any variants.
+
+  Conversions with the original's shape get none of their own: the
+  original's fits them.
+
+  ## Options
+
+    * `:of` — the original (`nil`) and/or conversion names; default the
+      original and every generated conversion
+    * `:source` — a local copy of the original, to avoid fetching it
+    * `:model` — the model, when the media's type isn't registered
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.placeholder(media)
+      {:skip, :disabled} = PhxMediaLibrary.Pipeline.placeholder(media_in_a_collection_without)
+
+  """
+  @spec placeholder(Media.t(), keyword()) :: result()
+  def placeholder(%Media{} = media, opts \\ []) do
+    kind = Model.placeholder(target(media, opts), media.collection_name)
+    of = Keyword.get(opts, :of, [nil | Map.keys(media.generated_conversions || %{})])
+
+    cond do
+      kind == false ->
+        {:skip, :disabled}
+
+      not String.starts_with?(media.mime_type || "", "image/") ->
+        {:skip, :not_image}
+
+      true ->
+        placeholders =
+          for source <- of,
+              {:ok, placeholder} <- [make_placeholder(media, source, kind, opts)],
+              into: %{},
+              do: {responsive_key(source), placeholder}
+
+        if placeholders == %{},
+          do: {:skip, :no_placeholder},
+          else: update(media, responsive_images: put_placeholders(media, placeholders))
+    end
+  end
+
+  defp make_placeholder(media, nil, kind, opts) do
+    with_source(media, opts, &placeholder_from(&1, kind, nil))
+  end
+
+  defp make_placeholder(media, conversion, kind, _opts) do
+    LocalSource.with_path(media, conversion, &placeholder_from(&1, kind, media))
+  end
+
+  # `media` is given for conversions: same-shape ones are skipped.
+  defp placeholder_from(path, kind, media) do
+    processor = Config.image_processor()
+
+    with {:ok, image} <- processor.open(path),
+         :ok <- own_shape(image, media, processor) do
+      tiny_or_color(image, kind, processor)
+    end
+  end
+
+  defp own_shape(_image, nil, _processor), do: :ok
+
+  defp own_shape(image, media, processor) do
+    with {:ok, {width, height}} <- processor.dimensions(image) do
+      case Media.dimensions(media, nil) do
+        {ow, oh} when ow > 0 and abs(round(width * oh / ow) - height) <= 1 -> {:skip, :same_shape}
+        _ -> :ok
+      end
+    end
+  end
+
+  defp tiny_or_color(image, :blur, processor) do
+    with {:ok, tiny} <- processor.tiny_placeholder(image) do
+      {:ok, %{"data_uri" => tiny.data_uri, "width" => tiny.width, "height" => tiny.height}}
+    end
+  end
+
+  defp tiny_or_color(image, :color, processor) do
+    Code.ensure_loaded(processor)
+
+    if function_exported?(processor, :average_color, 1) do
+      with {:ok, color} <- processor.average_color(image), do: {:ok, %{"color" => color}}
+    else
+      {:skip, :not_supported}
+    end
+  end
+
+  defp put_placeholders(media, placeholders) do
+    Enum.reduce(placeholders, media.responsive_images || %{}, fn {key, placeholder}, acc ->
+      entry =
+        case Map.get(acc, key) do
+          %{} = entry -> entry
+          # Legacy shape: a bare list of variants.
+          variants when is_list(variants) -> %{"variants" => variants}
+          nil -> %{}
+        end
+
+      Map.put(acc, key, Map.put(entry, "placeholder", placeholder))
+    end)
+  end
+
+  defp responsive_key(nil), do: "original"
+  defp responsive_key(conversion), do: to_string(conversion)
+
+  @doc """
   Generate responsive variants with the collection's widths, and store them
   alongside what `responsive_images` already holds (blurhash, poster, ...).
 
@@ -175,7 +284,7 @@ defmodule PhxMediaLibrary.Pipeline do
         widths = Model.responsive_settings(target, media.collection_name)[:widths]
 
         with {:ok, data} <- generate_variants(media, sources, widths) do
-          update(media, responsive_images: Map.merge(media.responsive_images || %{}, data))
+          update(media, responsive_images: merge_responsive(media.responsive_images || %{}, data))
         end
     end
   end
@@ -185,6 +294,15 @@ defmodule PhxMediaLibrary.Pipeline do
 
   defp responsive_for?(target, media, _conversion, _requested?),
     do: Model.conversion_responsive?(target, media.collection_name)
+
+  # New variants replace old ones; other keys of an entry (its placeholder)
+  # stay.
+  defp merge_responsive(existing, data) do
+    Map.merge(existing, data, fn
+      _key, %{} = old, %{} = new -> Map.merge(old, new)
+      _key, _old, new -> new
+    end)
+  end
 
   # Conversions see the original's data generated before them, so they can
   # reuse its variants (ADR-024).

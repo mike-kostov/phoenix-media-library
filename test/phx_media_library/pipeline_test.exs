@@ -163,7 +163,7 @@ defmodule PhxMediaLibrary.PipelineTest do
 
     test "originals of collections that don't opt in get no variants", %{png: png} do
       media = add(png, :images)
-      refute Map.has_key?(media.responsive_images, "original")
+      refute get_in(media.responsive_images, ["original", "variants"])
     end
 
     test "conversions get variants (the global switch defaults to on)", %{png: png} do
@@ -182,7 +182,7 @@ defmodule PhxMediaLibrary.PipelineTest do
         |> PhxMediaLibrary.to_collection(:images, disk: :local)
 
       on_exit(fn -> Media.delete_files(Repo.reload!(media)) end)
-      refute Map.has_key?(media.responsive_images, "original")
+      refute get_in(media.responsive_images, ["original", "variants"])
     end
   end
 

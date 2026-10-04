@@ -68,6 +68,7 @@ defmodule PhxMediaLibrary.Conversions do
 
       # Generate responsive images for conversions if enabled
       maybe_generate_responsive_for_conversions(media, results)
+      maybe_generate_placeholders_for_conversions(media, results)
 
       case Enum.reject(results, &match?({:ok, _}, &1)) do
         [] ->
@@ -203,6 +204,13 @@ defmodule PhxMediaLibrary.Conversions do
     case successful_conversion_names(results) do
       [] -> :ok
       names -> Pipeline.responsive(Config.repo().reload!(media), of: names)
+    end
+  end
+
+  defp maybe_generate_placeholders_for_conversions(media, results) do
+    case successful_conversion_names(results) do
+      [] -> :ok
+      names -> Pipeline.placeholder(Config.repo().reload!(media), of: names)
     end
   end
 

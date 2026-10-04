@@ -23,8 +23,16 @@ defmodule PhxMediaLibrary.ImageProcessor do
   @callback dimensions(image()) ::
               {:ok, {width :: integer(), height :: integer()}} | {:error, term()}
 
-  @doc "Generate a tiny placeholder (base64 encoded)."
-  @callback tiny_placeholder(image()) :: {:ok, String.t()} | {:error, term()}
+  @doc """
+  Generate a tiny placeholder: a data URI of a few pixels' wide image,
+  without metadata, with its `:width` and `:height`.
+  """
+  @callback tiny_placeholder(image()) ::
+              {:ok, %{data_uri: String.t(), width: pos_integer(), height: pos_integer()}}
+              | {:error, term()}
+
+  @doc "The image's average color as `#rrggbb`. Optional: without it, `:color` placeholders are skipped."
+  @callback average_color(image()) :: {:ok, String.t()} | {:error, term()}
 
   @doc """
   Whether the processor can save images in `format` (e.g. `:avif`, which
@@ -33,7 +41,7 @@ defmodule PhxMediaLibrary.ImageProcessor do
   """
   @callback supports_format?(format :: atom()) :: boolean()
 
-  @optional_callbacks [supports_format?: 1]
+  @optional_callbacks [supports_format?: 1, average_color: 1]
 
   @doc """
   Whether `processor` can save images in `format`; `true` for processors

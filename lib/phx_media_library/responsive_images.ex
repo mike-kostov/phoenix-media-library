@@ -13,16 +13,16 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   1. The original image dimensions are analyzed
   2. Multiple smaller versions are generated at configured breakpoints
-  3. A tiny placeholder (32px wide) is generated for progressive loading
-  4. All variant information is stored in the `responsive_images` field
+  3. All variant information is stored in the `responsive_images` field
+
+  Placeholders are a step of their own, `PhxMediaLibrary.Pipeline.placeholder/2`.
 
   ## Configuration
 
       config :phx_media_library,
         responsive_images: [
           enabled: true,
-          widths: [320, 640, 960, 1280, 1920],
-          tiny_placeholder: true
+          widths: [320, 640, 960, 1280, 1920]
         ]
 
   ## Usage in Templates
@@ -94,16 +94,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
               widths
             )
 
-      data =
-        build_responsive_data(
-          media,
-          variants,
-          orig_width,
-          orig_height,
-          conversion,
-          image,
-          processor
-        )
+      data = build_responsive_data(media, variants, orig_width, orig_height, conversion)
 
       {:ok, if(reuses_original?, do: mark_reuse(data, conversion), else: data)}
     end
@@ -220,10 +211,6 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     end
   end
 
-  defp generate_placeholder(image, processor) do
-    processor.tiny_placeholder(image)
-  end
-
   defp responsive_variant_path(media, conversion, width) do
     # Derive the variant directory from the configured path generator so
     # variants live beside the original — this respects custom/tenant/date
@@ -289,15 +276,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     |> Enum.map(fn {:ok, variant} -> variant end)
   end
 
-  defp build_responsive_data(
-         media,
-         variants,
-         orig_width,
-         orig_height,
-         conversion,
-         image,
-         processor
-       ) do
+  defp build_responsive_data(media, variants, orig_width, orig_height, conversion) do
     # Full-size srcset descriptor, in the variants' format: the AVIF or WebP
     # sibling of the original when it has one, so the whole srcset is one
     # format at no extra cost. Conversions are already in that format.
@@ -314,25 +293,8 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       "path" => original_path
     }
 
-    all_variants = variants ++ [original_variant]
-    placeholder = maybe_generate_placeholder(image, processor)
-    key = conversion_key(conversion)
-
-    %{
-      key => %{
-        "variants" => all_variants,
-        "placeholder" => placeholder
-      }
-    }
-  end
-
-  defp maybe_generate_placeholder(image, processor) do
-    if Config.tiny_placeholders_enabled?() do
-      case generate_placeholder(image, processor) do
-        {:ok, placeholder_data} -> placeholder_data
-        _ -> nil
-      end
-    end
+    # Placeholders are their own step (Pipeline.placeholder/2).
+    %{conversion_key(conversion) => %{"variants" => variants ++ [original_variant]}}
   end
 
   defp generate_conversion_data(media) do

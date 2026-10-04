@@ -344,8 +344,9 @@ the original's variants up to the conversion's width, plus the conversion.
 
 ### Checkpoint: Image formats
 - [x] Full suite and `mix precommit` green.
-- [ ] Rerun the probe upload from the spec discussion and show Mike the
-      file list for a WebP + AVIF + responsive collection.
+- [x] Rerun the probe upload from the spec discussion and show Mike the
+      file list for a WebP + AVIF + responsive collection. (Approved
+      2026-10-04.)
 
 ### Phase 4: Placeholders and smaller features
 
@@ -355,10 +356,11 @@ the original's variants up to the conversion's width, plus the conversion.
 a 16px WebP without metadata (blur) or the average color, for the original
 and crop conversions, stored in `responsive_images`.
 **Acceptance criteria:**
-- [ ] `:blur` placeholders are under 400 bytes on the sample photos and
-      contain no EXIF or color profile.
-- [ ] `:color` stores a `#rrggbb` average color.
-- [ ] `false` stores nothing.
+- [x] `:blur` placeholders are under 400 bytes on the sample photos and
+      contain no EXIF or color profile. (235 photos measured, max 384
+      bytes; tests use a generated photo with a color profile.)
+- [x] `:color` stores a `#rrggbb` average color.
+- [x] `false` stores nothing.
 **Verification:** pipeline tests with real photos; `mix precommit`.
 **Dependencies:** Task 14
 **Files:** `config.ex`, `collection.ex`, `model.ex`, `pipeline.ex`, tests

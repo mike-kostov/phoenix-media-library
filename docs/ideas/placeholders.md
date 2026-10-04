@@ -45,8 +45,11 @@ fills them in for existing media.
 - [ ] A 16px image scaled up by the browser looks smoothly blurred, not
       blocky. Check in a browser on a product grid and a hero image before
       building.
-- [ ] About 150 bytes holds across typical photos, not only the two
-      measured. Measure on a larger sample of sharo-shop photos.
+- [x] About 150 bytes holds across typical photos, not only the two
+      measured. Measured 2026-10-04 on the 235 photos in
+      `sharo-shop/tmp/rc-photos`, 16px WebP, default quality, metadata
+      stripped: median 122 bytes, 95th percentile 172, max 384; none carry
+      EXIF or a color profile.
 - [ ] Today's `tiny_placeholder` setting can map onto the new option so
       existing configs keep working.
 

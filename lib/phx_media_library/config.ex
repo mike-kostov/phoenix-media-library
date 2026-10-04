@@ -237,6 +237,25 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @doc """
+  The image placeholder for a collection: its `placeholder:` override, else
+  the global `config :phx_media_library, placeholder:`, else `:blur`.
+  `responsive_images: [tiny_placeholder: false]`, the setting before 0.9,
+  still turns placeholders off. Placeholders need the `:image` library;
+  without it, `false`.
+  """
+  @spec resolve_placeholder(:blur | :color | false | nil) :: :blur | :color | false
+  def resolve_placeholder(override) do
+    global =
+      case Application.fetch_env(:phx_media_library, :placeholder) do
+        {:ok, value} -> value
+        :error -> if tiny_placeholders_enabled?(), do: :blur, else: false
+      end
+
+    resolved = if is_nil(override), do: global, else: override
+    if Code.ensure_loaded?(Image), do: resolved, else: false
+  end
+
+  @doc """
   Resolve the effective responsive-images settings for a collection.
 
   Same merge semantics as `resolve_webp/1`, over the existing `:responsive_images`

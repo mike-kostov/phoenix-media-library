@@ -52,6 +52,22 @@ defmodule PhxMediaLibrary.Fixtures do
   end
 
   @doc """
+  Creates a noisy, photo-like JPEG with an embedded sRGB color profile, like
+  a camera upload: placeholders made from it must not carry the profile.
+  """
+  def create_photo_with_profile(width \\ 400, height \\ 300) do
+    alias Vix.Vips.Operation
+
+    path = Path.join(System.tmp_dir!(), "photo_#{:erlang.unique_integer([:positive])}.jpg")
+    {:ok, noise} = Operation.gaussnoise(width, height, mean: 128.0, sigma: 40.0)
+    {:ok, rgb} = Operation.bandjoin([noise, noise, noise])
+    {:ok, rgb} = Operation.cast(rgb, :VIPS_FORMAT_UCHAR)
+    {:ok, rgb} = Operation.copy(rgb, interpretation: :VIPS_INTERPRETATION_sRGB)
+    :ok = Operation.jpegsave(rgb, path, profile: "srgb")
+    path
+  end
+
+  @doc """
   Creates a minimal valid PNG file.
   """
   def create_minimal_png(path) do

@@ -140,6 +140,21 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
+  The placeholder images in a collection get: `:blur`, `:color` or `false`
+  (see `PhxMediaLibrary.Config.resolve_placeholder/1`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.placeholder(post, :photos)
+      #=> :blur
+
+  """
+  @spec placeholder(target(), atom() | String.t()) :: :blur | :color | false
+  def placeholder(target, collection_name) do
+    Config.resolve_placeholder(override(target, collection_name, :placeholder))
+  end
+
+  @doc """
   The format conversions without their own `format:` are saved in: the best
   modern format the collection has on for this type of image, AVIF (when
   the image processor supports it) over WebP; else `nil`, the original's

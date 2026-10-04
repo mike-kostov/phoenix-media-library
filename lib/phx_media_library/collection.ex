@@ -28,6 +28,9 @@ defmodule PhxMediaLibrary.Collection do
   - `:avif` — AVIF override, same shape (`true`/`false`/keyword with
     `quality:`), merged over `config :phx_media_library, :avif`. Off unless
     set; the AVIF is made beside the served file.
+  - `:placeholder` — what images show while they load: `:blur` (a tiny
+    WebP), `:color` (the average color) or `false`. `nil` (default) uses
+    `config :phx_media_library, :placeholder` (`:blur` unless configured).
   - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.
 
@@ -47,7 +50,8 @@ defmodule PhxMediaLibrary.Collection do
     :verify_content_type,
     :webp,
     :avif,
-    :responsive
+    :responsive,
+    :placeholder
   ]
 
   @type override :: boolean() | keyword() | nil
@@ -66,7 +70,8 @@ defmodule PhxMediaLibrary.Collection do
           verify_content_type: boolean(),
           webp: override(),
           avif: override(),
-          responsive: override()
+          responsive: override(),
+          placeholder: :blur | :color | false | nil
         }
 
   @doc """
@@ -87,6 +92,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:webp` - WebP override: `true`/`false`/keyword, merged over global config (default: inherit)
   - `:avif` - AVIF override: `true`/`false`/keyword (`quality:`), merged over global config (default: inherit)
   - `:responsive` - Responsive-images override: `true`/`false`/keyword, merged over global (default: inherit)
+  - `:placeholder` - `:blur`, `:color` or `false` (default: global `:placeholder`, else `:blur`)
 
   ## Examples
 
@@ -122,7 +128,8 @@ defmodule PhxMediaLibrary.Collection do
       verify_content_type: Keyword.get(opts, :verify_content_type, true),
       webp: Keyword.get(opts, :webp),
       avif: Keyword.get(opts, :avif),
-      responsive: Keyword.get(opts, :responsive)
+      responsive: Keyword.get(opts, :responsive),
+      placeholder: Keyword.get(opts, :placeholder)
     }
   end
 end

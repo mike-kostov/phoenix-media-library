@@ -434,6 +434,13 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
+      # The original's placeholder, while the upload's file is at hand.
+      media =
+        step(
+          media,
+          Pipeline.placeholder(media, model: adder.model, source: file_info.path, of: [nil])
+        )
+
       # Generate blurhash placeholder when enabled and Image is available.
       media =
         if image?(file_info.mime_type) and Config.blurhash_enabled?() do
