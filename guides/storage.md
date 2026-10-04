@@ -58,21 +58,48 @@ JavaScript; through an `<img>` tag it never runs, but opening the file's URL
 directly would run it on your domain. With these headers it doesn't. See
 `PhxMediaLibrary.Plug.StaticHeaders`.
 
-### Amazon S3
+### Amazon S3 and S3-compatible services
 
 Requires the optional `:ex_aws`, `:ex_aws_s3`, and `:sweet_xml` dependencies.
+The same adapter works with AWS, Cloudflare R2 and any S3-compatible
+service; `provider:` picks the right defaults for each.
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `:bucket` | yes | S3 bucket name |
-| `:region` | yes | AWS region (e.g. `"us-east-1"`) |
+| `:bucket` | yes | Bucket name |
+| `:provider` | no | `:aws` (default), `:r2` or `:generic` |
+| `:region` | AWS | AWS region (e.g. `"us-east-1"`); `"auto"` on R2 |
+| `:account_id` | R2 | Cloudflare account ID; the endpoint is built from it |
+| `:endpoint` | `:generic` | API URL, e.g. `"https://s3.example.com"` |
+| `:base_url` | R2 | Public URL base: a CDN or custom domain |
+| `:addressing` | no | `:path` (default) or `:virtual_host` |
+| `:acl` | no | ACL sent with uploads (default: `"private"`) |
+| `:cache_control` | no | `Cache-Control` stored with uploads (see Caching) |
 
 ```elixir
 disks: [
+  # AWS
   s3: [
     adapter: PhxMediaLibrary.Storage.S3,
     bucket: "my-media-bucket",
     region: "us-east-1"
+  ],
+  # Cloudflare R2
+  r2: [
+    adapter: PhxMediaLibrary.Storage.S3,
+    provider: :r2,
+    account_id: System.get_env("R2_ACCOUNT_ID"),
+    bucket: "media",
+    base_url: "https://media.example.com",
+    access_key_id: System.get_env("R2_ACCESS_KEY_ID"),
+    secret_access_key: System.get_env("R2_SECRET_ACCESS_KEY")
+  ],
+  # Any other S3-compatible service
+  minio: [
+    adapter: PhxMediaLibrary.Storage.S3,
+    provider: :generic,
+    endpoint: "https://s3.example.com",
+    bucket: "media"
   ]
 ]
 
@@ -81,6 +108,13 @@ config :ex_aws,
   access_key_id: {:system, "AWS_ACCESS_KEY_ID"},
   secret_access_key: {:system, "AWS_SECRET_ACCESS_KEY"}
 ```
+
+Public URLs use `:base_url` when set, otherwise the endpoint (or
+`amazonaws.com` on AWS). R2 serves public files only from a custom domain
+or an r2.dev URL, so an `:r2` disk needs `:base_url` for public URLs;
+signed URLs work without it. A disk option always wins over its provider's
+default, so a service with its own quirks works as `:generic` plus the
+options it needs.
 
 ### In-memory (testing)
 

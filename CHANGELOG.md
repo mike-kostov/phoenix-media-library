@@ -67,8 +67,13 @@ What apps must change when upgrading:
   edit alt text, captions and other custom properties after upload (`nil`
   removes a key). Keys the library maintains (`webp`, `webp_width`,
   `webp_height`, `source_url`) are refused.
-- `endpoint:` option for S3 disks, the API URL of an S3-compatible service
-  (path-style addressing).
+- S3 disks work with any S3-compatible service. `provider: :aws | :r2 |
+  :generic` picks the defaults (`:aws` when unset); `endpoint:`,
+  `addressing: :path | :virtual_host`, `region:` and `base_url:` override
+  them. `provider: :r2` builds the endpoint from `account_id:`. Public URLs
+  follow the endpoint instead of always pointing at `amazonaws.com`; R2
+  disks need `base_url:` for them, as R2 serves public files only from a
+  custom domain or r2.dev.
 - `cache_control:` option for S3 disks, stored as the `Cache-Control`
   header of every upload. The storage guide has a new Caching section.
 - `priority` on `media_img`, `responsive_img` and `picture` for the page's

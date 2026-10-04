@@ -67,6 +67,15 @@ defmodule PhxMediaLibrary.Storage.S3Test do
       assert {:ok, %{size: 0, header: ""}} = S3.stat(path, 512, s3)
     end
 
+    test "a public URL follows the endpoint", %{prefix: prefix, s3: s3} do
+      path = "#{prefix}/public.txt"
+      :ok = S3.put(path, "public", s3)
+
+      url = S3.url(path, s3)
+      assert url == "#{s3[:endpoint]}/#{s3[:bucket]}/#{path}"
+      assert %{status: 200, body: "public"} = Req.get!(url, retry: false)
+    end
+
     test "a signed URL downloads a private object", %{prefix: prefix, s3: s3} do
       path = "#{prefix}/a.txt"
       :ok = S3.put(path, "secret", s3)

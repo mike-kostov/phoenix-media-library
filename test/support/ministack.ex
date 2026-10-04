@@ -32,6 +32,7 @@ defmodule PhxMediaLibrary.Ministack do
   @spec disk_opts() :: keyword()
   def disk_opts do
     [
+      provider: :generic,
       bucket: @bucket,
       region: "us-east-1",
       access_key_id: "test",

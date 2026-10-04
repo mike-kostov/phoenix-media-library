@@ -166,10 +166,10 @@ endpoint, addressing, public URL base, `direct_upload` and `acl`; disk
 options override them. Public URLs follow the endpoint; `:r2` builds the
 endpoint from `account_id:`.
 **Acceptance criteria:**
-- [ ] Each preset resolves to the documented defaults; every option
+- [x] Each preset resolves to the documented defaults; every option
       overrides its preset value.
-- [ ] Public URLs for `:r2` and `:generic` use their endpoint or `base_url:`,
-      never `amazonaws.com`.
+- [x] Public URLs for `:r2` and `:generic` use their endpoint or `base_url:`,
+      never `amazonaws.com`. (`:r2` needs `base_url:`, see spec S4.)
 **Verification:** S3 config tests; container tests still pass; `mix precommit`.
 **Dependencies:** Task 5b
 **Files:** `storage/s3.ex`, `guides/storage.md`, tests

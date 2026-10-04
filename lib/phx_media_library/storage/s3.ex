@@ -1,7 +1,8 @@
 if Code.ensure_loaded?(ExAws.S3) do
   defmodule PhxMediaLibrary.Storage.S3 do
     @moduledoc """
-    Amazon S3 storage adapter.
+    Storage adapter for Amazon S3 and S3-compatible services (Cloudflare R2,
+    DigitalOcean Spaces, Backblaze B2, MinIO and others).
 
     Requires `ex_aws` and `ex_aws_s3` dependencies. This module is only
     compiled when `:ex_aws_s3` is available. If it is not installed,
@@ -19,18 +20,45 @@ if Code.ensure_loaded?(ExAws.S3) do
               # Optional: Override ExAws config
               access_key_id: "...",
               secret_access_key: "..."
+            ],
+            r2: [
+              adapter: PhxMediaLibrary.Storage.S3,
+              provider: :r2,
+              account_id: "...",
+              bucket: "media",
+              base_url: "https://media.example.com"
             ]
           ]
+
+    ## Providers
+
+    `:provider` picks default values for the other options; any option set
+    on the disk wins over its provider's default.
+
+    | Provider | Defaults |
+    |---|---|
+    | `:aws` (default) | AWS endpoint, `direct_upload: :post` |
+    | `:r2` | endpoint `https://<account_id>.r2.cloudflarestorage.com`, `region: "auto"`, `direct_upload: :put`; public URLs need `:base_url` |
+    | `:generic` | `direct_upload: :put`; set `:endpoint` |
+
+    Every provider uses path-style addressing and sends no ACL by default.
+    Any other S3-compatible service works as `:generic` with its settings.
 
     ## Options
 
     - `:bucket` - S3 bucket name (required)
-    - `:region` - AWS region (default: from ExAws config)
+    - `:provider` - `:aws`, `:r2` or `:generic` (default: `:aws`)
+    - `:region` - AWS region (default: from ExAws config; `"auto"` on R2)
+    - `:account_id` - Cloudflare account ID, for `provider: :r2`
     - `:endpoint` - API URL of an S3-compatible service, e.g.
-      `"https://<account_id>.r2.cloudflarestorage.com"` (default: AWS).
-      Requests use path-style addressing (`<endpoint>/<bucket>/<key>`),
-      ExAws's default
-    - `:base_url` - Custom base URL (for CDN)
+      `"https://s3.example.com"` (default: AWS, or R2's from `:account_id`)
+    - `:addressing` - `:path` (`<endpoint>/<bucket>/<key>`, the default) or
+      `:virtual_host` (`<bucket>.<endpoint host>/<key>`)
+    - `:base_url` - Custom base URL for public URLs (a CDN or custom
+      domain). Without it, public URLs follow the endpoint; R2 serves
+      public files only from a custom domain or r2.dev URL, so `:r2` disks
+      need it
+    - `:direct_upload` - how browsers upload directly: `:post` or `:put`
     - `:acl` - Default ACL for uploads (default: "private")
     - `:cache_control` - `Cache-Control` header stored with every upload,
       e.g. `"public, max-age=31536000, immutable"` for files served through
@@ -45,8 +73,67 @@ if Code.ensure_loaded?(ExAws.S3) do
     # so that even the last part of a very large file stays on the safe side.
     @multipart_part_size 5 * 1024 * 1024
 
+    # Provider presets (ADR-025): default values only, never code paths.
+    @presets %{
+      aws: [direct_upload: :post, addressing: :path],
+      r2: [region: "auto", direct_upload: :put, addressing: :path],
+      generic: [direct_upload: :put, addressing: :path]
+    }
+
+    @doc """
+    The disk's options with its provider's defaults filled in.
+
+    Options set on the disk win; `nil` values are ignored. Raises
+    `ArgumentError` for an unknown provider, or an `:r2` disk without
+    `:account_id` or `:endpoint`.
+
+    ## Examples
+
+        iex> opts = PhxMediaLibrary.Storage.S3.options(provider: :r2, account_id: "abc", bucket: "media")
+        iex> {opts[:endpoint], opts[:region], opts[:direct_upload]}
+        {"https://abc.r2.cloudflarestorage.com", "auto", :put}
+
+    """
+    @spec options(keyword()) :: keyword()
+    def options(opts) do
+      opts = Enum.reject(opts, fn {_key, value} -> is_nil(value) end)
+      provider = Keyword.get(opts, :provider, :aws)
+
+      preset =
+        case Map.fetch(@presets, provider) do
+          {:ok, preset} ->
+            preset
+
+          :error ->
+            raise ArgumentError,
+                  "unknown S3 provider #{inspect(provider)}; use :aws, :r2 or :generic " <>
+                    "(any S3-compatible service works as :generic with an :endpoint)"
+        end
+
+      [provider: provider]
+      |> Keyword.merge(preset)
+      |> Keyword.merge(provider_endpoint(provider, opts))
+      |> Keyword.merge(opts)
+    end
+
+    defp provider_endpoint(:r2, opts) do
+      case {Keyword.get(opts, :account_id), Keyword.get(opts, :endpoint)} do
+        {nil, nil} ->
+          raise ArgumentError, "an S3 disk with provider: :r2 needs :account_id (or :endpoint)"
+
+        {account_id, nil} ->
+          [endpoint: "https://#{account_id}.r2.cloudflarestorage.com"]
+
+        {_account_id, _endpoint} ->
+          []
+      end
+    end
+
+    defp provider_endpoint(_provider, _opts), do: []
+
     @impl true
     def put(path, content, opts) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
       acl = Keyword.get(opts, :acl, "private")
 
@@ -88,6 +175,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     @impl true
     def get(path, opts \\ []) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
 
       case bucket |> ExAws.S3.get_object(path) |> ExAws.request(ex_aws_opts(opts)) do
@@ -98,6 +186,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     @impl true
     def delete(path, opts \\ []) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
 
       case bucket |> ExAws.S3.delete_object(path) |> ExAws.request(ex_aws_opts(opts)) do
@@ -110,6 +199,7 @@ if Code.ensure_loaded?(ExAws.S3) do
     # HEAD for the size, then a ranged GET for the first bytes.
     @impl true
     def stat(path, header_bytes, opts) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
       request_opts = ex_aws_opts(opts)
 
@@ -145,6 +235,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     @impl true
     def exists?(path, opts \\ []) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
 
       case bucket |> ExAws.S3.head_object(path) |> ExAws.request(ex_aws_opts(opts)) do
@@ -155,6 +246,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     @impl true
     def url(path, opts) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
       signed = Keyword.get(opts, :signed, false)
       download = Keyword.get(opts, :download, false)
@@ -175,21 +267,38 @@ if Code.ensure_loaded?(ExAws.S3) do
     # Private functions
 
     defp public_url(bucket, path, opts) do
-      case Keyword.get(opts, :base_url) do
-        nil ->
+      case {Keyword.get(opts, :base_url), opts[:provider], Keyword.get(opts, :endpoint)} do
+        {nil, :r2, _endpoint} ->
+          raise ArgumentError,
+                "public URLs on an R2 disk need :base_url: R2 serves public files only " <>
+                  "from a custom domain or an r2.dev URL (signed URLs work without it)"
+
+        {nil, _provider, nil} ->
           region = Keyword.get(opts, :region, "us-east-1")
           "https://#{bucket}.s3.#{region}.amazonaws.com/#{path}"
 
-        base_url ->
+        {nil, _provider, endpoint} ->
+          endpoint_url(endpoint, bucket, path, opts[:addressing])
+
+        {base_url, _provider, _endpoint} ->
           Path.join(base_url, path)
       end
     end
+
+    defp endpoint_url(endpoint, bucket, path, :virtual_host) do
+      uri = URI.parse(endpoint)
+      URI.to_string(%{uri | host: "#{bucket}.#{uri.host}", path: "/#{path}"})
+    end
+
+    defp endpoint_url(endpoint, bucket, path, :path),
+      do: "#{String.trim_trailing(endpoint, "/")}/#{bucket}/#{path}"
 
     # A presigned POST (not PUT) so S3 itself enforces the policy: the exact
     # key, the size range and the content type. A presigned PUT can't limit
     # the size at all.
     @impl true
     def presigned_upload_url(path, presigned_opts, opts) do
+      opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
       content_type = Keyword.get(presigned_opts, :content_type)
 
@@ -199,7 +308,12 @@ if Code.ensure_loaded?(ExAws.S3) do
         |> put_content_type_condition(content_type)
 
       %{url: url, fields: fields} =
-        ExAws.S3.presigned_post(ExAws.Config.new(:s3, ex_aws_opts(opts)), bucket, path, post_opts)
+        ExAws.S3.presigned_post(
+          ExAws.Config.new(:s3, ex_aws_opts(opts)),
+          bucket,
+          path,
+          [virtual_host: opts[:addressing] == :virtual_host] ++ post_opts
+        )
 
       # The client must send every field, including the Content-Type the
       # policy requires.
@@ -222,7 +336,7 @@ if Code.ensure_loaded?(ExAws.S3) do
       download = Keyword.get(opts, :download, false)
 
       presign_opts =
-        [expires_in: expires_in]
+        [expires_in: expires_in, virtual_host: opts[:addressing] == :virtual_host]
         |> maybe_add_response_content_disposition(path, opts, download)
 
       {:ok, url} =
@@ -257,6 +371,7 @@ if Code.ensure_loaded?(ExAws.S3) do
       |> Keyword.take([:access_key_id, :secret_access_key, :region])
       |> Enum.reject(fn {_, v} -> is_nil(v) end)
       |> Keyword.merge(endpoint_opts(Keyword.get(opts, :endpoint)))
+      |> Keyword.put(:virtual_host, opts[:addressing] == :virtual_host)
     end
 
     defp endpoint_opts(nil), do: []

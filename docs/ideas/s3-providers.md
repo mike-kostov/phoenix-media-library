@@ -27,6 +27,8 @@ emulator, checked by running it (spike, `docs/ideas/test-containers.md`).
 | Signed Content-Type enforced on PUT | Expected with SigV4 (not re-checked) | Yes, 403 `SignatureDoesNotMatch` [R2-1] | Not documented | Not documented | Not documented | **No**, signatures not verified (spike) |
 | ACL header on upload | Only none or `bucket-owner-full-control` on buckets with default settings; others fail with `AccessControlListNotSupported` [AWS-1, AWS-2] | **Not supported** [R2-2] | `private`, `public-read` [DO-1] | Bucket-level `private`/`public-read`; object ACL on upload not documented [B2-1] | `private`, `public-read` on bucket creation; objects not documented [HZ-1] | Accepted (spike) |
 | HEAD and ranged GET | Yes (not re-checked) | Yes [R2-2] | Not documented | Not documented | Not documented | Yes (spike) |
+| Region for signing | Bucket's region | `auto`; empty and `us-east-1` alias to it [R2-2] | Not checked | Not checked | Not checked | Any |
+| Public reads | Bucket policy (not re-checked) | Only through a custom domain or r2.dev; buckets are never public by default [R2-3] | Not checked | Not checked | Not checked | Unauthenticated GET works (task 5c) |
 | API endpoint | `s3.<region>.amazonaws.com` | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` [R2-2] | `https://<space>.<region>.digitaloceanspaces.com` [DO-1] | Not on the page | Not on the page | `http://localhost:<port>` |
 
 ### What the matrix means for us
@@ -100,6 +102,7 @@ else S3-compatible.
 - [AWS-2] https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-ownership-error-responses.html
 - [R2-1] https://developers.cloudflare.com/r2/api/s3/presigned-urls/
 - [R2-2] https://developers.cloudflare.com/r2/api/s3/api/
+- [R2-3] https://developers.cloudflare.com/r2/buckets/public-buckets/ (read 2026-10-04)
 - [DO-1] https://docs.digitalocean.com/products/spaces/reference/s3-compatibility/
 - [B2-1] https://www.backblaze.com/docs/cloud-storage-s3-compatible-api
 - [HZ-1] https://docs.hetzner.com/storage/object-storage/supported-actions/

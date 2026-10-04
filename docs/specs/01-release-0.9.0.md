@@ -145,7 +145,9 @@ ADR-025)
   `endpoint:`, addressing, `base_url:`, `direct_upload:` and `acl:` override
   them, so unknown providers work as `:generic` plus settings.
 - Requests and public URLs follow the endpoint; `:r2` builds it from
-  `account_id:`.
+  `account_id:`. (Amended 2026-10-04, Mike: R2 serves public files only
+  from a custom domain or r2.dev, so public URLs on `:r2` need `base_url:`
+  and raise an `ArgumentError` naming it without; signed URLs don't.)
 - Verified against the test emulator (P4) for the operations the library
   uses; provider-specific rules come from `docs/ideas/s3-providers.md`.
 
