@@ -220,6 +220,31 @@ defmodule Mix.Tasks.PhxMediaLibrary.DoctorTest do
     refute :missing_placeholder in Health.check(repaired)
   end
 
+  test "--id checks and repairs only that media", %{png: png} do
+    target = add(png, :images)
+    other = add(png, :images)
+
+    for media <- [target, other],
+        do:
+          StorageWrapper.delete(
+            Config.storage_adapter(:local),
+            PathGenerator.relative_path(media, :thumb)
+          )
+
+    doctor(["--id", target.id, "--regenerate", "--yes"])
+
+    assert output() =~ "Checking 1 media item(s)"
+    assert exists?(target, PathGenerator.relative_path(target, :thumb))
+    refute exists?(other, PathGenerator.relative_path(other, :thumb))
+  end
+
+  test "--id with an unknown or invalid ID says so" do
+    unknown = Ecto.UUID.generate()
+
+    assert_raise Mix.Error, ~r/No media with ID #{unknown}/, fn -> doctor(["--id", unknown]) end
+    assert_raise Mix.Error, ~r/--id must be a media UUID/, fn -> doctor(["--id", "42"]) end
+  end
+
   test "--strict exits with status 1 when errors are found" do
     create_media(disk: "local")
     assert catch_exit(doctor(["--strict"])) == {:shutdown, 1}

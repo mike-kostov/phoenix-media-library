@@ -434,7 +434,7 @@ download URLs keep the stored name.
 **Description:** Limit the doctor to one media item; combines with every
 repair flag.
 **Acceptance criteria:**
-- [ ] `--id` checks and repairs only that media; an unknown ID reports
+- [x] `--id` checks and repairs only that media; an unknown ID reports
       clearly.
 **Verification:** doctor tests; `mix precommit`.
 **Dependencies:** Task 1

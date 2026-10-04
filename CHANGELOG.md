@@ -71,6 +71,8 @@ What apps must change when upgrading:
   longer crash the LiveView.
 
 ### Added
+- `mix phx_media_library.doctor --id <uuid>` checks and repairs one media
+  item, with any repair flag.
 - `<.media_figure>`: a responsive image and its caption in `<figure>`, from
   a `caption` attribute or `custom_properties["caption"]`; image options
   (`conversion`, `sizes`, `priority`, `class`, ...) pass through.

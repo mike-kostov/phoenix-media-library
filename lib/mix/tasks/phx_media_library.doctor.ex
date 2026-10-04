@@ -11,7 +11,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   ## What it checks
 
     * **Files** — media with no files left (error); missing conversions,
-      WebP or responsive variants (repairable).
+      WebP, AVIF, responsive variants or placeholders (repairable).
     * **Metadata** — images without dimensions, e.g. from the EXIF-date bug
       before 0.8.4 (repairable).
     * **Names** — files not stored under their collection's `file_naming`,
@@ -29,7 +29,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
       # Report only
       $ mix phx_media_library.doctor
 
-      # Fill in missing conversions, WebP and responsive variants
+      # Fill in missing conversions, WebP, AVIF, variants and placeholders
       $ mix phx_media_library.doctor --regenerate
 
       # Rename pre-0.9 files and fill in lost metadata, for one model
@@ -38,22 +38,28 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
       # Rebuild every WebP after changing its quality
       $ mix phx_media_library.doctor --rebuild --only webp
 
+      # Check and repair one media item
+      $ mix phx_media_library.doctor --id 8f2c4d1e-… --regenerate
+
   ## Repairs
 
-      --regenerate      Create missing conversions, WebP and responsive variants
+      --regenerate      Create missing conversions, WebP, AVIF, responsive
+                        variants and placeholders
       --reextract       Extract missing metadata (dimensions, EXIF)
       --rename          Move files to their collection's file_naming
                         (URLs change; old links will 404)
       --drop-originals  Delete originals where keep_original: false
       --fix             Permanently delete media with no files left
       --rebuild         Regenerate derivatives even when present (after
-                        changing conversion, WebP or responsive settings)
+                        changing conversion, WebP, AVIF or responsive settings)
         --only          With --rebuild: conversions, webp, avif and/or responsive
                         (comma-separated; default all)
         --conversion    With --rebuild: only this conversion (repeatable)
 
   ## Filters and other options
 
+      --id              Only this media item (skips the orphan and backlog
+                        reports, which cover all media)
       --model           Only this model: mediable type ("products") or
                         module (MyApp.Catalog.Product)
       --collection      Only this collection
@@ -85,6 +91,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     rebuild: :boolean,
     only: :string,
     conversion: :keep,
+    id: :string,
     model: :string,
     collection: :string,
     disk: :string,
@@ -149,7 +156,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     media = load_media(opts)
     results = if opts[:skip_files], do: [], else: check_all(media, opts)
 
-    errors = report_issues(results) + report_orphans(opts) + report_backlog()
+    errors =
+      if opts[:id],
+        do: report_issues(results),
+        else: report_issues(results) + report_orphans(opts) + report_backlog()
 
     run_repairs(results, media, opts)
     print_summary(errors)
@@ -164,13 +174,25 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   defp load_media(opts) do
     query = from(m in Media, order_by: [asc: m.inserted_at, asc: m.id])
 
-    [:model, :collection, :disk]
-    |> Enum.reduce(query, fn key, query -> filter(query, key, opts[key]) end)
-    |> Media.exclude_trashed()
-    |> Config.repo().all()
+    media =
+      [:id, :model, :collection, :disk]
+      |> Enum.reduce(query, fn key, query -> filter(query, key, opts[key]) end)
+      |> Media.exclude_trashed()
+      |> Config.repo().all()
+
+    if opts[:id] && media == [],
+      do: Mix.raise("No media with ID #{opts[:id]} (or it is in the trash)"),
+      else: media
   end
 
   defp filter(query, _key, nil), do: query
+
+  defp filter(query, :id, id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} -> where(query, [m], m.id == ^uuid)
+      :error -> Mix.raise("--id must be a media UUID, got #{inspect(id)}")
+    end
+  end
 
   defp filter(query, :model, model),
     do: where(query, [m], m.mediable_type == ^mediable_type(model))
