@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- The image processor turned a file's extension into an atom when saving,
+  so files with many unusual extensions slowly filled the atom table (which
+  is never garbage collected). Extensions are now matched against a fixed
+  list.
 - `MediaLive` deleted any media ID the browser sent, so a user allowed to
   edit one record could delete media of another by changing the ID. It now
   only deletes media of its own record and collection

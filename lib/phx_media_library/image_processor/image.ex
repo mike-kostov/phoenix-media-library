@@ -104,12 +104,24 @@ if Code.ensure_loaded?(Image) do
     defp maybe_set_quality({:error, _} = error, _), do: error
     defp maybe_set_quality(image, _), do: {:ok, image}
 
+    # Extensions come from filenames, so never turn them into atoms: unknown
+    # ones would fill the atom table, which is never garbage collected.
+    @formats %{
+      "jpg" => :jpg,
+      "jpeg" => :jpg,
+      "png" => :png,
+      "webp" => :webp,
+      "avif" => :avif,
+      "gif" => :gif,
+      "tif" => :tiff,
+      "tiff" => :tiff,
+      "heic" => :heic,
+      "heif" => :heif
+    }
+
     defp format_from_path(path) do
-      path
-      |> Path.extname()
-      |> String.downcase()
-      |> String.trim_leading(".")
-      |> String.to_atom()
+      extension = path |> Path.extname() |> String.downcase() |> String.trim_leading(".")
+      Map.get(@formats, extension, :unknown)
     end
   end
 end

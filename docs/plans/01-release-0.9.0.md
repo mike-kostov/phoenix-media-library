@@ -63,8 +63,8 @@ change.
 **Description:** `ImageProcessor.Image` maps known extensions to formats
 explicitly and falls back to a default.
 **Acceptance criteria:**
-- [ ] Saving with 100 unique unknown extensions creates no new atoms.
-- [ ] Known formats (jpg, png, webp, avif, gif, tiff) still save correctly.
+- [x] Saving with 100 unique unknown extensions creates no new atoms.
+- [x] Known formats (jpg, png, webp, avif, gif, tiff) still save correctly.
 **Verification:** `mix test test/phx_media_library/image_processor_test.exs` (new); `mix precommit`.
 **Dependencies:** Task 1
 **Files:** `image_processor/image.ex`, new test
