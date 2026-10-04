@@ -2,7 +2,8 @@ defmodule PhxMediaLibrary.Pipeline do
   @moduledoc """
   The steps that derive everything else from a media item's original file:
   metadata, the served WebP, responsive variants and conversions, plus
-  dropping the original under WebP `keep_original: false`.
+  dropping the original under WebP `keep_original: false` and renaming
+  files to the collection's naming strategy.
 
   Uploads (`PhxMediaLibrary.MediaAdder`) run these steps on the file just
   uploaded; repairs (the mix tasks) run the same steps on stored media. Each
@@ -25,6 +26,7 @@ defmodule PhxMediaLibrary.Pipeline do
   alias PhxMediaLibrary.{
     Config,
     Conversions,
+    FileName,
     LocalSource,
     Media,
     MetadataExtractor,
@@ -216,6 +218,153 @@ defmodule PhxMediaLibrary.Pipeline do
       result -> result
     end
   end
+
+  @doc """
+  Move all of the media's files to the name its collection's `file_naming`
+  gives (see `PhxMediaLibrary.FileName`), for media stored before file
+  naming or under another strategy.
+
+  Every file the media owns — original, conversions, WebP, responsive
+  variants — is copied to its new path, the record is updated, and only
+  then are the old files deleted, so an interrupted run can simply be
+  repeated. Files already missing are skipped. Media without
+  `metadata["original_file_name"]` gets it from its current name, so alt
+  text keeps working.
+
+  URLs change: pages or caches holding the old URLs will 404.
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.rename(media)
+      {:skip, :already_named} = PhxMediaLibrary.Pipeline.rename(media)
+
+  """
+  @spec rename(Media.t(), keyword()) :: result()
+  def rename(%Media{} = media, opts \\ []) do
+    strategy = Model.file_naming(target(media, opts), media.collection_name)
+
+    if named?(media, strategy) do
+      {:skip, :already_named}
+    else
+      move_files(media, FileName.storage_name(strategy, upload_info(media)))
+    end
+  end
+
+  @doc """
+  Whether the media's stored name follows its collection's `file_naming`.
+
+  ## Examples
+
+      PhxMediaLibrary.Pipeline.named?(media, :semantic)
+      #=> true
+
+  """
+  @spec named?(Media.t(), FileName.strategy()) :: boolean()
+  def named?(%Media{file_name: file_name}, :random), do: FileName.random_name?(file_name)
+
+  def named?(%Media{} = media, strategy),
+    do: media.file_name == FileName.storage_name(strategy, upload_info(media))
+
+  defp upload_info(media) do
+    %{
+      original: original_name(media),
+      mime_type: media.mime_type,
+      mediable_type: media.mediable_type,
+      mediable_id: media.mediable_id,
+      collection_name: media.collection_name,
+      uuid: media.uuid
+    }
+  end
+
+  defp original_name(media), do: (media.metadata || %{})["original_file_name"] || media.file_name
+
+  defp move_files(media, new_name) do
+    renamed = %{media | file_name: new_name}
+    moves = path_moves(media, renamed)
+    storage = Config.storage_adapter(media.disk)
+
+    with :ok <- copy_files(storage, moves),
+         {:ok, updated} <-
+           update(media,
+             file_name: new_name,
+             custom_properties: rewrite_paths(media.custom_properties || %{}, moves),
+             responsive_images: rewrite_paths(media.responsive_images || %{}, moves),
+             metadata:
+               Map.put_new(media.metadata || %{}, "original_file_name", original_name(media))
+           ) do
+      Enum.each(Map.keys(moves), &StorageWrapper.delete(storage, &1))
+      {:ok, updated}
+    end
+  end
+
+  # Old path => new path for every file the media owns. Conversions and the
+  # WebP are named by the path generator; responsive variants are
+  # "{name}_..." beside them; anything else (the video poster) keeps its name.
+  defp path_moves(media, renamed) do
+    named =
+      [nil | Map.keys(media.generated_conversions || %{})]
+      |> Map.new(
+        &{PathGenerator.relative_path(media, &1), PathGenerator.relative_path(renamed, &1)}
+      )
+      |> put_webp_move(media, renamed)
+
+    old_name = Path.rootname(media.file_name)
+    new_name = Path.rootname(renamed.file_name)
+
+    media
+    |> Media.owned_paths()
+    |> Map.new(fn path ->
+      {path, Map.get_lazy(named, path, fn -> rename_variant(path, old_name, new_name) end)}
+    end)
+    |> Map.reject(fn {old, new} -> old == new end)
+  end
+
+  defp put_webp_move(moves, %Media{custom_properties: %{"webp" => webp}}, renamed)
+       when is_binary(webp) do
+    new_webp = Path.rootname(PathGenerator.relative_path(renamed, nil)) <> ".webp"
+    Map.put(moves, webp, new_webp)
+  end
+
+  defp put_webp_move(moves, _media, _renamed), do: moves
+
+  defp rename_variant(path, old_name, new_name) do
+    base = Path.basename(path)
+
+    if String.starts_with?(base, old_name <> "_") do
+      Path.join(Path.dirname(path), new_name <> String.replace_prefix(base, old_name, ""))
+    else
+      path
+    end
+  end
+
+  defp copy_files(storage, moves) do
+    Enum.reduce_while(moves, :ok, fn {old, new}, :ok ->
+      with true <- StorageWrapper.exists?(storage, old),
+           {:ok, content} <- StorageWrapper.get(storage, old),
+           :ok <- StorageWrapper.put(storage, new, content) do
+        {:cont, :ok}
+      else
+        false -> {:cont, :ok}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  # Replace stored paths ("path" entries and the WebP) after a move.
+  defp rewrite_paths(map, moves) when is_map(map) do
+    Map.new(map, fn
+      {key, path} when key in ["path", "webp"] and is_binary(path) ->
+        {key, Map.get(moves, path, path)}
+
+      {key, value} ->
+        {key, rewrite_paths(value, moves)}
+    end)
+  end
+
+  defp rewrite_paths(list, moves) when is_list(list),
+    do: Enum.map(list, &rewrite_paths(&1, moves))
+
+  defp rewrite_paths(value, _moves), do: value
 
   @doc """
   Whether the media serves a WebP derivative.

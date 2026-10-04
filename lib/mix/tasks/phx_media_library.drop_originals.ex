@@ -1,5 +1,10 @@
 defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
   @moduledoc """
+  > #### Deprecated {: .warning}
+  >
+  > Use `mix phx_media_library.doctor --drop-originals`, which
+  > shares its code with uploads. This task will be removed in 0.10.0.
+
   Deletes the source files of media that already serve a WebP, for collections
   whose resolved WebP settings say `keep_original: false`. Use it after
   switching an existing collection to `keep_original: false`, once
@@ -18,7 +23,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
       --dry-run       List what would be deleted
   """
 
-  @shortdoc "Deletes originals of WebP-served media where keep_original is false"
+  @shortdoc "(Deprecated) Deletes originals of WebP-served media where keep_original is false"
 
   use Mix.Task
 
@@ -33,6 +38,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
 
     Mix.Task.run("app.start")
 
+    Mix.shell().info(
+      "#{IO.ANSI.yellow()}Deprecated: use `mix phx_media_library.doctor --drop-originals`. " <>
+        "This task will be removed in 0.10.0.#{IO.ANSI.reset()}"
+    )
 
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()

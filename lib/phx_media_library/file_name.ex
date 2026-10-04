@@ -116,6 +116,21 @@ defmodule PhxMediaLibrary.FileName do
   end
 
   @doc """
+  Whether `file_name` looks like a `:random` name.
+
+  ## Examples
+
+      iex> PhxMediaLibrary.FileName.random_name?("aohnmpeggczvupfgbuoh54enae.jpg")
+      true
+
+      iex> PhxMediaLibrary.FileName.random_name?("red-dress.jpg")
+      false
+
+  """
+  @spec random_name?(String.t()) :: boolean()
+  def random_name?(file_name), do: file_name =~ ~r/^[a-z2-7]{26}\.[a-z0-9]+$/
+
+  @doc """
   The extension to store a file with: the uploader's extension when it
   belongs to the detected content type (keeps `jpeg` vs `jpg`), otherwise the
   content type's usual one. For unrecognised content the uploader's

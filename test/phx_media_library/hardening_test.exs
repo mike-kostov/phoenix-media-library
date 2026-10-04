@@ -277,6 +277,46 @@ defmodule PhxMediaLibrary.HardeningTest do
     end
   end
 
+  describe "mix phx_media_library.doctor --fix" do
+    @describetag :db
+
+    setup do
+      Mix.shell(Mix.Shell.Process)
+      on_exit(fn -> Mix.shell(Mix.Shell.IO) end)
+    end
+
+    test "deletes only media with no files left" do
+      png = create_temp_image(format: :png, width: 60, height: 60)
+
+      {:ok, webp_only} =
+        create_test_post()
+        |> PhxMediaLibrary.add(png)
+        |> PhxMediaLibrary.to_collection(:webp_only, disk: :local)
+
+      {:ok, missing_thumb} =
+        create_test_post()
+        |> PhxMediaLibrary.add(png)
+        |> PhxMediaLibrary.to_collection(:images, disk: :local)
+
+      missing_thumb = Repo.reload!(missing_thumb)
+      assert Map.has_key?(missing_thumb.generated_conversions, "thumb")
+      File.rm!(PathGenerator.full_path(missing_thumb, :thumb))
+
+      no_files = create_media(disk: "local")
+
+      # Parents are plain structs in these tests, so skip the orphan check.
+      send(self(), {:mix_shell_input, :yes?, true})
+      Mix.Tasks.PhxMediaLibrary.Doctor.run(["--fix", "--skip-orphans"])
+
+      assert Repo.get(Media, webp_only.id)
+      assert Repo.get(Media, missing_thumb.id)
+      refute Repo.get(Media, no_files.id)
+
+      Enum.each([webp_only, missing_thumb], &Media.delete_files/1)
+      File.rm(png)
+    end
+  end
+
   describe "conversions" do
     @describetag :db
 

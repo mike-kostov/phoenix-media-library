@@ -1,5 +1,10 @@
 defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
   @moduledoc """
+  > #### Deprecated {: .warning}
+  >
+  > Use `mix phx_media_library.doctor --rebuild --only conversions` (use --conversion NAME for one conversion), which
+  > shares its code with uploads. This task will be removed in 0.10.0.
+
   Regenerates media conversions.
 
   This task is useful when you've changed conversion definitions
@@ -32,7 +37,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
 
   """
 
-  @shortdoc "Regenerates media conversions"
+  @shortdoc "(Deprecated) Regenerates media conversions"
 
   use Mix.Task
 
@@ -56,6 +61,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Regenerate do
     # Start the application
     Mix.Task.run("app.start")
 
+    Mix.shell().info(
+      "#{IO.ANSI.yellow()}Deprecated: use `mix phx_media_library.doctor --rebuild --only conversions`. " <>
+        "This task will be removed in 0.10.0.#{IO.ANSI.reset()}"
+    )
 
     conversions = Keyword.get_values(opts, :conversion)
     collection = opts[:collection]

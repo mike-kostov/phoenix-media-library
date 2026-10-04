@@ -1,429 +1,418 @@
 defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   @moduledoc """
-  Runs health checks on the media library and reports issues.
+  Checks the health of stored media and repairs what it can.
 
-  Performs four checks:
+  Without options it only reports. Repairs are opt-in, show their plan and
+  ask before running (`--yes` skips the question). Each repair runs the same
+  `PhxMediaLibrary.Pipeline` step an upload runs, so repaired media matches
+  newly uploaded media. Works with any storage adapter (on S3 every file
+  check is a request, so large libraries take a while).
 
-  1. **File existence** — verifies every local-disk media file is present on
-     disk (skipped for remote adapters such as S3).
-  2. **Broken conversions** — verifies that every recorded conversion file
-     exists on disk.
-  3. **Orphaned records** — detects media records whose parent model no longer
-     exists in the database (uses `PhxMediaLibrary.ModelRegistry`).
-  4. **Soft-delete backlog** — warns when there are trashed records older than
-     30 days (only when soft-deletes are enabled).
+  ## What it checks
+
+    * **Files** — media with no files left (error); missing conversions,
+      WebP or responsive variants (repairable).
+    * **Metadata** — images without dimensions, e.g. from the EXIF-date bug
+      before 0.8.4 (repairable).
+    * **Names** — files not stored under their collection's `file_naming`,
+      e.g. uploaded before 0.9 (repairable).
+    * **Originals** — originals still present where the collection says
+      WebP `keep_original: false` (repairable).
+    * **Integrity** — checksum mismatches, with `--deep` (error).
+    * **Records** — media whose parent record no longer exists, and the
+      soft-delete backlog.
+
+  See `PhxMediaLibrary.Health` for the checks as functions.
 
   ## Usage
 
+      # Report only
       $ mix phx_media_library.doctor
 
-  ## Options
+      # Fill in missing conversions, WebP and responsive variants
+      $ mix phx_media_library.doctor --regenerate
 
-      --skip-files    Skip file existence and broken-conversion checks
-      --skip-orphans  Skip orphaned record detection
-      --fix           Permanently delete broken/missing media (with prompt)
+      # Rename pre-0.9 files and fill in lost metadata, for one model
+      $ mix phx_media_library.doctor --model products --rename --reextract
 
-  ## Examples
+      # Rebuild every WebP after changing its quality
+      $ mix phx_media_library.doctor --rebuild --only webp
 
-      # Full health check
-      $ mix phx_media_library.doctor
+  ## Repairs
 
-      # Skip file checks (useful when files are on S3)
-      $ mix phx_media_library.doctor --skip-files
+      --regenerate      Create missing conversions, WebP and responsive variants
+      --reextract       Extract missing metadata (dimensions, EXIF)
+      --rename          Move files to their collection's file_naming
+                        (URLs change; old links will 404)
+      --drop-originals  Delete originals where keep_original: false
+      --fix             Permanently delete media with no files left
+      --rebuild         Regenerate derivatives even when present (after
+                        changing conversion, WebP or responsive settings)
+        --only          With --rebuild: conversions, webp and/or responsive
+                        (comma-separated; default all)
+        --conversion    With --rebuild: only this conversion (repeatable)
 
-      # Automatically clean up broken media after confirmation
-      $ mix phx_media_library.doctor --fix
+  ## Filters and other options
+
+      --model           Only this model: mediable type ("products") or
+                        module (MyApp.Catalog.Product)
+      --collection      Only this collection
+      --disk            Only this disk
+      --deep            Also verify checksums (reads every file)
+      --skip-files      Skip the per-media checks
+      --skip-orphans    Skip the orphaned-records check
+      --dry-run         Show the repair plan without asking or running it
+      --yes             Run repairs without asking
+      --strict          Exit with status 1 when errors are found
+                        (for scheduled jobs and CI)
 
   """
 
-  @shortdoc "Runs health checks on media files and records"
+  @shortdoc "Checks media health and repairs problems"
 
   use Mix.Task
 
   import Ecto.Query
 
+  alias PhxMediaLibrary.{Config, Health, Media, Pipeline}
+
+  @switches [
+    regenerate: :boolean,
+    reextract: :boolean,
+    rename: :boolean,
+    drop_originals: :boolean,
+    fix: :boolean,
+    rebuild: :boolean,
+    only: :string,
+    conversion: :keep,
+    model: :string,
+    collection: :string,
+    disk: :string,
+    deep: :boolean,
+    skip_files: :boolean,
+    skip_orphans: :boolean,
+    dry_run: :boolean,
+    yes: :boolean,
+    strict: :boolean
+  ]
+
+  # Issue kinds each repair flag covers, in the order repairs run: metadata
+  # and names first, derivatives next, deleting the original last.
+  @repairs [
+    reextract: [:missing_metadata],
+    rename: [:needs_rename],
+    regenerate: [:missing_webp, :missing_conversions, :missing_responsive],
+    drop_originals: [:original_not_dropped],
+    fix: [:no_files]
+  ]
+
+  @labels %{
+    no_files: "Media with no files left",
+    checksum_mismatch: "Checksum mismatch",
+    missing_conversions: "Missing conversions",
+    missing_webp: "Missing WebP",
+    missing_responsive: "Missing responsive variants",
+    missing_metadata: "Missing metadata",
+    needs_rename: "Not named by file_naming",
+    original_not_dropped: "Original kept despite keep_original: false"
+  }
+
+  @hints %{
+    no_files: "--fix deletes these records",
+    checksum_mismatch: "restore these files from a backup",
+    missing_conversions: "--regenerate",
+    missing_webp: "--regenerate",
+    missing_responsive: "--regenerate",
+    missing_metadata: "--reextract",
+    needs_rename: "--rename",
+    original_not_dropped: "--drop-originals"
+  }
+
   @impl Mix.Task
   def run(args) do
-    {opts, _, _} =
-      OptionParser.parse(args,
-        strict: [
-          skip_files: :boolean,
-          skip_orphans: :boolean,
-          fix: :boolean
-        ]
-      )
-
+    {opts, _, _} = OptionParser.parse(args, strict: @switches)
     Mix.Task.run("app.start")
-    ensure_all_modules_loaded()
 
-    repo = PhxMediaLibrary.Config.repo()
+    info(IO.ANSI.cyan() <> IO.ANSI.bright() <> "PhxMediaLibrary Doctor" <> IO.ANSI.reset())
+    info("======================\n")
 
-    Mix.shell().info("")
+    media = load_media(opts)
+    results = if opts[:skip_files], do: [], else: check_all(media, opts)
 
-    Mix.shell().info(
-      IO.ANSI.cyan() <> IO.ANSI.bright() <> "PhxMediaLibrary Doctor" <> IO.ANSI.reset()
-    )
+    errors = report_issues(results) + report_orphans(opts) + report_backlog()
 
-    Mix.shell().info("======================")
-    Mix.shell().info("")
-    Mix.shell().info("Running health checks...")
-    Mix.shell().info("")
+    run_repairs(results, media, opts)
+    print_summary(errors)
 
-    state = %{errors: 0, warnings: 0, passed: 0, fix_items: [], repo: repo, opts: opts}
-
-    state =
-      if opts[:skip_files] do
-        state
-      else
-        state
-        |> run_missing_files_check()
-        |> run_broken_conversions_check()
-      end
-
-    state =
-      if opts[:skip_orphans] do
-        state
-      else
-        run_orphan_check(state)
-      end
-
-    state = run_soft_delete_backlog_check(state)
-
-    print_summary(state)
-
-    if opts[:fix] && state.fix_items != [] do
-      do_fix(state)
-    end
+    if opts[:strict] && errors > 0, do: exit({:shutdown, 1})
   end
 
   # ---------------------------------------------------------------------------
-  # Module loading helper
+  # Checking
   # ---------------------------------------------------------------------------
 
-  # Force-load every module from every currently running application so that
-  # ModelRegistry's :code.all_loaded() scan can find Ecto schema modules that
-  # haven't been called yet at task startup (e.g. GalleryApp.Galleries.Album).
-  defp ensure_all_modules_loaded do
-    for {app, _desc, _vsn} <- :application.loaded_applications() do
-      case :application.get_key(app, :modules) do
-        {:ok, modules} -> Enum.each(modules, &Code.ensure_loaded/1)
-        _ -> :ok
-      end
+  defp load_media(opts) do
+    query = from(m in Media, order_by: [asc: m.inserted_at, asc: m.id])
+
+    [:model, :collection, :disk]
+    |> Enum.reduce(query, fn key, query -> filter(query, key, opts[key]) end)
+    |> Media.exclude_trashed()
+    |> Config.repo().all()
+  end
+
+  defp filter(query, _key, nil), do: query
+
+  defp filter(query, :model, model),
+    do: where(query, [m], m.mediable_type == ^mediable_type(model))
+
+  defp filter(query, :collection, name), do: where(query, [m], m.collection_name == ^name)
+  defp filter(query, :disk, disk), do: where(query, [m], m.disk == ^disk)
+
+  # "products" or "MyApp.Catalog.Product".
+  defp mediable_type(model) do
+    if model =~ ~r/^[A-Z]/ do
+      module = Module.concat([model])
+      Code.ensure_loaded(module)
+      PhxMediaLibrary.Model.mediable_type(struct(module))
+    else
+      model
     end
   end
 
+  defp check_all(media, opts) do
+    info("Checking #{length(media)} media item(s)...\n")
+
+    media
+    |> Enum.map(&{&1, Health.check(&1, deep: opts[:deep])})
+    |> Enum.reject(fn {_media, issues} -> issues == [] end)
+  end
+
   # ---------------------------------------------------------------------------
-  # Check 1 — Missing files
+  # Reporting
   # ---------------------------------------------------------------------------
 
-  defp run_missing_files_check(state) do
-    {total_checked, missing} =
-      Enum.reduce(get_local_disks(), {0, []}, fn disk_name, {checked, issues} ->
-        {count, new_missing} = check_disk_for_missing(disk_name, state.repo)
-        {checked + count, issues ++ new_missing}
+  # Returns the number of error kinds reported.
+  defp report_issues(results) do
+    by_kind =
+      for {media, issues} <- results, issue <- issues, reduce: %{} do
+        acc -> Map.update(acc, kind(issue), [{media, issue}], &[{media, issue} | &1])
+      end
+
+    if by_kind == %{}, do: info("#{green("✓")} Files, metadata and names: no issues")
+
+    # Errors first, then repairable issues in the order repairs run.
+    [:no_files, :checksum_mismatch | @repairs |> Keyword.values() |> List.flatten()]
+    |> Enum.uniq()
+    |> Enum.filter(&Map.has_key?(by_kind, &1))
+    |> Enum.map(fn kind -> report_kind(kind, Enum.reverse(by_kind[kind])) end)
+    |> Enum.sum()
+  end
+
+  defp report_kind(kind, items) do
+    error? = Health.error?(kind)
+    mark = if error?, do: red("✗"), else: yellow("!")
+    info("#{mark} #{@labels[kind]}: #{length(items)}  (#{@hints[kind]})")
+
+    items
+    |> Enum.take(5)
+    |> Enum.each(fn {media, issue} -> info("    #{describe(media)}#{detail(issue)}") end)
+
+    if length(items) > 5, do: info("    ... and #{length(items) - 5} more")
+    if error?, do: 1, else: 0
+  end
+
+  defp report_orphans(opts) do
+    if opts[:skip_orphans] do
+      0
+    else
+      %{orphans: orphans, unknown_types: unknown} = Health.orphaned_parents()
+
+      Enum.each(unknown, fn type ->
+        info("#{yellow("!")} No model found for type '#{type}', skipping its orphan check")
       end)
 
-    if missing == [] do
-      Mix.shell().info(
-        "#{IO.ANSI.green()}✓#{IO.ANSI.reset()} File existence check " <>
-          "(#{total_checked} files checked, 0 missing)"
-      )
-
-      %{state | passed: state.passed + 1}
-    else
-      report_missing_files(missing, total_checked)
-      new_fix_items = Enum.map(missing, fn {media, _path} -> media end)
-
-      %{
-        state
-        | errors: state.errors + 1,
-          fix_items: Enum.uniq_by(state.fix_items ++ new_fix_items, & &1.id)
-      }
+      report_orphan_count(orphans)
     end
   end
 
-  defp check_disk_for_missing(disk_name, repo) do
-    disk_str = to_string(disk_name)
-
-    media_items =
-      from(m in PhxMediaLibrary.Media, where: m.disk == ^disk_str)
-      |> repo.all()
-
-    missing = Enum.flat_map(media_items, &find_missing_file/1)
-    {length(media_items), missing}
+  defp report_orphan_count(orphans) when orphans == %{} do
+    info("#{green("✓")} Orphaned records: none")
+    0
   end
 
-  defp find_missing_file(media) do
-    case PhxMediaLibrary.PathGenerator.full_path(media, nil) do
-      nil -> []
-      path -> if File.exists?(path), do: [], else: [{media, path}]
-    end
-  end
+  defp report_orphan_count(orphans) do
+    count = orphans |> Map.values() |> Enum.map(&length/1) |> Enum.sum()
+    info("#{red("✗")} Media of deleted parent records: #{count} parent(s)")
 
-  defp report_missing_files(missing, total_checked) do
-    Mix.shell().info(
-      "#{IO.ANSI.red()}✗#{IO.ANSI.reset()} File existence check " <>
-        "(#{total_checked} checked, #{length(missing)} missing):"
-    )
-
-    Enum.each(missing, fn {media, path} ->
-      id_short = String.slice(media.id, 0, 8)
-      Mix.shell().info("    - #{path} (media id: #{id_short}...)")
+    Enum.each(orphans, fn {type, ids} ->
+      info("    #{type}: #{ids |> Enum.take(5) |> Enum.map_join(", ", &to_string/1)}")
     end)
+
+    1
   end
 
+  defp report_backlog do
+    if Media.soft_deletes_enabled?() do
+      cutoff = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
+      query = from(m in Media, where: not is_nil(m.deleted_at) and m.deleted_at < ^cutoff)
+
+      case Config.repo().aggregate(query, :count) do
+        0 ->
+          info("#{green("✓")} Soft-delete backlog: none older than 30 days")
+
+        count ->
+          info(
+            "#{yellow("!")} Soft-delete backlog: #{count} record(s) older than 30 days " <>
+              "(mix phx_media_library.purge_deleted)"
+          )
+      end
+    end
+
+    0
+  end
+
+  defp print_summary(0), do: info("\n#{green("No errors.")}")
+  defp print_summary(errors), do: info("\n#{red("#{errors} kind(s) of error found.")}")
+
   # ---------------------------------------------------------------------------
-  # Check 2 — Broken conversions
+  # Repairs
   # ---------------------------------------------------------------------------
 
-  defp run_broken_conversions_check(state) do
-    issues =
-      get_local_disks()
-      |> Enum.flat_map(&check_disk_for_broken_conversions(&1, state.repo))
+  defp run_repairs(results, media, opts) do
+    plan = repair_plan(results, opts) ++ rebuild_plan(media, opts)
 
-    if issues == [] do
-      Mix.shell().info(
-        "#{IO.ANSI.green()}✓#{IO.ANSI.reset()} Broken conversions (0 issues found)"
-      )
+    cond do
+      plan == [] ->
+        :ok
 
-      %{state | passed: state.passed + 1}
+      opts[:dry_run] ->
+        print_plan(plan)
+        info("\nDry run: nothing changed.")
+
+      true ->
+        print_plan(plan)
+
+        if opts[:yes] || Mix.shell().yes?("\nRun these repairs?"),
+          do: execute(plan),
+          else: info("Repairs skipped.")
+    end
+  end
+
+  # [{media, [step]}], where a step is an issue to repair or
+  # {:rebuild, what, conversion_names}.
+  defp repair_plan(results, opts) do
+    selected = for {flag, kinds} <- @repairs, opts[flag], kind <- kinds, do: kind
+    order = @repairs |> Keyword.values() |> List.flatten()
+
+    for {media, issues} <- results,
+        steps = issues |> Enum.filter(&(kind(&1) in selected)) |> sort_by_kind(order),
+        steps != [],
+        do: {media, steps}
+  end
+
+  defp rebuild_plan(media, opts) do
+    if opts[:rebuild] do
+      conversions = Keyword.get_values(opts, :conversion)
+      steps = for what <- rebuild_targets(opts), do: {:rebuild, what, conversions}
+      for m <- media, String.starts_with?(m.mime_type || "", "image/"), do: {m, steps}
     else
-      report_broken_conversions(issues)
-      new_fix_items = issues |> Enum.map(fn {media, _, _} -> media end) |> Enum.uniq_by(& &1.id)
-
-      %{
-        state
-        | errors: state.errors + 1,
-          fix_items: Enum.uniq_by(state.fix_items ++ new_fix_items, & &1.id)
-      }
-    end
-  end
-
-  defp check_disk_for_broken_conversions(disk_name, repo) do
-    disk_str = to_string(disk_name)
-
-    from(m in PhxMediaLibrary.Media, where: m.disk == ^disk_str)
-    |> repo.all()
-    |> Enum.filter(&(map_size(&1.generated_conversions) > 0))
-    |> Enum.flat_map(&find_broken_conversions_for_media/1)
-  end
-
-  defp find_broken_conversions_for_media(media) do
-    media.generated_conversions
-    |> Map.keys()
-    |> Enum.flat_map(&check_conversion_file(media, &1))
-  end
-
-  defp check_conversion_file(media, conversion) do
-    case PhxMediaLibrary.PathGenerator.full_path(media, conversion) do
-      nil -> []
-      path -> if File.exists?(path), do: [], else: [{media, conversion, path}]
-    end
-  end
-
-  defp report_broken_conversions(issues) do
-    Mix.shell().info(
-      "#{IO.ANSI.red()}✗#{IO.ANSI.reset()} Broken conversions (#{length(issues)} issues found):"
-    )
-
-    Enum.each(issues, fn {media, conversion, path} ->
-      id_short = String.slice(media.id, 0, 8)
-      Mix.shell().info("    - #{path} (media #{id_short}..., conversion: #{conversion})")
-    end)
-  end
-
-  # ---------------------------------------------------------------------------
-  # Check 3 — Orphaned records
-  # ---------------------------------------------------------------------------
-
-  defp run_orphan_check(state) do
-    mediable_types =
-      from(m in PhxMediaLibrary.Media, distinct: true, select: m.mediable_type)
-      |> state.repo.all()
-
-    {total_orphans, skipped_types} =
-      Enum.reduce(mediable_types, {0, []}, fn mediable_type, acc ->
-        accumulate_orphan_result(state.repo, mediable_type, acc)
-      end)
-
-    Enum.each(skipped_types, &report_skipped_type/1)
-
-    if total_orphans == 0 do
-      Mix.shell().info(
-        "#{IO.ANSI.green()}✓#{IO.ANSI.reset()} Orphaned records (no orphans found)"
-      )
-
-      %{state | passed: state.passed + 1}
-    else
-      Mix.shell().info(
-        "#{IO.ANSI.red()}✗#{IO.ANSI.reset()} Orphaned records (#{total_orphans} found)"
-      )
-
-      %{state | errors: state.errors + 1}
-    end
-  end
-
-  defp accumulate_orphan_result(repo, mediable_type, {orphan_count, skipped}) do
-    case PhxMediaLibrary.ModelRegistry.find_model_module(mediable_type) do
-      :error ->
-        {orphan_count, [mediable_type | skipped]}
-
-      {:ok, module} ->
-        count_orphans_for_module(repo, mediable_type, module, orphan_count, skipped)
-    end
-  end
-
-  defp count_orphans_for_module(repo, mediable_type, module, orphan_count, skipped) do
-    if function_exported?(module, :__schema__, 1) do
-      orphan_ids = find_orphan_ids(repo, mediable_type, module)
-      {orphan_count + length(orphan_ids), skipped}
-    else
-      {orphan_count, [mediable_type | skipped]}
-    end
-  end
-
-  defp report_skipped_type(type) do
-    Mix.shell().info(
-      "  #{IO.ANSI.yellow()}⚠#{IO.ANSI.reset()} No module found for type '#{type}'" <>
-        " — skipping orphan check for this type"
-    )
-  end
-
-  @spec find_orphan_ids(Ecto.Repo.t(), String.t(), module()) :: [term()]
-  defp find_orphan_ids(repo, mediable_type, module) do
-    mediable_ids =
-      from(m in PhxMediaLibrary.Media,
-        where: m.mediable_type == ^mediable_type,
-        select: m.mediable_id
-      )
-      |> repo.all()
-      |> MapSet.new()
-
-    if MapSet.size(mediable_ids) == 0 do
       []
-    else
-      table_source = module.__schema__(:source)
-      pk_field = module.__schema__(:primary_key) |> hd()
-
-      existing_ids =
-        from(s in {table_source, module})
-        |> select([s], field(s, ^pk_field))
-        |> repo.all()
-        |> MapSet.new()
-
-      mediable_ids |> MapSet.difference(existing_ids) |> MapSet.to_list()
     end
   end
 
-  # ---------------------------------------------------------------------------
-  # Check 4 — Soft-delete backlog
-  # ---------------------------------------------------------------------------
-
-  defp run_soft_delete_backlog_check(state) do
-    if PhxMediaLibrary.Media.soft_deletes_enabled?() do
-      check_soft_delete_backlog(state)
-    else
-      state
+  defp rebuild_targets(opts) do
+    case opts[:only] do
+      nil -> [:webp, :conversions, :responsive]
+      only -> only |> String.split(",", trim: true) |> Enum.map(&rebuild_target/1)
     end
   end
 
-  defp check_soft_delete_backlog(state) do
-    cutoff = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
+  defp rebuild_target("conversions"), do: :conversions
+  defp rebuild_target("webp"), do: :webp
+  defp rebuild_target("responsive"), do: :responsive
 
-    count =
-      from(m in PhxMediaLibrary.Media,
-        where: not is_nil(m.deleted_at),
-        where: m.deleted_at < ^cutoff
-      )
-      |> state.repo.aggregate(:count)
+  defp rebuild_target(other),
+    do: Mix.raise("--only accepts conversions, webp, responsive; got #{inspect(other)}")
 
-    if count > 0 do
-      Mix.shell().info(
-        "#{IO.ANSI.yellow()}⚠#{IO.ANSI.reset()} Soft-delete backlog: #{count} record(s) older" <>
-          " than 30 days. Run: mix phx_media_library.purge_deleted"
-      )
+  defp sort_by_kind(issues, order),
+    do: Enum.sort_by(issues, &Enum.find_index(order, fn kind -> kind == kind(&1) end))
 
-      %{state | warnings: state.warnings + 1}
-    else
-      Mix.shell().info(
-        "#{IO.ANSI.green()}✓#{IO.ANSI.reset()} Soft-delete backlog (none older than 30 days)"
-      )
+  defp print_plan(plan) do
+    counts =
+      for {_media, steps} <- plan, step <- steps, reduce: %{} do
+        acc -> Map.update(acc, step_label(step), 1, &(&1 + 1))
+      end
 
-      %{state | passed: state.passed + 1}
+    info("\nRepair plan:")
+    Enum.each(counts, fn {label, count} -> info("  #{label}: #{count}") end)
+  end
+
+  defp execute(plan) do
+    info("")
+    {ok, failed} = Enum.reduce(plan, {0, 0}, &execute_media/2)
+    info("\n#{green("✓")} #{ok} repair(s) done, #{failed} failed")
+  end
+
+  defp execute_media({media, steps}, totals) do
+    {_media, totals} =
+      Enum.reduce(steps, {media, totals}, fn step, {media, {ok, failed}} ->
+        case run_step(media, step) do
+          {:ok, media} ->
+            {media, {ok + 1, failed}}
+
+          {:error, reason} ->
+            info("  #{red("failed")} #{describe(media)} #{step_label(step)}: #{inspect(reason)}")
+            {media, {ok, failed + 1}}
+        end
+      end)
+
+    totals
+  end
+
+  # Runs a step and returns the media to continue with (reloaded, since steps
+  # update the record), or {:error, reason}.
+  defp run_step(media, :no_files) do
+    case Health.repair(media, :no_files) do
+      :ok -> {:ok, media}
+      error -> error
     end
   end
 
-  # ---------------------------------------------------------------------------
-  # Summary + fix
-  # ---------------------------------------------------------------------------
+  defp run_step(media, {:rebuild, :conversions, only}),
+    do: continue(media, Pipeline.conversions(media, only: only))
 
-  defp print_summary(state) do
-    error_color = if state.errors > 0, do: IO.ANSI.red(), else: ""
-    warn_color = if state.warnings > 0, do: IO.ANSI.yellow(), else: ""
-    pass_color = IO.ANSI.green()
+  defp run_step(media, {:rebuild, :webp, _}), do: continue(media, Pipeline.webp(media))
 
-    parts = [
-      "#{error_color}#{state.errors} error(s)#{IO.ANSI.reset()}",
-      "#{warn_color}#{state.warnings} warning(s)#{IO.ANSI.reset()}",
-      "#{pass_color}#{state.passed} passed#{IO.ANSI.reset()}"
-    ]
-
-    Mix.shell().info("")
-    Mix.shell().info("Summary: #{Enum.join(parts, ", ")}")
+  defp run_step(media, {:rebuild, :responsive, _}) do
+    of = [nil | Map.keys(media.generated_conversions || %{})]
+    continue(media, Pipeline.responsive(media, of: of))
   end
 
-  defp do_fix(state) do
-    count = length(state.fix_items)
-    prompt = "Permanently delete #{count} broken/missing media record(s)? This cannot be undone."
+  defp run_step(media, issue), do: continue(media, Health.repair(media, issue))
 
-    Mix.shell().info("")
-
-    if Mix.shell().yes?(prompt) do
-      {ok_count, err_count} = Enum.reduce(state.fix_items, {0, 0}, &delete_one_media/2)
-      Mix.shell().info("")
-
-      Mix.shell().info(
-        "#{IO.ANSI.green()}✓ Fix complete!#{IO.ANSI.reset()}" <>
-          " Deleted: #{ok_count}, Failed: #{err_count}"
-      )
-    else
-      Mix.shell().info("Fix aborted.")
-    end
-  end
-
-  defp delete_one_media(media, {ok, err}) do
-    id_short = String.slice(media.id, 0, 8)
-
-    case PhxMediaLibrary.Media.permanently_delete(media) do
-      :ok ->
-        Mix.shell().info(
-          "  #{IO.ANSI.green()}Deleted#{IO.ANSI.reset()} #{id_short}... (#{media.file_name})"
-        )
-
-        {ok + 1, err}
-
-      {:error, reason} ->
-        Mix.shell().error("  Failed to delete #{id_short}...: #{inspect(reason)}")
-        {ok, err + 1}
-    end
-  end
+  defp continue(_media, {:error, _} = error), do: error
+  defp continue(media, _ok_or_skip), do: {:ok, Config.repo().reload!(media)}
 
   # ---------------------------------------------------------------------------
-  # Disk helpers
+  # Helpers
   # ---------------------------------------------------------------------------
 
-  defp get_local_disks do
-    Application.get_env(:phx_media_library, :disks, [])
-    |> Keyword.keys()
-    |> Enum.filter(&local_disk?/1)
+  defp kind({kind, _detail}), do: kind
+  defp kind(kind), do: kind
+
+  defp step_label({:rebuild, what, _}), do: "Rebuild #{what}"
+  defp step_label(issue), do: "Repair: #{@labels[kind(issue)]}"
+
+  defp detail({:missing_conversions, names}), do: " — #{Enum.join(names, ", ")}"
+  defp detail(_issue), do: ""
+
+  defp describe(media) do
+    "#{String.slice(media.id, 0, 8)} #{media.mediable_type}/#{media.collection_name} " <>
+      media.file_name
   end
 
-  defp local_disk?(disk_name) do
-    config = PhxMediaLibrary.Config.disk_config(disk_name)
-    adapter = Keyword.get(config, :adapter)
-    Code.ensure_loaded(adapter)
-    function_exported?(adapter, :path, 2)
-  rescue
-    _ -> false
-  end
+  defp info(message), do: Mix.shell().info(message)
+  defp green(text), do: IO.ANSI.green() <> text <> IO.ANSI.reset()
+  defp yellow(text), do: IO.ANSI.yellow() <> text <> IO.ANSI.reset()
+  defp red(text), do: IO.ANSI.red() <> text <> IO.ANSI.reset()
 end

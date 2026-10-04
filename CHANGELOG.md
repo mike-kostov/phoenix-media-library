@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- **`mix phx_media_library.doctor` checks and repairs.** It reports media
+  with no files, missing conversions/WebP/responsive variants, missing
+  metadata (e.g. from the EXIF bug fixed in 0.8.4), files not named by
+  their collection's `file_naming`, originals kept despite
+  `keep_original: false`, checksum mismatches (`--deep`), orphaned records
+  and the soft-delete backlog — on any storage, not only local disks.
+  Repairs are opt-in and confirmed: `--regenerate`, `--reextract`,
+  `--rename`, `--drop-originals`, `--fix`, and `--rebuild` (with `--only`,
+  `--conversion`) to regenerate after changing settings. Filters `--model`,
+  `--collection`, `--disk`; `--dry-run`, `--yes`, `--strict` (exit 1 on
+  errors). Built on the new `PhxMediaLibrary.Health` module.
+- `Pipeline.rename/2` moves all of a media item's files (original,
+  conversions, WebP, variants) to its collection's naming; safe to rerun if
+  interrupted.
 - **File naming strategies.** New uploads are stored under a name the
   library chooses, never the uploader's: ASCII only (`a-z0-9-_`), with the
   extension taken from the detected content. Set globally with
@@ -42,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Webp.encode/5`, like `generate/5` but returns `{:ok, media}` or
   `{:error, reason}`.
 
+### Deprecated
+- `mix phx_media_library.regenerate`, `regenerate_webp`,
+  `regenerate_responsive` and `drop_originals`, replaced by
+  `mix phx_media_library.doctor --rebuild --only conversions|webp|responsive`
+  and `--drop-originals`. They still work and print a notice; they will be
+  removed in 0.10.0.
+
 ### Fixed
 - Maintenance tasks ignored per-collection settings unless given `--model`,
   and some even with it:
@@ -65,6 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it.
 - Model lookups by `mediable_type` failed in mix tasks for schemas not yet
   loaded; `ModelRegistry` now loads application modules on a miss.
+- `mix phx_media_library.doctor --fix` permanently deleted healthy media: any
+  record missing its original (WebP-only media from `keep_original: false`)
+  or a single conversion file. It now deletes only media with no files
+  left; missing conversions are reported as repairable (`--regenerate`).
 - Two uploads racing on a `single_file` collection could each delete the
   other, leaving it empty. An upload now only deletes media older than
   itself, so the newest always survives.

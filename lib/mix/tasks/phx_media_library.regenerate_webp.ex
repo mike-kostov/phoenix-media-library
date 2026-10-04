@@ -1,5 +1,10 @@
 defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
   @moduledoc """
+  > #### Deprecated {: .warning}
+  >
+  > Use `mix phx_media_library.doctor --rebuild --only webp`, which
+  > shares its code with uploads. This task will be removed in 0.10.0.
+
   Re-generates WebP derivatives for existing media from their originals.
 
   Run this after changing WebP `quality` or `max_dimension` config, or to add
@@ -20,7 +25,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
       --dry-run       Show what would be regenerated
   """
 
-  @shortdoc "Regenerates WebP derivatives from originals"
+  @shortdoc "(Deprecated) Regenerates WebP derivatives from originals"
 
   use Mix.Task
 
@@ -37,6 +42,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
 
     Mix.Task.run("app.start")
 
+    Mix.shell().info(
+      "#{IO.ANSI.yellow()}Deprecated: use `mix phx_media_library.doctor --rebuild --only webp`. " <>
+        "This task will be removed in 0.10.0.#{IO.ANSI.reset()}"
+    )
 
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()

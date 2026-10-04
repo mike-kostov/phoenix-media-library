@@ -1,5 +1,10 @@
 defmodule Mix.Tasks.PhxMediaLibrary.RegenerateResponsive do
   @moduledoc """
+  > #### Deprecated {: .warning}
+  >
+  > Use `mix phx_media_library.doctor --rebuild --only responsive`, which
+  > shares its code with uploads. This task will be removed in 0.10.0.
+
   Regenerates responsive images for existing media.
 
   This task is useful when:
@@ -27,7 +32,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateResponsive do
 
   """
 
-  @shortdoc "Regenerates responsive images"
+  @shortdoc "(Deprecated) Regenerates responsive images"
 
   use Mix.Task
 
@@ -47,6 +52,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateResponsive do
 
     Mix.Task.run("app.start")
 
+    Mix.shell().info(
+      "#{IO.ANSI.yellow()}Deprecated: use `mix phx_media_library.doctor --rebuild --only responsive`. " <>
+        "This task will be removed in 0.10.0.#{IO.ANSI.reset()}"
+    )
 
     dry_run? = opts[:dry_run] || false
 
