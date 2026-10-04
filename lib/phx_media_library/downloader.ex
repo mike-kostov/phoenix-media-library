@@ -18,15 +18,15 @@ defmodule PhxMediaLibrary.Downloader do
 
   ## Options
 
-    * `:headers` — extra request headers (e.g. authorization)
-    * `:timeout` — receive timeout between chunks, in milliseconds
-    * `:total_timeout` — limit for the whole download (default `300_000`)
-    * `:max_size` — maximum body size in bytes (the collection's `max_size`
+    * `:headers`: extra request headers (e.g. authorization)
+    * `:timeout`: receive timeout between chunks, in milliseconds
+    * `:total_timeout`: limit for the whole download (default `300_000`)
+    * `:max_size`: maximum body size in bytes (the collection's `max_size`
       is used when the caller doesn't set one)
-    * `:max_redirects` — default `5`
-    * `:allow_private_hosts` — set to `true` to allow private and loopback
+    * `:max_redirects`: default `5`
+    * `:allow_private_hosts`: set to `true` to allow private and loopback
       addresses, e.g. for an intranet; off by default
-    * `:req_options` — extra options merged into the `Req` request
+    * `:req_options`: extra options merged into the `Req` request
   """
 
   alias PhxMediaLibrary.FileName

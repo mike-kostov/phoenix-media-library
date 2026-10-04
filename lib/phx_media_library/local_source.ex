@@ -6,6 +6,8 @@ defmodule PhxMediaLibrary.LocalSource do
   path directly; remote storage such as S3 (and the in-memory adapter) has
   none, so the file is fetched into a temporary file for the duration of the
   callback and deleted afterwards.
+
+      PhxMediaLibrary.LocalSource.with_path(media, :thumb, fn path -> Image.open(path) end)
   """
 
   alias PhxMediaLibrary.{Config, Media, PathGenerator, StorageWrapper}

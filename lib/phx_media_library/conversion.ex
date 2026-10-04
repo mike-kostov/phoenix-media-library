@@ -3,7 +3,13 @@ defmodule PhxMediaLibrary.Conversion do
   Represents an image conversion configuration.
 
   Conversions define how to transform images (resize, crop, etc.)
-  and can be limited to specific collections.
+  and can be limited to specific collections. Declare them in your schema:
+
+      media_conversions do
+        convert :thumb, width: 150, height: 150, fit: :cover
+        convert :preview, width: 800, quality: 85
+        convert :og, width: 1200, height: 630, fit: :cover, format: :jpg, collections: [:images]
+      end
   """
 
   defstruct [

@@ -6,7 +6,11 @@ defmodule PhxMediaLibrary.Health do
   one issue by running the matching `PhxMediaLibrary.Pipeline` step — the
   same code uploads use. `mix phx_media_library.doctor` is built on this
   module; you can also call it from your own code (a scheduled job, an admin
-  page).
+  page):
+
+      for issue <- PhxMediaLibrary.Health.check(media), not PhxMediaLibrary.Health.error?(issue) do
+        PhxMediaLibrary.Health.repair(media, issue)
+      end
 
   ## Issues
 
@@ -62,7 +66,7 @@ defmodule PhxMediaLibrary.Health do
 
   ## Options
 
-    * `:deep` — also verify the checksum, which reads the whole file
+    * `:deep`: also verify the checksum, which reads the whole file
 
   ## Examples
 

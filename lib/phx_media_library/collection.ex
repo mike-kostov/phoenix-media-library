@@ -4,36 +4,43 @@ defmodule PhxMediaLibrary.Collection do
 
   Collections group related media and can have specific settings like
   allowed file types, storage disk, file limits, and size constraints.
+  Declare them in your schema:
+
+      media_collections do
+        collection :images, accepts: ~w(image/jpeg image/png), max_size: 10_000_000, webp: true
+        collection :avatar, single_file: true, placeholder: :color
+        collection :invoices, accepts: ~w(application/pdf), file_naming: :random
+      end
 
   ## Fields
 
-  - `:name` — the collection name atom (e.g. `:images`, `:documents`)
-  - `:disk` — storage disk override for this collection
-  - `:accepts` — list of accepted MIME types (e.g. `["image/jpeg", "image/png"]`)
-  - `:single_file` — when `true`, only one file is kept in this collection (default: `false`)
-  - `:max_files` — maximum number of files allowed in the collection
-  - `:max_size` — maximum file size in bytes (e.g. `10_000_000` for 10 MB)
-  - `:max_pixels` — maximum image size in pixels (width × height), or
+  - `:name`: the collection name atom (e.g. `:images`, `:documents`)
+  - `:disk`: storage disk override for this collection
+  - `:accepts`: list of accepted MIME types (e.g. `["image/jpeg", "image/png"]`)
+  - `:single_file`: when `true`, only one file is kept in this collection (default: `false`)
+  - `:max_files`: maximum number of files allowed in the collection
+  - `:max_size`: maximum file size in bytes (e.g. `10_000_000` for 10 MB)
+  - `:max_pixels`: maximum image size in pixels (width × height), or
     `:infinity`. `nil` (default) uses `config :phx_media_library, :max_image_pixels`
     (100 megapixels unless configured).
-  - `:file_naming` — how stored filenames are chosen: `:semantic`, `:slug`
+  - `:file_naming`: how stored filenames are chosen: `:semantic`, `:slug`
     or `:random`. `nil` (default) uses `config :phx_media_library, :file_naming`
     (`:semantic` unless configured). See `PhxMediaLibrary.FileName`.
-  - `:fallback_url` — URL to use when the collection is empty
-  - `:fallback_path` — filesystem path to use when the collection is empty
-  - `:verify_content_type` — when `true`, verify file content matches its declared MIME type (default: `true`)
-  - `:webp` — WebP conversion override for this collection: `true`/`false` or a
+  - `:fallback_url`: URL to use when the collection is empty
+  - `:fallback_path`: filesystem path to use when the collection is empty
+  - `:verify_content_type`: when `true`, verify file content matches its declared MIME type (default: `true`)
+  - `:webp`: WebP conversion override for this collection: `true`/`false` or a
     keyword of knobs (`quality:`, `keep_original:`, `max_dimension:`) deep-merged over the global
     `config :phx_media_library, :webp`. `nil` (default) inherits the global.
-  - `:avif` — AVIF override, same shape (`true`/`false`/keyword with
+  - `:avif`: AVIF override, same shape (`true`/`false`/keyword with
     `quality:`), merged over `config :phx_media_library, :avif`. Off unless
     set; the AVIF is made beside the served file.
-  - `:placeholder` — what images show while they load: `:blur` (a tiny
+  - `:placeholder`: what images show while they load: `:blur` (a tiny
     WebP, 32px on its longest side), `[size: 48]` (the same at another
     size), `:color`
     (the average color) or `false`. `nil` (default) uses
     `config :phx_media_library, :placeholder` (`:blur` unless configured).
-  - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
+  - `:responsive`: responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.
 
   """

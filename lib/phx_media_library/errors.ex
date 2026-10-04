@@ -8,9 +8,9 @@ defmodule PhxMediaLibrary.Error do
 
   ## Fields
 
-  - `:message` — human-readable error description
-  - `:reason` — machine-readable atom identifying the error (e.g. `:invalid_source`)
-  - `:metadata` — optional map with additional context
+  - `:message`: human-readable error description
+  - `:reason`: machine-readable atom identifying the error (e.g. `:invalid_source`)
+  - `:metadata`: optional map with additional context
 
   ## Examples
 

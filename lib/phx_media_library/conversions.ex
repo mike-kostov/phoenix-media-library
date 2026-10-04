@@ -1,6 +1,9 @@
 defmodule PhxMediaLibrary.Conversions do
   @moduledoc """
-  Handles the execution of image conversions.
+  Runs a media item's conversions, then its placeholders. Async
+  processors call it; so can your own jobs:
+
+      PhxMediaLibrary.Conversions.process(media, PhxMediaLibrary.Model.conversions(media, media.collection_name))
   """
 
   alias PhxMediaLibrary.{

@@ -74,31 +74,31 @@ defmodule PhxMediaLibrary.LiveUpload do
 
   ### 1. Setup Helpers
 
-  - `allow_media_upload/3` — wraps `Phoenix.LiveView.allow_upload/3` with
+  - `allow_media_upload/3`: wraps `Phoenix.LiveView.allow_upload/3` with
     collection-aware defaults. Automatically derives `:accept`, `:max_entries`,
     and `:max_file_size` from the collection configuration.
 
-  - `stream_existing_media/4` — loads existing media for a model/collection
+  - `stream_existing_media/4`: loads existing media for a model/collection
     and streams them into a LiveView stream for display.
 
   ### 2. Consumption Helpers
 
-  - `consume_media/4` — wraps `Phoenix.LiveView.consume_uploaded_entries/3`
+  - `consume_media/4`: wraps `Phoenix.LiveView.consume_uploaded_entries/3`
     and calls `PhxMediaLibrary.add/2 |> PhxMediaLibrary.to_collection/2` for
     each completed upload entry.
 
   ### 3. Management Helpers
 
-  - `stream_media_items/3` — inserts newly created media items into an
+  - `stream_media_items/3`: inserts newly created media items into an
     existing stream so the UI updates without a full reload.
 
-  - `delete_media_by_id/1` — fetches a media record by ID and deletes it
+  - `delete_media_by_id/1`: fetches a media record by ID and deletes it
     along with its files.
 
-  - `media_upload_errors/2` — returns human-readable error strings for an
+  - `media_upload_errors/2`: returns human-readable error strings for an
     upload's errors.
 
-  - `media_entry_errors/2` — returns human-readable error strings for a
+  - `media_entry_errors/2`: returns human-readable error strings for a
     specific upload entry.
 
   ## Event Notifications
@@ -107,9 +107,9 @@ defmodule PhxMediaLibrary.LiveUpload do
   option. When set to a pid (e.g. `self()`), lifecycle messages are sent
   to that process:
 
-  - `{:media_added, [Media.t()]}` — when uploaded files were saved
-  - `{:media_error, {:partial, saved, failed}}` — when any upload failed
-  - `{:media_removed, Media.t()}` — after successful media deletion
+  - `{:media_added, [Media.t()]}`: when uploaded files were saved
+  - `{:media_error, {:partial, saved, failed}}`: when any upload failed
+  - `{:media_removed, Media.t()}`: after successful media deletion
 
   This allows parent LiveViews (or any process) to react to media
   lifecycle events via `handle_info/2`.
@@ -140,15 +140,15 @@ defmodule PhxMediaLibrary.LiveUpload do
   All options are passed through to `allow_upload/3`. The following are
   specific to `allow_media_upload/3`:
 
-  - `:model` — (required) the Ecto struct that owns the media. Used to
+  - `:model`: (required) the Ecto struct that owns the media. Used to
     look up collection configuration.
-  - `:collection` — (required) the collection atom to upload into.
-  - `:accept` — override the accept list. When not provided, it is
+  - `:collection`: (required) the collection atom to upload into.
+  - `:accept`: override the accept list. When not provided, it is
     derived from the collection's `:accepts` MIME types. Falls back to
     `:any` when the collection has no type restrictions.
-  - `:max_entries` — override maximum entries. Derived from the
+  - `:max_entries`: override maximum entries. Derived from the
     collection's `:max_files` or `:single_file` setting.
-  - `:max_file_size` — maximum file size in bytes. Defaults to 10 MB.
+  - `:max_file_size`: maximum file size in bytes. Defaults to 10 MB.
 
   Any other option (e.g. `:auto_upload`, `:chunk_size`, `:progress`) is
   forwarded to `allow_upload/3` unchanged.
@@ -233,12 +233,12 @@ defmodule PhxMediaLibrary.LiveUpload do
 
   ## Options
 
-  - `:disk` — override the storage disk for these uploads.
-  - `:custom_properties` — a map of custom properties to attach to each
+  - `:disk`: override the storage disk for these uploads.
+  - `:custom_properties`: a map of custom properties to attach to each
     media item.
-  - `:responsive` — whether to generate responsive images. Defaults to
+  - `:responsive`: whether to generate responsive images. Defaults to
     `false`.
-  - `:notify` — a pid to send lifecycle messages to. When set, sends
+  - `:notify`: a pid to send lifecycle messages to. When set, sends
     `{:media_added, media_items}` when any entry was saved, and
     `{:media_error, {:partial, saved, failed}}` when any failed.
 
@@ -339,9 +339,9 @@ defmodule PhxMediaLibrary.LiveUpload do
 
   ## Options
 
-  - `:model` — only delete media attached to this record
-  - `:collection` — with `:model`, only delete media in this collection
-  - `:notify` — a pid to send `{:media_removed, media}` to on success.
+  - `:model`: only delete media attached to this record
+  - `:collection`: with `:model`, only delete media in this collection
+  - `:notify`: a pid to send `{:media_removed, media}` to on success.
 
   ## Examples
 

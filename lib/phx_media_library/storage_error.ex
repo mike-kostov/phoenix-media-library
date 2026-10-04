@@ -8,12 +8,12 @@ defmodule PhxMediaLibrary.StorageError do
 
   ## Fields
 
-  - `:message` — human-readable error description
-  - `:reason` — machine-readable atom identifying the error (e.g. `:write_failed`, `:not_found`)
-  - `:operation` — the storage operation that failed (e.g. `:put`, `:get`, `:delete`, `:exists?`)
-  - `:path` — the storage path involved, if available
-  - `:adapter` — the storage adapter module that raised the error, if available
-  - `:metadata` — optional map with additional context
+  - `:message`: human-readable error description
+  - `:reason`: machine-readable atom identifying the error (e.g. `:write_failed`, `:not_found`)
+  - `:operation`: the storage operation that failed (e.g. `:put`, `:get`, `:delete`, `:exists?`)
+  - `:path`: the storage path involved, if available
+  - `:adapter`: the storage adapter module that raised the error, if available
+  - `:metadata`: optional map with additional context
 
   ## Examples
 

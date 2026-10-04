@@ -22,11 +22,11 @@ defmodule PhxMediaLibrary.FileName do
       e.g. `posts_42_images_3f2a9c1e-….jpg`. Readable, sorts by record, and
       carries everything needed to rebuild a lost database row. Exposes
       record IDs in URLs (as the default directory layout already does).
-    * `:slug` — the original name as a slug, e.g. `red-summer-dress.jpg`;
+    * `:slug`: the original name as a slug, e.g. `red-summer-dress.jpg`;
       good for SEO. Cyrillic is transliterated (`снимка.jpg` → `snimka.jpg`)
       and accents dropped (`café` → `cafe`); a name with nothing left becomes
       `file.jpg`.
-    * `:random` — `aohnmpeggczvupfgbuoh54enae.jpg`; reveals nothing in the
+    * `:random`: `aohnmpeggczvupfgbuoh54enae.jpg`; reveals nothing in the
       name. It doesn't protect the file: for that, use a private disk and
       signed URLs.
 

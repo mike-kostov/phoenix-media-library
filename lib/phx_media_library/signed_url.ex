@@ -62,9 +62,9 @@ defmodule PhxMediaLibrary.SignedUrl do
 
   ## Options
 
-  - `:secret_key_base` — (required) the signing secret.
-  - `:expires_in` — seconds from now until the URL expires (default: `3600`).
-  - `:name` — a download name the URL carries; the signature covers it,
+  - `:secret_key_base`: (required) the signing secret.
+  - `:expires_in`: seconds from now until the URL expires (default: `3600`).
+  - `:name`: a download name the URL carries; the signature covers it,
     so it can't be changed.
 
   ## Examples
@@ -92,18 +92,18 @@ defmodule PhxMediaLibrary.SignedUrl do
 
   Returns `:ok` if the token is valid and has not expired, or one of:
 
-  - `{:error, :expired}` — the URL's expiry timestamp is in the past.
-  - `{:error, :invalid_token}` — the HMAC does not match (wrong secret,
+  - `{:error, :expired}`: the URL's expiry timestamp is in the past.
+  - `{:error, :invalid_token}`: the HMAC does not match (wrong secret,
     tampered path, or tampered expiry).
 
   ## Arguments
 
-  - `path` — the storage-relative path extracted from the request (must match
+  - `path`: the storage-relative path extracted from the request (must match
     exactly what was signed, without leading slash).
-  - `token` — the `sign` query param from the URL.
-  - `expires_at` — the `exp` query param, as an integer Unix timestamp.
-  - `secret` — the signing secret (same value used in `sign/2`).
-  - `name` — the download name from the URL, if it carries one.
+  - `token`: the `sign` query param from the URL.
+  - `expires_at`: the `exp` query param, as an integer Unix timestamp.
+  - `secret`: the signing secret (same value used in `sign/2`).
+  - `name`: the download name from the URL, if it carries one.
 
   ## Examples
 

@@ -114,9 +114,9 @@ if Code.ensure_loaded?(Oban) do
 
     ## Job Args
 
-    - `"media_id"` — the binary ID of the `Media` record
-    - `"conversions"` — list of conversion name strings (e.g. `["thumb", "preview"]`)
-    - `"mediable_type"` — the polymorphic type string (e.g. `"posts"`) used to
+    - `"media_id"`: the binary ID of the `Media` record
+    - `"conversions"`: list of conversion name strings (e.g. `["thumb", "preview"]`)
+    - `"mediable_type"`: the polymorphic type string (e.g. `"posts"`) used to
       discover the originating Ecto schema module and its conversion definitions
     """
 

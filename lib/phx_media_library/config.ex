@@ -1,6 +1,46 @@
 defmodule PhxMediaLibrary.Config do
   @moduledoc """
-  Configuration helpers for PhxMediaLibrary.
+  Reads PhxMediaLibrary's application config. Every setting has a default;
+  only `:repo` is required.
+
+      # config/config.exs
+      config :phx_media_library,
+        repo: MyApp.Repo,
+        default_disk: :local,
+        disks: [
+          local: [adapter: PhxMediaLibrary.Storage.Disk, root: "priv/static/uploads", base_url: "/uploads"]
+        ],
+        file_naming: :semantic,
+        webp: [quality: 82],
+        placeholder: :blur
+
+  Collections override the image settings for themselves (see
+  `PhxMediaLibrary.Collection`), which win over these globals.
+
+  ## Settings
+
+  | Key | Default | What it does |
+  |---|---|---|
+  | `:repo` | required | Your `Ecto.Repo` |
+  | `:default_disk` | `:local` | The disk media is stored on, unless a collection or upload says otherwise |
+  | `:disks` | none | Named disks: `adapter:` plus its options (`PhxMediaLibrary.Storage.Disk`, `PhxMediaLibrary.Storage.S3`, ...) |
+  | `:mediable_id_type` | `:binary_id` | Column type of `mediable_id`: `:binary_id`, `:integer` or `:string` |
+  | `:file_naming` | `:semantic` | Stored filenames: `:semantic`, `:slug` or `:random` (`PhxMediaLibrary.FileName`) |
+  | `:webp` | off | `true` or `[quality:, keep_original:, max_dimension:]` |
+  | `:avif` | off | `true` or `[quality:]` |
+  | `:placeholder` | `:blur` | `:blur`, `:color`, `false` or `[size: px]` |
+  | `:responsive_images` | `[enabled: true, widths: [320, 640, 960, 1280, 1920]]` | Widths for `srcset`; `enabled: false` stops variants of conversions |
+  | `:max_image_pixels` | `100_000_000` | Largest image accepted, in pixels |
+  | `:async_processor` | `PhxMediaLibrary.AsyncProcessor.Task` | Background work: `Task`, `Oban` or `Inline` |
+  | `:image_processor` | `PhxMediaLibrary.ImageProcessor.Image` when `:image` is installed | Image backend |
+  | `:video_processor` | FFmpeg when installed | Poster frames for videos |
+  | `:path_generator` | `PhxMediaLibrary.PathGenerator.Default` | Storage path layout |
+  | `:mime_detector` | `PhxMediaLibrary.MimeDetector.Default` | Content-based type detection |
+  | `:extract_metadata` | `true` | Dimensions and EXIF on upload |
+  | `:soft_deletes` | `false` | Keep deleted media until purged |
+  | `:secret_key_base` | none | Signs disk download URLs (or set it per disk) |
+  | `:download_base_url` | none | Where `PhxMediaLibrary.Plug.MediaDownload` is mounted (or per disk) |
+  | `:model_registry` | `%{}` | `%{"posts" => MyApp.Post}`, to skip module scanning |
   """
 
   alias PhxMediaLibrary.VideoProcessor
@@ -85,10 +125,10 @@ defmodule PhxMediaLibrary.Config do
 
   Built-in generators:
 
-    * `PhxMediaLibrary.PathGenerator.Default` — `{type}/{id}/{uuid}/{filename}` (default)
-    * `PhxMediaLibrary.PathGenerator.Flat` — `{uuid}/{filename}`
-    * `PhxMediaLibrary.PathGenerator.DateBased` — `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
-    * `PhxMediaLibrary.PathGenerator.Tenant` — `{tenant_id}/{type}/{id}/{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.Default`: `{type}/{id}/{uuid}/{filename}` (default)
+    * `PhxMediaLibrary.PathGenerator.Flat`: `{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.DateBased`: `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.Tenant`: `{tenant_id}/{type}/{id}/{uuid}/{filename}`
 
   ## Configuration
 

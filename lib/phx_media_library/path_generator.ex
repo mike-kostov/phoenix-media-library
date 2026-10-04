@@ -5,9 +5,9 @@ defmodule PhxMediaLibrary.PathGenerator do
 
   ## Built-in generators
 
-    * `PhxMediaLibrary.PathGenerator.Default` — `{type}/{id}/{uuid}/{filename}` (the default)
-    * `PhxMediaLibrary.PathGenerator.Flat` — `{uuid}/{filename}`
-    * `PhxMediaLibrary.PathGenerator.DateBased` — `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.Default`: `{type}/{id}/{uuid}/{filename}` (the default)
+    * `PhxMediaLibrary.PathGenerator.Flat`: `{uuid}/{filename}`
+    * `PhxMediaLibrary.PathGenerator.DateBased`: `{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`
 
   ## Configuring a custom generator
 

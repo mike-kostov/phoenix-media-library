@@ -7,9 +7,9 @@ defmodule PhxMediaLibrary.VideoProcessor do
 
   ## Built-in Adapters
 
-    * `PhxMediaLibrary.VideoProcessor.FFmpeg` — uses `ffprobe` and `ffmpeg`
+    * `PhxMediaLibrary.VideoProcessor.FFmpeg`: uses `ffprobe` and `ffmpeg`
       system executables. Selected automatically when both are on `$PATH`.
-    * `PhxMediaLibrary.VideoProcessor.Null` — no-op fallback used when
+    * `PhxMediaLibrary.VideoProcessor.Null`: no-op fallback used when
       FFmpeg is not installed. Metadata extraction and poster generation
       return error tuples; uploads still succeed without metadata or poster
       frames.
@@ -57,12 +57,12 @@ defmodule PhxMediaLibrary.VideoProcessor do
 
   Returns `{:ok, metadata}` where `metadata` is a map that may include:
 
-    * `"duration"` — total duration in seconds (float)
-    * `"width"` / `"height"` — video stream dimensions (integer)
-    * `"codec"` — video codec name, e.g. `"h264"` (string)
-    * `"fps"` — frames per second (float)
-    * `"audio_codec"` — audio codec name, e.g. `"aac"` (string, optional)
-    * `"bit_rate"` — overall bit rate in bits/s (integer, optional)
+    * `"duration"`: total duration in seconds (float)
+    * `"width"` / `"height"`: video stream dimensions (integer)
+    * `"codec"`: video codec name, e.g. `"h264"` (string)
+    * `"fps"`: frames per second (float)
+    * `"audio_codec"`: audio codec name, e.g. `"aac"` (string, optional)
+    * `"bit_rate"`: overall bit rate in bits/s (integer, optional)
 
   Returns `{:error, reason}` when extraction fails. Extraction failures are
   **non-fatal** — the upload proceeds with whatever metadata was already

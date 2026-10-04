@@ -2,7 +2,15 @@ defmodule PhxMediaLibrary.ImageProcessor do
   @moduledoc """
   Behaviour for image processing adapters.
 
-  The default implementation uses the `Image` library (libvips).
+  The default implementation uses the `Image` library (libvips). Another
+  backend implements the callbacks and is set in config:
+
+      config :phx_media_library, image_processor: MyApp.VipsProcessor
+
+  The optional callbacks (`supports_format?/1`, `average_color/1`,
+  `has_alpha?/1`, `tiny_placeholder/2`) unlock AVIF detection, `:color`
+  placeholders and transparency handling; without them the library falls
+  back to safe defaults.
   """
 
   alias PhxMediaLibrary.Conversion

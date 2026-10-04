@@ -7,27 +7,27 @@ defmodule PhxMediaLibrary.UrlGenerator do
   All URL-generating functions accept the following options in addition to
   any adapter-specific options:
 
-  - `:cache_bust` — `boolean` — when `true` and the media item has a stored
+  - `:cache_bust`: `boolean` — when `true` and the media item has a stored
     checksum, appends a `?vsn={checksum[0..7]}` query parameter so that CDN
     edges serve a fresh object whenever the file changes. Defaults to `false`.
 
-  - `:signed` — `boolean` — when `true`, generates a signed/expiring URL.
+  - `:signed`: `boolean` — when `true`, generates a signed/expiring URL.
     For S3 this is an AWS Signature V4 presigned GET URL. For local disk
     this is an HMAC-signed URL that can be verified by
     `PhxMediaLibrary.Plug.MediaDownload`. Requires `:expires_in` (see below).
     Defaults to `false`.
 
-  - `:expires_in` — `integer` — expiry window in seconds for signed URLs
+  - `:expires_in`: `integer` — expiry window in seconds for signed URLs
     (default: `3600`). Has no effect unless `:signed` is `true`.
 
-  - `:download` — `boolean` — when `true`, generates a URL suitable for
+  - `:download`: `boolean` — when `true`, generates a URL suitable for
     file downloads. For S3, this attaches a `Content-Disposition: attachment`
     response header to the presigned URL. For local disk, the URL routes
     through `PhxMediaLibrary.Plug.MediaDownload` which sets the header.
     Implies `:signed` for S3 (a presigned URL is required). Defaults to
     `false`.
 
-  - `:filename` — `String.t()` — override the filename used in the
+  - `:filename`: `String.t()` — override the filename used in the
     `Content-Disposition` header when `:download` is `true`. Defaults to the
     uploaded file's name (`metadata["original_file_name"]`), else
     `file_name`. Unsigned disk download URLs always use the stored name.
@@ -102,10 +102,10 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
   ## Arguments
 
-  - `media` — the `PhxMediaLibrary.Media` struct.
-  - `conversion` — optional conversion name atom (e.g. `:thumb`). Pass
+  - `media`: the `PhxMediaLibrary.Media` struct.
+  - `conversion`: optional conversion name atom (e.g. `:thumb`). Pass
     `nil` (default) for the original file.
-  - `opts` — keyword list of options (see module docs).
+  - `opts`: keyword list of options (see module docs).
   """
   @spec url(Media.t(), atom() | nil, keyword()) :: String.t()
   def url(%Media{} = media, conversion \\ nil, opts \\ []) do
@@ -251,9 +251,9 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
   Accepts all options supported by `url/3`. Additionally:
 
-  - `:filename` — override the filename in the `Content-Disposition` header.
+  - `:filename`: override the filename in the `Content-Disposition` header.
     Defaults to the uploaded file's name, else `media.file_name`.
-  - `:expires_in` — expiry for the presigned URL in seconds (S3 only).
+  - `:expires_in`: expiry for the presigned URL in seconds (S3 only).
     Defaults to `3600`.
 
   ## Examples
@@ -285,8 +285,8 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
   ## Options
 
-  - `:expires_in` — expiry window in seconds (default: `3600`).
-  - `:download` — also attach a `Content-Disposition: attachment` header
+  - `:expires_in`: expiry window in seconds (default: `3600`).
+  - `:download`: also attach a `Content-Disposition: attachment` header
     (see `download_url/3`).
 
   ## Examples

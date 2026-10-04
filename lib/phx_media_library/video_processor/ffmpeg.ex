@@ -13,12 +13,12 @@ defmodule PhxMediaLibrary.VideoProcessor.FFmpeg do
 
   and parses the JSON output to produce:
 
-    * `"duration"` — total duration in seconds (float)
-    * `"width"` / `"height"` — video stream dimensions (integer)
-    * `"codec"` — video codec name, e.g. `"h264"` or `"vp9"` (string)
-    * `"fps"` — frames per second derived from `r_frame_rate`, e.g. `30.0` (float)
-    * `"audio_codec"` — first audio stream codec, e.g. `"aac"` (string, optional)
-    * `"bit_rate"` — overall bit rate in bits/s from the format section (integer, optional)
+    * `"duration"`: total duration in seconds (float)
+    * `"width"` / `"height"`: video stream dimensions (integer)
+    * `"codec"`: video codec name, e.g. `"h264"` or `"vp9"` (string)
+    * `"fps"`: frames per second derived from `r_frame_rate`, e.g. `30.0` (float)
+    * `"audio_codec"`: first audio stream codec, e.g. `"aac"` (string, optional)
+    * `"bit_rate"`: overall bit rate in bits/s from the format section (integer, optional)
 
   ## Poster frame extraction
 

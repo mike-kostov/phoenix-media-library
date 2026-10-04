@@ -91,9 +91,9 @@ defmodule PhxMediaLibrary.Storage do
 
   ## Options
 
-  - `:expires_in` — URL expiration in seconds (default: adapter-specific)
-  - `:content_type` — content type the upload must have
-  - `:content_length_range` — `{min, max}` byte range, where the method
+  - `:expires_in`: URL expiration in seconds (default: adapter-specific)
+  - `:content_type`: content type the upload must have
+  - `:content_length_range`: `{min, max}` byte range, where the method
     can enforce it
 
   """
@@ -110,9 +110,9 @@ defmodule PhxMediaLibrary.Storage do
 
   ## Options
 
-  - `:expires_in` — URL expiration in seconds (default: adapter-specific)
-  - `:content_type` — expected content type of the upload
-  - `:content_length_range` — `{min, max}` byte range tuple for upload size validation
+  - `:expires_in`: URL expiration in seconds (default: adapter-specific)
+  - `:content_type`: expected content type of the upload
+  - `:content_length_range`: `{min, max}` byte range tuple for upload size validation
 
   """
   @callback presigned_upload_url(path(), presigned_opts(), opts()) ::

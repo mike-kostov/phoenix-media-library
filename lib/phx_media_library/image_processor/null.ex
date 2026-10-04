@@ -8,6 +8,11 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   All operations return `{:error, :no_image_processor}` with a clear
   message guiding the developer to install an image processing library.
+  It is chosen automatically when `:image` isn't installed; files are
+  stored, but conversions, WebP, AVIF and placeholders are skipped.
+
+      # mix.exs: add this to get image processing
+      {:image, "~> 0.54"}
   """
 
   @behaviour PhxMediaLibrary.ImageProcessor

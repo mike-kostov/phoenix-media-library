@@ -97,11 +97,11 @@ defmodule PhxMediaLibrary do
 
   ## Options
 
-  - `:headers` — custom request headers (e.g. `[{"Authorization", "Bearer token"}]`)
-  - `:timeout` — receive timeout between chunks, in milliseconds
-  - `:total_timeout` — limit for the whole download (default 5 minutes)
-  - `:max_size` — maximum size in bytes (defaults to the collection's `max_size`)
-  - `:allow_private_hosts` — allow private/loopback hosts, e.g. an intranet
+  - `:headers`: custom request headers (e.g. `[{"Authorization", "Bearer token"}]`)
+  - `:timeout`: receive timeout between chunks, in milliseconds
+  - `:total_timeout`: limit for the whole download (default 5 minutes)
+  - `:max_size`: maximum size in bytes (defaults to the collection's `max_size`)
+  - `:allow_private_hosts`: allow private/loopback hosts, e.g. an intranet
 
   ## Telemetry
 
@@ -380,8 +380,8 @@ defmodule PhxMediaLibrary do
 
   ## Options
 
-  - `:filename` — override the filename in the header (default: `media.file_name`).
-  - `:expires_in` — presigned URL expiry in seconds for S3 (default: `3600`).
+  - `:filename`: override the filename in the header (default: `media.file_name`).
+  - `:expires_in`: presigned URL expiry in seconds for S3 (default: `3600`).
 
   ## Examples
 
@@ -402,8 +402,8 @@ defmodule PhxMediaLibrary do
 
   ## Options
 
-  - `:expires_in` — seconds until the URL expires (default: `3600`).
-  - `:download` — also add a `Content-Disposition: attachment` header.
+  - `:expires_in`: seconds until the URL expires (default: `3600`).
+  - `:download`: also add a `Content-Disposition: attachment` header.
 
   ## Examples
 
@@ -848,14 +848,14 @@ defmodule PhxMediaLibrary do
   file, creates the `Media` record with `complete_external_upload/4`.
 
   Returns `{:ok, upload}`, a map with:
-  - `:method` — `:post` or `:put`, from the disk's `direct_upload:` setting
-  - `:url` — where the browser sends the file
-  - `:fields` — for `:post`, the form fields to send before the file (S3
+  - `:method`: `:post` or `:put`, from the disk's `direct_upload:` setting
+  - `:url`: where the browser sends the file
+  - `:fields`: for `:post`, the form fields to send before the file (S3
     checks them against a signed policy: the exact key, the size limit and
     the content type); empty for `:put`
-  - `:headers` — for `:put`, the headers to send (the signed
+  - `:headers`: for `:put`, the headers to send (the signed
     `content-type`); empty for `:post`
-  - `:key` — the storage path to pass to `complete_external_upload/4`
+  - `:key`: the storage path to pass to `complete_external_upload/4`
 
   See the "Direct uploads to S3" section of the storage guide for a
   LiveView uploader that handles both methods.
@@ -866,13 +866,13 @@ defmodule PhxMediaLibrary do
 
   ## Options
 
-  - `:filename` — the name the user uploaded (required)
-  - `:disk` — storage disk to use (default: collection or global default)
-  - `:content_type` — the upload's MIME type (default: from the filename)
-  - `:size` — the size the browser declares, checked against the limit
+  - `:filename`: the name the user uploaded (required)
+  - `:disk`: storage disk to use (default: collection or global default)
+  - `:content_type`: the upload's MIME type (default: from the filename)
+  - `:size`: the size the browser declares, checked against the limit
     before signing
-  - `:expires_in` — URL expiration in seconds (default: 3600)
-  - `:max_size` — maximum upload size in bytes (default: the collection's
+  - `:expires_in`: URL expiration in seconds (default: 3600)
+  - `:max_size`: maximum upload size in bytes (default: the collection's
     `max_size`); a POST enforces it at upload, a PUT at completion
 
   ## Examples
@@ -982,15 +982,15 @@ defmodule PhxMediaLibrary do
 
   ## Required options
 
-  - `:filename` — the name the user uploaded (kept for display)
+  - `:filename`: the name the user uploaded (kept for display)
 
   ## Optional options
 
-  - `:disk` — storage disk (must match the one used for `presigned_upload/3`)
-  - `:custom_properties` — user-defined metadata map
-  - `:checksum` — pre-computed checksum (e.g. from client-side hashing)
-  - `:checksum_algorithm` — algorithm used (default: `"sha256"`)
-  - `:content_type`, `:size` — accepted for compatibility and ignored; both
+  - `:disk`: storage disk (must match the one used for `presigned_upload/3`)
+  - `:custom_properties`: user-defined metadata map
+  - `:checksum`: pre-computed checksum (e.g. from client-side hashing)
+  - `:checksum_algorithm`: algorithm used (default: `"sha256"`)
+  - `:content_type`, `:size`: accepted for compatibility and ignored; both
     are read from the stored object
 
   ## Examples

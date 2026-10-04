@@ -5,6 +5,9 @@ defmodule PhxMediaLibrary.Webp do
   Called through `PhxMediaLibrary.Pipeline.webp/2`, which resolves the
   collection's settings, both on add and for re-generation. Encapsulates the
   encode + store + record.
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.webp(media)
+      media.custom_properties["webp"]  #=> "posts/42/<uuid>/posts_42_images_<uuid>.webp"
   """
 
   alias PhxMediaLibrary.{Config, StorageWrapper}

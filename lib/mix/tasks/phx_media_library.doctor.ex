@@ -22,6 +22,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     * **Records** — media whose parent record no longer exists, and the
       soft-delete backlog.
 
+  The checks find what is missing or outdated, not what was made with
+  other settings: after changing a collection's conversion, WebP, AVIF,
+  responsive or placeholder settings, run `--rebuild` for it.
+
   See `PhxMediaLibrary.Health` for the checks as functions.
 
   ## Usage

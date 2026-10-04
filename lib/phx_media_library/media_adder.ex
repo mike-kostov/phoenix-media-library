@@ -5,8 +5,13 @@ defmodule PhxMediaLibrary.MediaAdder do
   This module provides a fluent API for configuring media before
   it is persisted to storage and the database.
 
-  You typically won't use this module directly - instead use the
-  functions in `PhxMediaLibrary` which delegate here.
+  You typically won't use this module directly; the functions in
+  `PhxMediaLibrary` build it:
+
+      post
+      |> PhxMediaLibrary.add(upload)            # a %MediaAdder{}
+      |> PhxMediaLibrary.using_filename("Summer dress.jpg")
+      |> PhxMediaLibrary.to_collection(:images)
   """
 
   alias PhxMediaLibrary.{

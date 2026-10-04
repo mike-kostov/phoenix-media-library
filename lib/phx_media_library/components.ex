@@ -72,17 +72,17 @@ defmodule PhxMediaLibrary.Components do
 
   - `upload` (required) — the upload config from `@uploads.name`
   - `id` (required) — unique DOM id for the component
-  - `label` — text label above the drop zone
-  - `sublabel` — secondary text below the icon (e.g. accepted formats)
-  - `class` — additional CSS classes on the outer wrapper
-  - `compact` — render a compact single-line version (default: false)
-  - `disabled` — disable the upload zone (default: false)
-  - `cancel_event` — the phx-click event name for cancelling an entry (default: "cancel_upload")
-  - `cancel_target` — optional phx-target for the cancel event
+  - `label`: text label above the drop zone
+  - `sublabel`: secondary text below the icon (e.g. accepted formats)
+  - `class`: additional CSS classes on the outer wrapper
+  - `compact`: render a compact single-line version (default: false)
+  - `disabled`: disable the upload zone (default: false)
+  - `cancel_event`: the phx-click event name for cancelling an entry (default: "cancel_upload")
+  - `cancel_target`: optional phx-target for the cancel event
 
   ## Slots
 
-  - `drop_zone` — override the default drop zone content entirely
+  - `drop_zone`: override the default drop zone content entirely
 
   ## Examples
 
@@ -202,18 +202,18 @@ defmodule PhxMediaLibrary.Components do
 
   - `media` (required) — the stream from `@streams.media`
   - `id` (required) — unique DOM id for the gallery container
-  - `class` — additional CSS classes
-  - `conversion` — the conversion to display for image thumbnails (default: nil = original)
-  - `delete_event` — the phx-click event name for deleting (default: "delete_media")
-  - `delete_target` — optional phx-target for the delete event
-  - `confirm_delete` — show a JS confirmation before delete (default: true)
-  - `confirm_message` — the confirmation prompt text
-  - `columns` — grid column count hint: 2, 3, 4, 5, 6 (default: 4)
+  - `class`: additional CSS classes
+  - `conversion`: the conversion to display for image thumbnails (default: nil = original)
+  - `delete_event`: the phx-click event name for deleting (default: "delete_media")
+  - `delete_target`: optional phx-target for the delete event
+  - `confirm_delete`: show a JS confirmation before delete (default: true)
+  - `confirm_message`: the confirmation prompt text
+  - `columns`: grid column count hint: 2, 3, 4, 5, 6 (default: 4)
 
   ## Slots
 
-  - `item` — override rendering of each media item. Receives the media struct.
-  - `empty` — content to show when the gallery is empty.
+  - `item`: override rendering of each media item. Receives the media struct.
+  - `empty`: content to show when the gallery is empty.
 
   ## Examples
 
@@ -329,9 +329,9 @@ defmodule PhxMediaLibrary.Components do
 
   - `upload` (required) — the upload config from `@uploads.name`
   - `id` (required) — unique DOM id
-  - `label` — button label text (default: "Choose file")
-  - `class` — additional CSS classes on the wrapper
-  - `icon` — hero icon name (default: "hero-arrow-up-tray")
+  - `label`: button label text (default: "Choose file")
+  - `class`: additional CSS classes on the wrapper
+  - `icon`: hero icon name (default: "hero-arrow-up-tray")
 
   ## Examples
 
@@ -460,14 +460,14 @@ defmodule PhxMediaLibrary.Components do
 
   ## Attributes
 
-  - `:media` — (required) a `PhxMediaLibrary.Media` struct.  The hash is read
+  - `:media`: (required) a `PhxMediaLibrary.Media` struct.  The hash is read
     from `media.responsive_images["blurhash"]`.
-  - `:width` — canvas render width in pixels (default: `32`).  The canvas is
+  - `:width`: canvas render width in pixels (default: `32`).  The canvas is
     stretched to fill its container via `width: 100%` CSS so you can set this
     to any small value without affecting the visual size.
-  - `:height` — canvas render height in pixels (default: `32`).  If you pass
+  - `:height`: canvas render height in pixels (default: `32`).  If you pass
     `nil`, the component preserves the aspect ratio from the media metadata.
-  - `:class` — additional CSS classes applied to the `<canvas>`.
+  - `:class`: additional CSS classes applied to the `<canvas>`.
 
   ## Examples
 

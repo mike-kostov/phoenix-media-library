@@ -1,6 +1,10 @@
 defmodule PhxMediaLibrary.MetadataExtractor.Default do
   @moduledoc """
-  Default metadata extractor using the `Image` library for images.
+  Default metadata extractor using the `Image` library for images. Its
+  result is stored in `media.metadata`:
+
+      media.metadata
+      #=> %{"width" => 1920, "height" => 1080, "format" => "jpeg", "has_alpha" => false, ...}
 
   Extracts dimensions, format, alpha channel presence, and EXIF data from
   images when the `:image` library (libvips) is available. For audio and
@@ -14,19 +18,19 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
 
   ### Images (requires `:image`)
 
-  - `"width"` — width in pixels
-  - `"height"` — height in pixels
-  - `"format"` — detected format string (e.g. `"jpeg"`, `"png"`, `"webp"`)
-  - `"has_alpha"` — boolean, whether the image has an alpha channel
-  - `"exif"` — map of EXIF data (when present in the file)
+  - `"width"`: width in pixels
+  - `"height"`: height in pixels
+  - `"format"`: detected format string (e.g. `"jpeg"`, `"png"`, `"webp"`)
+  - `"has_alpha"`: boolean, whether the image has an alpha channel
+  - `"exif"`: map of EXIF data (when present in the file)
 
   ### Audio / Video
 
-  - `"format"` — format derived from MIME subtype (e.g. `"mp4"`, `"mp3"`)
+  - `"format"`: format derived from MIME subtype (e.g. `"mp4"`, `"mp3"`)
 
   ### All files
 
-  - `"type"` — broad type category: `"image"`, `"video"`, `"audio"`, `"document"`, or `"other"`
+  - `"type"`: broad type category: `"image"`, `"video"`, `"audio"`, `"document"`, or `"other"`
   """
 
   @behaviour PhxMediaLibrary.MetadataExtractor

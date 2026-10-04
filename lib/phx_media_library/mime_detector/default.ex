@@ -2,6 +2,9 @@ defmodule PhxMediaLibrary.MimeDetector.Default do
   @moduledoc """
   Default MIME type detector using magic byte signatures.
 
+      PhxMediaLibrary.MimeDetector.Default.detect(<<0x89, "PNG", 13, 10, 26, 10>>, "photo.jpg")
+      #=> {:ok, "image/png"}
+
   Detects common file types by inspecting the first bytes of file content.
   Covers images, documents, audio, video, and archive formats. When content
   doesn't match any known signature, returns `{:error, :unrecognized}` so

@@ -12,19 +12,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Media Addition
 
-  - `[:phx_media_library, :add, :start]` — emitted when media addition begins.
+  - `[:phx_media_library, :add, :start]`: emitted when media addition begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{collection: atom(), source_type: atom(), model: struct()}`
 
-  - `[:phx_media_library, :add, :stop]` — emitted when media addition completes successfully.
+  - `[:phx_media_library, :add, :stop]`: emitted when media addition completes successfully.
 
     Measurements: `%{duration: integer()}` (in native time units)
 
     Metadata: `%{collection: atom(), source_type: atom(), model: struct(), media: Media.t()}`
 
-  - `[:phx_media_library, :add, :exception]` — emitted when media addition fails with an exception.
+  - `[:phx_media_library, :add, :exception]`: emitted when media addition fails with an exception.
 
     Measurements: `%{duration: integer()}`
 
@@ -32,19 +32,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Media Deletion
 
-  - `[:phx_media_library, :delete, :start]` — emitted when media deletion begins.
+  - `[:phx_media_library, :delete, :start]`: emitted when media deletion begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{media: Media.t()}`
 
-  - `[:phx_media_library, :delete, :stop]` — emitted when media deletion completes.
+  - `[:phx_media_library, :delete, :stop]`: emitted when media deletion completes.
 
     Measurements: `%{duration: integer()}`
 
     Metadata: `%{media: Media.t()}`
 
-  - `[:phx_media_library, :delete, :exception]` — emitted when media deletion fails.
+  - `[:phx_media_library, :delete, :exception]`: emitted when media deletion fails.
 
     Measurements: `%{duration: integer()}`
 
@@ -52,19 +52,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Image Conversions
 
-  - `[:phx_media_library, :conversion, :start]` — emitted when a conversion begins.
+  - `[:phx_media_library, :conversion, :start]`: emitted when a conversion begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{media: Media.t(), conversion: atom()}`
 
-  - `[:phx_media_library, :conversion, :stop]` — emitted when a conversion completes.
+  - `[:phx_media_library, :conversion, :stop]`: emitted when a conversion completes.
 
     Measurements: `%{duration: integer()}`
 
     Metadata: `%{media: Media.t(), conversion: atom()}`
 
-  - `[:phx_media_library, :conversion, :exception]` — emitted when a conversion fails.
+  - `[:phx_media_library, :conversion, :exception]`: emitted when a conversion fails.
 
     Measurements: `%{duration: integer()}`
 
@@ -72,19 +72,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Storage Operations
 
-  - `[:phx_media_library, :storage, :start]` — emitted when a storage operation begins.
+  - `[:phx_media_library, :storage, :start]`: emitted when a storage operation begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{operation: atom(), path: String.t(), adapter: module()}`
 
-  - `[:phx_media_library, :storage, :stop]` — emitted when a storage operation completes.
+  - `[:phx_media_library, :storage, :stop]`: emitted when a storage operation completes.
 
     Measurements: `%{duration: integer()}`
 
     Metadata: `%{operation: atom(), path: String.t(), adapter: module()}`
 
-  - `[:phx_media_library, :storage, :exception]` — emitted when a storage operation fails.
+  - `[:phx_media_library, :storage, :exception]`: emitted when a storage operation fails.
 
     Measurements: `%{duration: integer()}`
 
@@ -92,19 +92,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Remote Downloads
 
-  - `[:phx_media_library, :download, :start]` — emitted when a remote URL download begins.
+  - `[:phx_media_library, :download, :start]`: emitted when a remote URL download begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{url: String.t()}`
 
-  - `[:phx_media_library, :download, :stop]` — emitted when a remote URL download completes.
+  - `[:phx_media_library, :download, :stop]`: emitted when a remote URL download completes.
 
     Measurements: `%{duration: integer()}`
 
     Metadata: `%{url: String.t(), size: integer(), mime_type: String.t()}`
 
-  - `[:phx_media_library, :download, :exception]` — emitted when a remote URL download fails.
+  - `[:phx_media_library, :download, :exception]`: emitted when a remote URL download fails.
 
     Measurements: `%{duration: integer()}`
 
@@ -112,19 +112,19 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ### Batch Operations
 
-  - `[:phx_media_library, :batch, :start]` — emitted when a batch operation begins.
+  - `[:phx_media_library, :batch, :start]`: emitted when a batch operation begins.
 
     Measurements: `%{system_time: integer()}`
 
     Metadata: `%{operation: atom(), count: integer()}`
 
-  - `[:phx_media_library, :batch, :stop]` — emitted when a batch operation completes.
+  - `[:phx_media_library, :batch, :stop]`: emitted when a batch operation completes.
 
     Measurements: `%{duration: integer()}`
 
     Metadata: `%{operation: atom(), count: integer()}`
 
-  - `[:phx_media_library, :batch, :exception]` — emitted when a batch operation fails.
+  - `[:phx_media_library, :batch, :exception]`: emitted when a batch operation fails.
 
     Measurements: `%{duration: integer()}`
 
@@ -180,9 +180,9 @@ defmodule PhxMediaLibrary.Telemetry do
 
   ## Parameters
 
-  - `event_prefix` — list of atoms, e.g. `[:phx_media_library, :add]`
-  - `metadata` — map of metadata to attach to all three events
-  - `fun` — zero-arity function to execute. Must return `{result, stop_metadata}`
+  - `event_prefix`: list of atoms, e.g. `[:phx_media_library, :add]`
+  - `metadata`: map of metadata to attach to all three events
+  - `fun`: zero-arity function to execute. Must return `{result, stop_metadata}`
     where `stop_metadata` is merged into the `:stop` event metadata
 
   ## Examples

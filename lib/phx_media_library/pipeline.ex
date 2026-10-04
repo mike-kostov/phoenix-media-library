@@ -12,10 +12,10 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Common options
 
-    * `:model` — the model struct or module. Uploads pass it; otherwise the
+    * `:model`: the model struct or module. Uploads pass it; otherwise the
       model is found from the media's `mediable_type` via
       `PhxMediaLibrary.ModelRegistry`.
-    * `:source` — a local path to the original. Uploads pass the uploaded
+    * `:source`: a local path to the original. Uploads pass the uploaded
       temp file; otherwise the original is read from storage (fetched into a
       temporary file for S3, see `PhxMediaLibrary.LocalSource`).
 
@@ -103,8 +103,8 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Options
 
-    * `:source` — a local copy of the original, to avoid fetching it
-    * `:model` — the model, when the media's type isn't registered
+    * `:source`: a local copy of the original, to avoid fetching it
+    * `:model`: the model, when the media's type isn't registered
 
   ## Examples
 
@@ -152,10 +152,10 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Options
 
-    * `:of` — the original (`nil`) and/or conversion names; default the
+    * `:of`: the original (`nil`) and/or conversion names; default the
       original and every generated conversion
-    * `:source` — a local copy of the original, to avoid fetching it
-    * `:model` — the model, when the media's type isn't registered
+    * `:source`: a local copy of the original, to avoid fetching it
+    * `:model`: the model, when the media's type isn't registered
 
   ## Examples
 
@@ -290,9 +290,9 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Options
 
-    * `:of` — what to generate variants of: `nil` for the original and/or
+    * `:of`: what to generate variants of: `nil` for the original and/or
       conversion names. Default `[nil]`.
-    * `:requested` — `true` when the caller asked for responsive images
+    * `:requested`: `true` when the caller asked for responsive images
       explicitly (`with_responsive_images/1`), even if the collection
       doesn't opt in.
 
@@ -357,7 +357,7 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Options
 
-    * `:only` — conversion names to run (atoms or strings); default all
+    * `:only`: conversion names to run (atoms or strings); default all
 
   ## Examples
 
@@ -383,7 +383,7 @@ defmodule PhxMediaLibrary.Pipeline do
 
   ## Options
 
-    * `:dry_run` — report what would happen without deleting
+    * `:dry_run`: report what would happen without deleting
 
   ## Examples
 

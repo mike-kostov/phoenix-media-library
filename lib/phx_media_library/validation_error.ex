@@ -8,13 +8,13 @@ defmodule PhxMediaLibrary.ValidationError do
 
   ## Fields
 
-  - `:message` — human-readable error description
-  - `:reason` — machine-readable atom identifying the validation failure
+  - `:message`: human-readable error description
+  - `:reason`: machine-readable atom identifying the validation failure
     (e.g. `:file_too_large`, `:invalid_mime_type`, `:content_type_mismatch`)
-  - `:field` — the field or aspect that failed validation (e.g. `:size`, `:mime_type`)
-  - `:value` — the actual value that was rejected, if available
-  - `:constraint` — the constraint that was violated (e.g. the max size, the accepted MIME types)
-  - `:metadata` — optional map with additional context
+  - `:field`: the field or aspect that failed validation (e.g. `:size`, `:mime_type`)
+  - `:value`: the actual value that was rejected, if available
+  - `:constraint`: the constraint that was violated (e.g. the max size, the accepted MIME types)
+  - `:metadata`: optional map with additional context
 
   ## Examples
 

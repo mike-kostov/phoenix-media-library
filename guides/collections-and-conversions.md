@@ -417,6 +417,10 @@ one, until the doctor makes it (`mix phx_media_library.doctor
 --regenerate`). After changing the size, remake them all with
 `mix phx_media_library.doctor --rebuild --only placeholders`.
 
+> The doctor reports missing and outdated placeholders, not ones made with
+> other settings: after changing `placeholder:` (type or size), run the
+> rebuild above yourself.
+
 ## Responsive images
 
 Generate multiple sizes so browsers download an appropriately-sized image via

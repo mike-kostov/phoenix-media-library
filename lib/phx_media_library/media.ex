@@ -2,12 +2,19 @@ defmodule PhxMediaLibrary.Media do
   @moduledoc """
   The Media schema represents a file associated with an Ecto model.
 
+      media = PhxMediaLibrary.get_first_media(post, :images)
+      media.file_name                        #=> "posts_42_images_<uuid>.jpg"
+      media.metadata["original_file_name"]   #=> "Summer dress.jpg"
+      PhxMediaLibrary.url(media, :thumb)     #=> "/uploads/posts/42/<uuid>/posts_42_images_<uuid>_thumb.jpg"
+
   ## Fields
 
   - `uuid` - Unique identifier used in file paths
   - `collection_name` - The collection this media belongs to
-  - `name` - Sanitized filename without extension
-  - `file_name` - Original filename
+  - `name` - The uploaded name as a slug, without extension
+  - `file_name` - The stored filename, chosen by the library (see
+    `PhxMediaLibrary.FileName`); the uploaded name is in
+    `metadata["original_file_name"]`
   - `mime_type` - MIME type of the file
   - `disk` - Storage disk name (e.g., "local", "s3")
   - `size` - File size in bytes
@@ -206,8 +213,8 @@ defmodule PhxMediaLibrary.Media do
 
   ## Options
 
-  - `:expires_in` — seconds until the URL expires (default: `3600`).
-  - `:download` — also force `Content-Disposition: attachment`.
+  - `:expires_in`: seconds until the URL expires (default: `3600`).
+  - `:download`: also force `Content-Disposition: attachment`.
   """
   @spec signed_url(t(), atom() | nil, keyword()) :: String.t()
   def signed_url(%__MODULE__{} = media, conversion \\ nil, opts \\ []) do

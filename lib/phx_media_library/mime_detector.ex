@@ -49,8 +49,8 @@ defmodule PhxMediaLibrary.MimeDetector do
   @typedoc """
   Result of MIME type detection.
 
-  - `{:ok, mime_type}` — a MIME type was successfully detected
-  - `{:error, :unrecognized}` — the content didn't match any known signature
+  - `{:ok, mime_type}`: a MIME type was successfully detected
+  - `{:error, :unrecognized}`: the content didn't match any known signature
   """
   @type detection_result :: {:ok, String.t()} | {:error, :unrecognized}
 
@@ -112,9 +112,9 @@ defmodule PhxMediaLibrary.MimeDetector do
 
   ## Parameters
 
-  - `content` — the raw binary file content (or its first few KB)
-  - `filename` — the original filename
-  - `declared_mime` — the MIME type declared by the file extension or upload metadata
+  - `content`: the raw binary file content (or its first few KB)
+  - `filename`: the original filename
+  - `declared_mime`: the MIME type declared by the file extension or upload metadata
 
   ## Examples
 

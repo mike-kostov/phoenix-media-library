@@ -13,6 +13,9 @@ defmodule PhxMediaLibrary.Model do
   model module (`MyApp.Post`), or a `PhxMediaLibrary.Media` record, whose
   model is found through `PhxMediaLibrary.ModelRegistry`. Collection names
   may be atoms or strings.
+
+      PhxMediaLibrary.Model.webp_settings(post, :images)[:enabled]  #=> true
+      PhxMediaLibrary.Model.placeholder(media, media.collection_name) #=> :blur
   """
 
   import Ecto.Query, only: [from: 2]

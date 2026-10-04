@@ -57,11 +57,11 @@ if Code.ensure_loaded?(Plug.Conn) do
 
     ## Plug Options
 
-    - `:disk` — (required) the disk name atom (e.g. `:local`) to look up in
+    - `:disk`: (required) the disk name atom (e.g. `:local`) to look up in
       the PhxMediaLibrary disk config. The disk must use
       `PhxMediaLibrary.Storage.Disk` as its adapter.
 
-    - `:require_signed` — when `true`, every request must carry a valid
+    - `:require_signed`: when `true`, every request must carry a valid
       `sign` + `exp` pair. Unsigned requests return `403 Forbidden`. Defaults
       to `false`, which allows unsigned requests (no token required for plain
       download links).

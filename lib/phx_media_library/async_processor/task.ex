@@ -7,6 +7,10 @@ defmodule PhxMediaLibrary.AsyncProcessor.Task do
   conversions will be lost.
 
   For production apps that need reliability, consider using the Oban adapter.
+
+  It is the default; to set it explicitly:
+
+      config :phx_media_library, async_processor: PhxMediaLibrary.AsyncProcessor.Task
   """
 
   @behaviour PhxMediaLibrary.AsyncProcessor

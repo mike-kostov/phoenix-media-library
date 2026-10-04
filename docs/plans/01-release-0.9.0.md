@@ -498,8 +498,11 @@ check every public module's docs for an example, document the
 placeholder-settings limit in the placeholders and doctor docs, link the
 README to HexDocs where it helps.
 **Acceptance criteria:**
-- [ ] The sidebar groups modules; internal modules don't appear.
-- [ ] Every public module has a `@moduledoc` with an example.
+- [x] The sidebar groups modules; internal modules don't appear.
+      (Internal building blocks the CHANGELOG already names, such as
+      `Webp` and `MediaAdder`, are grouped under "Internals" instead of
+      hidden, so their links keep working.)
+- [x] Every public module has a `@moduledoc` with an example.
 **Verification:** `mix docs` and a look at the output; review with Mike.
 **Dependencies:** Task 24a
 **Scope:** M

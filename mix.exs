@@ -136,6 +136,80 @@ defmodule PhxMediaLibrary.MixProject do
           "guides/multi-tenant.md",
           "guides/upgrading-to-0.9.md"
         ]
+      ],
+      groups_for_modules: [
+        Core: [
+          PhxMediaLibrary,
+          PhxMediaLibrary.HasMedia,
+          PhxMediaLibrary.HasMedia.DSL,
+          PhxMediaLibrary.Media,
+          PhxMediaLibrary.Collection,
+          PhxMediaLibrary.Conversion,
+          PhxMediaLibrary.FileName,
+          PhxMediaLibrary.Config
+        ],
+        "Phoenix and LiveView": [
+          PhxMediaLibrary.ViewHelpers,
+          PhxMediaLibrary.Components,
+          PhxMediaLibrary.LiveUpload,
+          PhxMediaLibrary.MediaLive,
+          PhxMediaLibrary.Plug.MediaDownload,
+          PhxMediaLibrary.Plug.StaticHeaders
+        ],
+        "URLs and downloads": [
+          PhxMediaLibrary.UrlGenerator,
+          PhxMediaLibrary.SignedUrl,
+          PhxMediaLibrary.Downloader
+        ],
+        Storage: [
+          PhxMediaLibrary.Storage,
+          PhxMediaLibrary.Storage.Disk,
+          PhxMediaLibrary.Storage.S3,
+          PhxMediaLibrary.Storage.Memory,
+          PhxMediaLibrary.PathGenerator,
+          PhxMediaLibrary.PathGenerator.Default,
+          PhxMediaLibrary.PathGenerator.Flat,
+          PhxMediaLibrary.PathGenerator.DateBased,
+          PhxMediaLibrary.PathGenerator.Tenant
+        ],
+        "Images and video": [
+          PhxMediaLibrary.ResponsiveImages,
+          PhxMediaLibrary.Blurhash,
+          PhxMediaLibrary.ImageProcessor,
+          PhxMediaLibrary.ImageProcessor.Image,
+          PhxMediaLibrary.ImageProcessor.Null,
+          PhxMediaLibrary.VideoProcessor,
+          PhxMediaLibrary.VideoProcessor.FFmpeg,
+          PhxMediaLibrary.VideoProcessor.Null,
+          PhxMediaLibrary.MetadataExtractor,
+          PhxMediaLibrary.MetadataExtractor.Default,
+          PhxMediaLibrary.MimeDetector,
+          PhxMediaLibrary.MimeDetector.Default
+        ],
+        "Background work": [
+          PhxMediaLibrary.AsyncProcessor,
+          PhxMediaLibrary.AsyncProcessor.Task,
+          PhxMediaLibrary.AsyncProcessor.Oban,
+          PhxMediaLibrary.AsyncProcessor.Inline,
+          PhxMediaLibrary.Workers.ProcessConversions
+        ],
+        "Health and repairs": [PhxMediaLibrary.Health, PhxMediaLibrary.Pipeline],
+        "Errors and telemetry": [
+          PhxMediaLibrary.Error,
+          PhxMediaLibrary.StorageError,
+          PhxMediaLibrary.ValidationError,
+          PhxMediaLibrary.Telemetry
+        ],
+        Internals: [
+          PhxMediaLibrary.Model,
+          PhxMediaLibrary.ModelRegistry,
+          PhxMediaLibrary.MediaAdder,
+          PhxMediaLibrary.Conversions,
+          PhxMediaLibrary.LocalSource,
+          PhxMediaLibrary.Webp,
+          PhxMediaLibrary.Avif,
+          PhxMediaLibrary.ResponsiveImages.WidthCalculator
+        ]
       ]
     ]
   end

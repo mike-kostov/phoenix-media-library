@@ -87,15 +87,15 @@ defmodule PhxMediaLibrary.Blurhash do
 
     ## Arguments
 
-    - `source` — file path (`String.t()`) **or** an already-opened
+    - `source`: file path (`String.t()`) **or** an already-opened
       `%Vix.Vips.Image{}` struct.
-    - `opts` — keyword options.
+    - `opts`: keyword options.
 
     ## Options
 
-    - `:components_x` — number of DCT components in the horizontal direction
+    - `:components_x`: number of DCT components in the horizontal direction
       (`1`–`9`, default: `4`).
-    - `:components_y` — number of DCT components in the vertical direction
+    - `:components_y`: number of DCT components in the vertical direction
       (`1`–`9`, default: `3`).
 
     ## Return value

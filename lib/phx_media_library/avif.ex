@@ -7,6 +7,9 @@ defmodule PhxMediaLibrary.Avif do
   the original (`…/name.avif`), recorded in `custom_properties["avif"]`, and
   has the size of the served file: fitted inside WebP's `max_dimension` when
   WebP is on.
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.avif(media)
+      media.custom_properties["avif"]  #=> "posts/42/<uuid>/posts_42_images_<uuid>.avif"
   """
 
   alias PhxMediaLibrary.{Config, ImageProcessor, Webp}

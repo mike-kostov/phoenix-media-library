@@ -12,27 +12,27 @@ defmodule PhxMediaLibrary.MetadataExtractor do
 
   ### Images
 
-  - `"width"` — image width in pixels
-  - `"height"` — image height in pixels
-  - `"format"` — detected image format (e.g. `"jpeg"`, `"png"`, `"webp"`)
-  - `"exif"` — EXIF data map (orientation, camera make/model, GPS, etc.)
-  - `"has_alpha"` — whether the image has an alpha channel
+  - `"width"`: image width in pixels
+  - `"height"`: image height in pixels
+  - `"format"`: detected image format (e.g. `"jpeg"`, `"png"`, `"webp"`)
+  - `"exif"`: EXIF data map (orientation, camera make/model, GPS, etc.)
+  - `"has_alpha"`: whether the image has an alpha channel
 
   ### Video
 
-  - `"width"` — video width in pixels
-  - `"height"` — video height in pixels
-  - `"duration"` — duration in seconds (float)
-  - `"format"` — container format (e.g. `"mp4"`, `"webm"`)
+  - `"width"`: video width in pixels
+  - `"height"`: video height in pixels
+  - `"duration"`: duration in seconds (float)
+  - `"format"`: container format (e.g. `"mp4"`, `"webm"`)
 
   ### Audio
 
-  - `"duration"` — duration in seconds (float)
-  - `"format"` — audio format (e.g. `"mp3"`, `"wav"`, `"flac"`)
+  - `"duration"`: duration in seconds (float)
+  - `"format"`: audio format (e.g. `"mp3"`, `"wav"`, `"flac"`)
 
   ### All files
 
-  - `"extracted_at"` — ISO 8601 timestamp of when metadata was extracted
+  - `"extracted_at"`: ISO 8601 timestamp of when metadata was extracted
 
   ## Custom Implementation
 
@@ -71,8 +71,8 @@ defmodule PhxMediaLibrary.MetadataExtractor do
   @typedoc """
   Result of metadata extraction.
 
-  - `{:ok, metadata}` — metadata was successfully extracted
-  - `{:error, reason}` — extraction failed (non-fatal; upload still proceeds)
+  - `{:ok, metadata}`: metadata was successfully extracted
+  - `{:error, reason}`: extraction failed (non-fatal; upload still proceeds)
   """
   @type extraction_result :: {:ok, map()} | {:error, term()}
 
@@ -96,7 +96,7 @@ defmodule PhxMediaLibrary.MetadataExtractor do
 
   ## Options
 
-  - `:extractor` — override the extractor module for this call
+  - `:extractor`: override the extractor module for this call
 
   ## Examples
 

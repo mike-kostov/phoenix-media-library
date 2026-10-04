@@ -4,6 +4,9 @@ defmodule PhxMediaLibrary.ResponsiveImages.WidthCalculator do
 
   By default, uses configured breakpoints filtered by the original image width.
   Can also calculate widths dynamically based on the original dimensions.
+
+      PhxMediaLibrary.ResponsiveImages.WidthCalculator.filter_breakpoints([320, 640, 960, 1280], 1000)
+      #=> [320, 640, 960, 1000]
   """
 
   alias PhxMediaLibrary.Config
