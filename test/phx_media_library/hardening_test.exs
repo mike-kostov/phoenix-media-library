@@ -182,6 +182,72 @@ defmodule PhxMediaLibrary.HardeningTest do
     end
   end
 
+  describe "deleting by an ID from the browser" do
+    @describetag :db
+
+    setup do
+      mine = create_test_post()
+      theirs = create_test_post()
+
+      %{
+        mine: mine,
+        my_media: create_media(mediable_id: mine.id, collection_name: "images"),
+        their_media: create_media(mediable_id: theirs.id, collection_name: "images")
+      }
+    end
+
+    test "MediaLive only deletes media of its own record", ctx do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{__changed__: %{}, flash: %{}, model: ctx.mine, collection: :images}
+      }
+
+      {:noreply, socket} =
+        PhxMediaLibrary.MediaLive.handle_event(
+          "delete_media",
+          %{"id" => ctx.their_media.id},
+          socket
+        )
+
+      assert socket.assigns.flash["error"] == "File not found"
+      assert Repo.get(Media, ctx.their_media.id)
+    end
+
+    test "MediaLive treats a malformed ID as not found", ctx do
+      socket = %Phoenix.LiveView.Socket{
+        assigns: %{__changed__: %{}, flash: %{}, model: ctx.mine, collection: :images}
+      }
+
+      assert {:noreply, _} =
+               PhxMediaLibrary.MediaLive.handle_event(
+                 "delete_media",
+                 %{"id" => "1 OR 1=1"},
+                 socket
+               )
+    end
+
+    test "delete_media_by_id with :model refuses other records' media", ctx do
+      assert {:error, :not_found} =
+               PhxMediaLibrary.LiveUpload.delete_media_by_id(ctx.their_media.id, model: ctx.mine)
+
+      assert Repo.get(Media, ctx.their_media.id)
+
+      assert :ok =
+               PhxMediaLibrary.LiveUpload.delete_media_by_id(ctx.my_media.id,
+                 model: ctx.mine,
+                 collection: :images
+               )
+
+      refute Repo.get(Media, ctx.my_media.id)
+    end
+
+    test "delete_media_by_id returns :ok with soft deletes", ctx do
+      Application.put_env(:phx_media_library, :soft_deletes, true)
+      on_exit(fn -> Application.delete_env(:phx_media_library, :soft_deletes) end)
+
+      assert :ok = PhxMediaLibrary.LiveUpload.delete_media_by_id(ctx.my_media.id, model: ctx.mine)
+    end
+  end
+
   describe "mix phx_media_library.clean" do
     @describetag :db
 

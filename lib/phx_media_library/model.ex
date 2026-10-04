@@ -118,6 +118,12 @@ defmodule PhxMediaLibrary.Model do
   Apply a collection's `single_file` and `max_files` limits after
   `new_media` was added, deleting the oldest media beyond the limit.
 
+  Media is ordered by position, then insertion time, then ID. An upload only
+  ever deletes media older than the newest it can see, never a newer item.
+  So two uploads racing on a `single_file` collection can't delete each
+  other: the newer one always survives. In the rare worst case both remain
+  until the next upload.
+
   Deletion goes through `Media.delete/1`, so it respects soft deletes.
 
   ## Examples
@@ -129,20 +135,29 @@ defmodule PhxMediaLibrary.Model do
   def enforce_collection_limits(model, collection_name, %Media{} = new_media) do
     case collection(model, collection_name) do
       %Collection{single_file: true} ->
+        new_key = age_key(new_media)
+
         model
         |> Media.for_model(collection_name)
-        |> Enum.reject(&(&1.id == new_media.id))
+        |> Enum.filter(&(age_key(&1) < new_key))
         |> Enum.each(&Media.delete/1)
 
       %Collection{max_files: max} when is_integer(max) and max > 0 ->
-        # Ordered oldest first; keep the newest `max`.
         model
         |> Media.for_model(collection_name)
+        |> Enum.sort_by(&age_key/1)
         |> Enum.drop(-max)
         |> Enum.each(&Media.delete/1)
 
       _ ->
         :ok
     end
+  end
+
+  # A total order, oldest first. Concurrent uploads can share an
+  # order_column and a (second-precision) inserted_at; the ID breaks the tie.
+  defp age_key(%Media{} = media) do
+    inserted_at = if media.inserted_at, do: DateTime.to_unix(media.inserted_at, :microsecond)
+    {media.order_column || 0, inserted_at || 0, media.id}
   end
 end

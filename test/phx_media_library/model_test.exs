@@ -68,6 +68,32 @@ defmodule PhxMediaLibrary.ModelTest do
       assert Enum.all?(rest, &Repo.get(Media, &1.id))
     end
 
+    test "single_file never deletes media newer than the new upload" do
+      # The racing step: upload A's cleanup runs after B was saved. Before,
+      # A deleted B and B's cleanup deleted A, leaving the collection empty.
+      post = create_test_post()
+      a = media_for(post, :avatar, 1)
+      b = media_for(post, :avatar, 2)
+
+      assert :ok = Model.enforce_collection_limits(post, :avatar, a)
+      assert Repo.get(Media, a.id)
+      assert Repo.get(Media, b.id)
+
+      assert :ok = Model.enforce_collection_limits(post, :avatar, b)
+      refute Repo.get(Media, a.id)
+      assert Repo.get(Media, b.id)
+    end
+
+    test "single_file breaks ties consistently, keeping exactly one" do
+      post = create_test_post()
+      [a, b] = for _ <- 1..2, do: media_for(post, :avatar, 1)
+
+      Model.enforce_collection_limits(post, :avatar, a)
+      Model.enforce_collection_limits(post, :avatar, b)
+
+      assert [_survivor] = Media.for_model(post, :avatar)
+    end
+
     test "respects soft deletes" do
       Application.put_env(:phx_media_library, :soft_deletes, true)
       on_exit(fn -> Application.delete_env(:phx_media_library, :soft_deletes) end)

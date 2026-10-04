@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- `MediaLive` deleted any media ID the browser sent, so a user allowed to
+  edit one record could delete media of another by changing the ID. It now
+  only deletes media of its own record and collection
+  (`Media.get_for_model/3`). `LiveUpload.delete_media_by_id/2` takes
+  `:model` and `:collection` options for the same check. Malformed IDs no
+  longer crash the LiveView.
+
+### Fixed
+- Two uploads racing on a `single_file` collection could each delete the
+  other, leaving it empty. An upload now only deletes media older than
+  itself, so the newest always survives.
+- `LiveUpload.delete_media_by_id/2` returned `{:ok, media}` instead of `:ok`
+  with soft deletes enabled.
+
 ## [0.8.4] - 2026-10-04
 
 ### Added

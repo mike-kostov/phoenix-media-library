@@ -39,7 +39,7 @@ defmodule PhxMediaLibrary.LiveUpload do
         end
 
         def handle_event("delete_media", %{"id" => id}, socket) do
-          case delete_media_by_id(id, notify: self()) do
+          case delete_media_by_id(id, model: socket.assigns.post, notify: self()) do
             :ok -> {:noreply, stream_delete_by_dom_id(socket, :media, "media-\#{id}")}
             {:error, reason} -> {:noreply, put_flash(socket, :error, inspect(reason))}
           end
@@ -320,16 +320,23 @@ defmodule PhxMediaLibrary.LiveUpload do
   @doc """
   Deletes a media item by its ID and removes its files from storage.
 
-  Returns `:ok` on success, `{:error, :not_found}` if the media doesn't
-  exist, or `{:error, reason}` on failure.
+  Returns `:ok` on success (also when soft deletes are enabled),
+  `{:error, :not_found}` if the media doesn't exist, or `{:error, reason}` on
+  failure.
+
+  The ID usually comes from the browser. Pass `:model` (and `:collection`)
+  so only media attached to that record can be deleted — otherwise any media
+  ID is accepted and checking permission is up to you.
 
   ## Options
 
+  - `:model` — only delete media attached to this record
+  - `:collection` — with `:model`, only delete media in this collection
   - `:notify` — a pid to send `{:media_removed, media}` to on success.
 
   ## Examples
 
-      case delete_media_by_id(media_id) do
+      case delete_media_by_id(media_id, model: socket.assigns.post, collection: :images) do
         :ok -> {:noreply, stream_delete_by_dom_id(socket, :media, "media-\#{media_id}")}
         {:error, reason} -> {:noreply, put_flash(socket, :error, inspect(reason))}
       end
@@ -342,21 +349,34 @@ defmodule PhxMediaLibrary.LiveUpload do
   """
   @spec delete_media_by_id(String.t(), keyword()) :: :ok | {:error, term()}
   def delete_media_by_id(id, opts \\ []) do
-    repo = Config.repo()
     notify_pid = Keyword.get(opts, :notify)
 
-    case repo.get(Media, id) do
+    case find_media(id, opts) do
       nil ->
         {:error, :not_found}
 
       media ->
         case Media.delete(media) do
-          :ok ->
+          # :ok for a hard delete, {:ok, media} for a soft delete
+          result when result == :ok or elem(result, 0) == :ok ->
             maybe_notify(notify_pid, {:media_removed, media})
             :ok
 
           error ->
             error
+        end
+    end
+  end
+
+  defp find_media(id, opts) do
+    case Keyword.fetch(opts, :model) do
+      {:ok, model} ->
+        Media.get_for_model(model, Keyword.get(opts, :collection), id)
+
+      :error ->
+        case Ecto.UUID.cast(id) do
+          {:ok, id} -> Config.repo().get(Media, id)
+          :error -> nil
         end
     end
   end

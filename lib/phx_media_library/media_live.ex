@@ -71,7 +71,7 @@ defmodule PhxMediaLibrary.MediaLive do
 
   use Phoenix.LiveComponent
 
-  alias PhxMediaLibrary.{Collection, Config, Media}
+  alias PhxMediaLibrary.{Collection, Media}
 
   # ===========================================================================
   # Lifecycle
@@ -187,10 +187,10 @@ defmodule PhxMediaLibrary.MediaLive do
   end
 
   def handle_event("delete_media", %{"id" => id}, socket) do
-    repo = Config.repo()
     collection_name = socket.assigns.collection
 
-    case repo.get(Media, id) do
+    # The ID comes from the browser: only delete media this component manages.
+    case Media.get_for_model(socket.assigns.model, collection_name, id) do
       nil ->
         {:noreply, put_flash(socket, :error, "File not found")}
 

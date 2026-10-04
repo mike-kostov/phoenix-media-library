@@ -85,14 +85,20 @@ defmodule PhxMediaLibrary.Media do
   """
   @spec for_model(Ecto.Schema.t(), atom() | nil) :: [t()]
   def for_model(model, collection_name \\ nil) do
+    model
+    |> for_model_query(collection_name)
+    |> order_by([m], asc: m.order_column, asc: m.inserted_at)
+    |> Config.repo().all()
+  end
+
+  defp for_model_query(model, collection_name) do
     mediable_type = PhxMediaLibrary.Model.mediable_type(model)
     mediable_id = model.id
 
     query =
       from(m in __MODULE__,
         where: m.mediable_type == ^mediable_type,
-        where: m.mediable_id == ^mediable_id,
-        order_by: [asc: m.order_column, asc: m.inserted_at]
+        where: m.mediable_id == ^mediable_id
       )
 
     query =
@@ -102,9 +108,36 @@ defmodule PhxMediaLibrary.Media do
         query
       end
 
-    query = exclude_trashed(query)
+    exclude_trashed(query)
+  end
 
-    Config.repo().all(query)
+  @doc """
+  Get one media item by `id`, only if it belongs to `model` (and to
+  `collection_name`, unless that is `nil`). Returns `nil` otherwise, or when
+  `id` isn't a valid ID.
+
+  Use this when the ID comes from a client (a LiveView event, a form), so a
+  user can't reach media attached to another record by changing the ID.
+  Whether the user may edit `model` at all is for your app to decide.
+
+  ## Examples
+
+      Media.get_for_model(post, :images, id)
+      #=> %Media{} | nil
+
+  """
+  @spec get_for_model(Ecto.Schema.t(), atom() | String.t() | nil, term()) :: t() | nil
+  def get_for_model(model, collection_name, id) do
+    case Ecto.UUID.cast(id) do
+      {:ok, id} ->
+        model
+        |> for_model_query(collection_name)
+        |> where([m], m.id == ^id)
+        |> Config.repo().one()
+
+      :error ->
+        nil
+    end
   end
 
   @doc """
