@@ -82,7 +82,7 @@ if Code.ensure_loaded?(Plug.Conn) do
 
     import Plug.Conn
 
-    alias PhxMediaLibrary.{Config, SignedUrl}
+    alias PhxMediaLibrary.{Config, FileName, SignedUrl}
     alias PhxMediaLibrary.Plug.StaticHeaders
 
     @impl Plug
@@ -115,12 +115,22 @@ if Code.ensure_loaded?(Plug.Conn) do
       sign_token = Map.get(query, "sign")
       exp_str = Map.get(query, "exp")
       download? = Map.get(query, "dl") == "1"
+      # Only a signed URL can name the download; the signature covers it.
+      name = if sign_token, do: Map.get(query, "name")
 
-      with :ok <- check_signature(sign_token, exp_str, relative_path, disk_config, require_signed),
+      with :ok <-
+             check_signature(
+               sign_token,
+               exp_str,
+               relative_path,
+               name,
+               disk_config,
+               require_signed
+             ),
            {:ok, full_path, filename} <- locate_file(relative_path, disk_config) do
         conn
         |> put_content_type(filename)
-        |> maybe_add_content_disposition(filename, download?)
+        |> maybe_add_content_disposition(name || filename, download?)
         |> put_resp_header("cache-control", "private, no-store")
         # Serve strictly as the declared type; never let the browser sniff
         # an upload into HTML.
@@ -147,12 +157,12 @@ if Code.ensure_loaded?(Plug.Conn) do
     # ---------------------------------------------------------------------------
 
     # No signing token in URL → allowed only when :require_signed is false.
-    defp check_signature(nil, _exp, _path, _config, false), do: :ok
+    defp check_signature(nil, _exp, _path, _name, _config, false), do: :ok
 
-    defp check_signature(nil, _exp, _path, _config, true), do: {:error, :forbidden}
+    defp check_signature(nil, _exp, _path, _name, _config, true), do: {:error, :forbidden}
 
     # Signing token present → always verify it.
-    defp check_signature(token, exp_str, path, disk_config, _require_signed)
+    defp check_signature(token, exp_str, path, name, disk_config, _require_signed)
          when is_binary(token) and is_binary(exp_str) do
       secret =
         Keyword.get(disk_config, :secret_key_base) ||
@@ -160,14 +170,14 @@ if Code.ensure_loaded?(Plug.Conn) do
 
       with secret when is_binary(secret) <- secret,
            {expires_at, ""} <- Integer.parse(exp_str),
-           :ok <- SignedUrl.verify(path, token, expires_at, secret) do
+           :ok <- SignedUrl.verify(path, token, expires_at, secret, name) do
         :ok
       else
         _missing_secret_bad_expiry_or_bad_signature -> {:error, :forbidden}
       end
     end
 
-    defp check_signature(_token, _exp, _path, _config, _require_signed) do
+    defp check_signature(_token, _exp, _path, _name, _config, _require_signed) do
       {:error, :forbidden}
     end
 
@@ -196,10 +206,8 @@ if Code.ensure_loaded?(Plug.Conn) do
       put_resp_content_type(conn, mime_type)
     end
 
-    defp maybe_add_content_disposition(conn, filename, true) do
-      safe_name = String.replace(filename, ~s("), ~s(\\"))
-      put_resp_header(conn, "content-disposition", ~s(attachment; filename="#{safe_name}"))
-    end
+    defp maybe_add_content_disposition(conn, filename, true),
+      do: put_resp_header(conn, "content-disposition", FileName.content_disposition(filename))
 
     defp maybe_add_content_disposition(conn, _filename, false), do: conn
   end

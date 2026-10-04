@@ -273,6 +273,44 @@ defmodule PhxMediaLibrary.FileName do
   end
 
   @doc """
+  A `Content-Disposition: attachment` header value for downloading a file
+  as `name`: an ASCII `filename` for old clients (transliterated, quotes
+  and control characters removed) and the exact name as a UTF-8
+  `filename*` (RFC 6266).
+
+  ## Examples
+
+      iex> PhxMediaLibrary.FileName.content_disposition("Report #3.pdf")
+      ~s(attachment; filename="Report #3.pdf"; filename*=UTF-8''Report%20%233.pdf)
+
+      iex> PhxMediaLibrary.FileName.content_disposition("Рокля.pdf")
+      ~s(attachment; filename="Roklya.pdf"; filename*=UTF-8''%D0%A0%D0%BE%D0%BA%D0%BB%D1%8F.pdf)
+
+  """
+  @spec content_disposition(String.t()) :: String.t()
+  def content_disposition(name) do
+    fallback = name |> String.graphemes() |> Enum.map_join(&ascii_grapheme/1)
+    encoded = URI.encode(name, &URI.char_unreserved?/1)
+    ~s(attachment; filename="#{fallback}"; filename*=UTF-8''#{encoded})
+  end
+
+  defp ascii_grapheme(~s(")), do: "'"
+  defp ascii_grapheme("\\"), do: "_"
+  defp ascii_grapheme(<<char>>) when char < 32 or char == 127, do: ""
+  defp ascii_grapheme(<<char>> = ascii) when char < 127, do: ascii
+
+  defp ascii_grapheme(grapheme) do
+    latin = transliterate(grapheme)
+
+    latin =
+      if String.upcase(grapheme) == grapheme and String.downcase(grapheme) != grapheme,
+        do: String.capitalize(latin),
+        else: latin
+
+    if String.match?(latin, ~r/^[\x20-\x7e]+$/), do: latin, else: "_"
+  end
+
+  @doc """
   Reduce a client-supplied filename to a single, safe path segment.
 
   Strips any directory part (both `/` and `\\` separators), control

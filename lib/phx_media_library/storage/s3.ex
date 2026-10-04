@@ -402,8 +402,7 @@ if Code.ensure_loaded?(ExAws.S3) do
     # The param is included in the AWS Signature V4 canonical query string.
     defp maybe_add_response_content_disposition(presign_opts, path, opts, true) do
       filename = Keyword.get(opts, :filename, Path.basename(path))
-      safe_name = String.replace(filename, ~s("), ~s(\\"))
-      disposition = ~s(attachment; filename="#{safe_name}")
+      disposition = PhxMediaLibrary.FileName.content_disposition(filename)
 
       Keyword.put(presign_opts, :query_params, [{"response-content-disposition", disposition}])
     end

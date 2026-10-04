@@ -64,6 +64,8 @@ defmodule PhxMediaLibrary.SignedUrl do
 
   - `:secret_key_base` — (required) the signing secret.
   - `:expires_in` — seconds from now until the URL expires (default: `3600`).
+  - `:name` — a download name the URL carries; the signature covers it,
+    so it can't be changed.
 
   ## Examples
 
@@ -81,7 +83,7 @@ defmodule PhxMediaLibrary.SignedUrl do
     expires_in = Keyword.get(opts, :expires_in, 3600)
     expires_at = System.system_time(:second) + expires_in
 
-    token = compute_token(secret, path, expires_at)
+    token = compute_token(secret, path, expires_at, Keyword.get(opts, :name))
     {token, expires_at}
   end
 
@@ -101,6 +103,7 @@ defmodule PhxMediaLibrary.SignedUrl do
   - `token` — the `sign` query param from the URL.
   - `expires_at` — the `exp` query param, as an integer Unix timestamp.
   - `secret` — the signing secret (same value used in `sign/2`).
+  - `name` — the download name from the URL, if it carries one.
 
   ## Examples
 
@@ -114,14 +117,14 @@ defmodule PhxMediaLibrary.SignedUrl do
       {:error, :invalid_token}
 
   """
-  @spec verify(String.t(), String.t(), integer(), String.t()) ::
+  @spec verify(String.t(), String.t(), integer(), String.t(), String.t() | nil) ::
           :ok | {:error, :expired | :invalid_token}
-  def verify(path, token, expires_at, secret) do
+  def verify(path, token, expires_at, secret, name \\ nil) do
     cond do
       System.system_time(:second) > expires_at ->
         {:error, :expired}
 
-      not constant_time_equal(token, compute_token(secret, path, expires_at)) ->
+      not constant_time_equal(token, compute_token(secret, path, expires_at, name)) ->
         {:error, :invalid_token}
 
       true ->
@@ -133,8 +136,15 @@ defmodule PhxMediaLibrary.SignedUrl do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  defp compute_token(secret, path, expires_at) do
+  # Without a name, the message is what it was before names existed, so
+  # those URLs keep verifying.
+  defp compute_token(secret, path, expires_at, nil) do
     :crypto.mac(:hmac, @hash_algo, secret, "#{path}|#{expires_at}")
+    |> Base.url_encode64(padding: false)
+  end
+
+  defp compute_token(secret, path, expires_at, name) do
+    :crypto.mac(:hmac, @hash_algo, secret, "#{path}|#{expires_at}|#{name}")
     |> Base.url_encode64(padding: false)
   end
 

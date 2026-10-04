@@ -29,7 +29,8 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
   - `:filename` — `String.t()` — override the filename used in the
     `Content-Disposition` header when `:download` is `true`. Defaults to the
-    media item's `file_name`.
+    uploaded file's name (`metadata["original_file_name"]`), else
+    `file_name`. Unsigned disk download URLs always use the stored name.
 
   ## CDN Cache-Busting
 
@@ -143,6 +144,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
   defp base_url(endpoint) when is_atom(endpoint), do: endpoint.url()
 
   defp do_url(%Media{} = media, conversion, opts) do
+    opts = with_download_name(opts, media)
     {cache_bust, opts} = Keyword.pop(opts, :cache_bust, false)
     {width, adapter_opts} = Keyword.pop(opts, :width)
 
@@ -152,6 +154,17 @@ defmodule PhxMediaLibrary.UrlGenerator do
     base_url = StorageWrapper.url(storage, relative_path, adapter_opts)
 
     maybe_add_cache_bust(base_url, media.checksum, cache_bust)
+  end
+
+  # Downloads are named after the uploaded file, not the stored one.
+  defp with_download_name(opts, media) do
+    if Keyword.get(opts, :download, false) do
+      Keyword.put_new_lazy(opts, :filename, fn ->
+        (media.metadata || %{})["original_file_name"] || media.file_name
+      end)
+    else
+      opts
+    end
   end
 
   # When a WebP derivative was generated for the original (keep_original: true),
@@ -239,7 +252,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
   Accepts all options supported by `url/3`. Additionally:
 
   - `:filename` — override the filename in the `Content-Disposition` header.
-    Defaults to `media.file_name`.
+    Defaults to the uploaded file's name, else `media.file_name`.
   - `:expires_in` — expiry for the presigned URL in seconds (S3 only).
     Defaults to `3600`.
 

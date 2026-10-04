@@ -115,6 +115,7 @@ end
 | **AVIF** | Opt-in `avif: true`: an AVIF beside each image, AVIF conversions and variants, offered first by `<.picture>` and `<.responsive_img>` with WebP and the original as fallbacks |
 | **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); conversions and responsive variants are WebP too |
 | **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
+| **Signed & download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded file name, Cyrillic and all |
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits, custom headers, download telemetry |
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO, …), in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
 | **Streaming uploads** | Files streamed to storage in 64 KB chunks, never loaded entirely into memory |

@@ -196,6 +196,13 @@ What apps must change when upgrading:
   removed in 0.10.0.
 
 ### Changed
+- **Downloads are named after the uploaded file.** `download: true` URLs
+  (disk and S3) send `Content-Disposition` with
+  `metadata["original_file_name"]` (else `file_name`), as an ASCII
+  `filename` plus a UTF-8 `filename*`, instead of the stored name. On disk
+  the name travels in signed URLs and is covered by the signature;
+  unsigned download URLs keep the stored name. Names with quotes, line
+  breaks or non-ASCII letters no longer break the header.
 - **Same-shape conversions share the original's variants** (ADR-024). A
   conversion with the original's aspect ratio (e.g. a width-only
   `:preview`) gets no responsive variants of its own; its `srcset` and the

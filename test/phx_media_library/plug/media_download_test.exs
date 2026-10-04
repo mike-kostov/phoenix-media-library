@@ -43,7 +43,7 @@ defmodule PhxMediaLibrary.Plug.MediaDownloadTest do
     assert Plug.Conn.get_resp_header(conn, "content-type") == ["application/pdf; charset=utf-8"]
 
     assert Plug.Conn.get_resp_header(conn, "content-disposition") == [
-             ~s(attachment; filename="report.pdf")
+             ~s(attachment; filename="report.pdf"; filename*=UTF-8''report.pdf)
            ]
 
     assert Plug.Conn.get_resp_header(conn, "cache-control") == ["private, no-store"]

@@ -139,6 +139,29 @@ Start the memory agent in your `test_helper.exs`:
 {:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
 ```
 
+## Signed and download URLs
+
+`PhxMediaLibrary.signed_url/3` gives an expiring URL: an AWS presigned URL
+on S3, or an HMAC-signed one on disk, served by
+`PhxMediaLibrary.Plug.MediaDownload`. `PhxMediaLibrary.download_url/3`
+makes the browser save the file instead of showing it, under the name it
+was uploaded with:
+
+```elixir
+# router.ex
+forward "/media", PhxMediaLibrary.Plug.MediaDownload, disk: :local
+
+# config: the disk needs download_base_url: "/media" and secret_key_base
+PhxMediaLibrary.download_url(media, nil, signed: true, expires_in: 300)
+#=> "/media/posts/42/…/posts_42_documents_….pdf?dl=1&exp=…&name=…&sign=…"
+```
+
+The download is named `metadata["original_file_name"]` (pass `filename:`
+to choose another), sent as an ASCII `filename` plus the exact UTF-8
+`filename*`, so `Лятна рокля.pdf` arrives as itself. On disk the name is
+part of the signature; unsigned download URLs use the stored name, since
+anyone could change it.
+
 ## Caching
 
 Media files rarely change, so browsers and CDNs can keep them for a long

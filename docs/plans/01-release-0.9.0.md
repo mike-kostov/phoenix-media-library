@@ -422,9 +422,9 @@ original name (ASCII fallback plus UTF-8 `filename*`); on disk the name is
 part of the signed URL; S3 uses `response-content-disposition`; unsigned
 download URLs keep the stored name.
 **Acceptance criteria:**
-- [ ] A signed download of `Лятна рокля.pdf` sends both filename forms.
-- [ ] Changing the name in a signed URL fails verification.
-- [ ] S3 download URLs carry the original name.
+- [x] A signed download of `Лятна рокля.pdf` sends both filename forms.
+- [x] Changing the name in a signed URL fails verification.
+- [x] S3 download URLs carry the original name.
 **Verification:** URL, signed URL and plug tests; `mix precommit`.
 **Dependencies:** Tasks 6 and 8
 **Files:** `signed_url.ex`, `storage/disk.ex`, `storage/s3.ex`, `url_generator.ex`, `plug/media_download.ex`

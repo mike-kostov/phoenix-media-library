@@ -195,17 +195,23 @@ defmodule PhxMediaLibrary.Storage.Disk do
         """
 
     expires_in = Keyword.get(opts, :expires_in, 3600)
+    # A download carries its name (the uploaded one, see UrlGenerator),
+    # covered by the signature.
+    name = if include_disposition, do: Keyword.get(opts, :filename)
 
     {token, expires_at} =
       PhxMediaLibrary.SignedUrl.sign(path,
         secret_key_base: secret,
-        expires_in: expires_in
+        expires_in: expires_in,
+        name: name
       )
 
     query_params = %{"sign" => token, "exp" => to_string(expires_at)}
 
     query_params =
       if include_disposition, do: Map.put(query_params, "dl", "1"), else: query_params
+
+    query_params = if name, do: Map.put(query_params, "name", name), else: query_params
 
     "#{download_base}/#{Storage.url_path(path)}?#{URI.encode_query(query_params)}"
   end
