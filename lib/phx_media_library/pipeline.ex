@@ -23,6 +23,8 @@ defmodule PhxMediaLibrary.Pipeline do
   doesn't apply to this media, or `{:error, reason}`.
   """
 
+  require Logger
+
   alias PhxMediaLibrary.{
     Avif,
     Config,
@@ -173,7 +175,7 @@ defmodule PhxMediaLibrary.Pipeline do
       true ->
         placeholders =
           for source <- of,
-              {:ok, placeholder} <- [make_placeholder(media, source, kind, opts)],
+              {:ok, placeholder} <- [logged(make_placeholder(media, source, kind, opts), media)],
               into: %{},
               do: {responsive_key(source), placeholder}
 
@@ -182,6 +184,17 @@ defmodule PhxMediaLibrary.Pipeline do
           else: update(media, responsive_images: put_placeholders(media, placeholders))
     end
   end
+
+  # A failed placeholder never fails the upload or job, but is logged.
+  defp logged({:error, reason} = error, media) do
+    Logger.warning(
+      "[PhxMediaLibrary] placeholder failed for media #{inspect(media.id)}: #{inspect(reason)}"
+    )
+
+    error
+  end
+
+  defp logged(result, _media), do: result
 
   defp make_placeholder(media, nil, kind, opts) do
     with_source(media, opts, &placeholder_from(&1, kind, nil))

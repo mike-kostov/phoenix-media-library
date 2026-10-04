@@ -434,13 +434,6 @@ defmodule PhxMediaLibrary.MediaAdder do
           media
         end
 
-      # The original's placeholder, while the upload's file is at hand.
-      media =
-        step(
-          media,
-          Pipeline.placeholder(media, model: adder.model, source: file_info.path, of: [nil])
-        )
-
       # Generate blurhash placeholder when enabled and Image is available.
       media =
         if image?(file_info.mime_type) and Config.blurhash_enabled?() do
@@ -610,20 +603,24 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  # Dispatch conversions, then (for WebP keep_original: false) drop the source.
+  # Dispatch background work (conversions, and placeholders, which the job
+  # makes after them), then (for WebP keep_original: false) drop the source.
   #
-  # Conversions read the original, so when it is about to be dropped they run
-  # synchronously first; if any fails, the original is kept so they can be
-  # retried. Otherwise conversions stay async and the original is retained.
+  # The job reads the original, so when it is about to be dropped it runs
+  # synchronously first; if a conversion fails, the original is kept so it
+  # can be retried. Otherwise the job stays async and the original is
+  # retained.
   defp process_conversions_and_finalize_webp(adder, media, collection_name) do
     conversions = Model.conversions(adder.model, collection_name)
+
+    background? = conversions != [] or placeholder?(adder, media, collection_name)
 
     drop_original? =
       Pipeline.webp_served?(media) and
         not Keyword.get(Model.webp_settings(adder.model, collection_name), :keep_original, true)
 
     cond do
-      drop_original? and conversions != [] ->
+      drop_original? and background? ->
         if Config.async_processor().process_sync(media, conversions) == :ok,
           do: drop_original(media, adder),
           else: media
@@ -631,7 +628,7 @@ defmodule PhxMediaLibrary.MediaAdder do
       drop_original? ->
         drop_original(media, adder)
 
-      conversions != [] ->
+      background? ->
         Config.async_processor().process_async(media, conversions)
         media
 
@@ -639,6 +636,9 @@ defmodule PhxMediaLibrary.MediaAdder do
         media
     end
   end
+
+  defp placeholder?(adder, media, collection_name),
+    do: image?(media.mime_type) and Model.placeholder(adder.model, collection_name) != false
 
   # file_name keeps naming the (now absent) source; URL helpers serve the WebP.
   defp drop_original(media, adder) do

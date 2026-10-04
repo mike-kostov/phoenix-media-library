@@ -371,9 +371,9 @@ and crop conversions, stored in `responsive_images`.
 background processing (Task, Oban or Inline), even without conversions;
 the job runs the placeholder step.
 **Acceptance criteria:**
-- [ ] With the Inline processor, an upload to a collection without
+- [x] With the Inline processor, an upload to a collection without
       conversions ends with a placeholder.
-- [ ] The Oban worker runs the placeholder step for a job with no
+- [x] The Oban worker runs the placeholder step for a job with no
       conversions.
 **Verification:** async processor and Oban worker tests; `mix precommit`.
 **Dependencies:** Task 15

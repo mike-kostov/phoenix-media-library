@@ -149,18 +149,15 @@ if Code.ensure_loaded?(Oban) do
         media ->
           conversions = resolve_conversions(mediable_type, conversion_names, media)
 
-          case conversions do
-            [] ->
-              Logger.warning(
-                "[PhxMediaLibrary] No conversion definitions resolved for media #{media_id} " <>
-                  "(requested: #{inspect(conversion_names)}, mediable_type: #{mediable_type})"
-              )
-
-              :ok
-
-            conversions ->
-              Conversions.process(media, conversions)
+          if conversions == [] and conversion_names != [] do
+            Logger.warning(
+              "[PhxMediaLibrary] No conversion definitions resolved for media #{media_id} " <>
+                "(requested: #{inspect(conversion_names)}, mediable_type: #{mediable_type})"
+            )
           end
+
+          # Also makes the placeholders, with or without conversions.
+          Conversions.process(media, conversions)
       end
     end
 
@@ -178,18 +175,15 @@ if Code.ensure_loaded?(Oban) do
           conversions =
             resolve_conversions(media.mediable_type, conversion_names, media)
 
-          case conversions do
-            [] ->
-              Logger.warning(
-                "[PhxMediaLibrary] No conversion definitions resolved for media #{media_id} " <>
-                  "(legacy job without mediable_type, requested: #{inspect(conversion_names)})"
-              )
-
-              :ok
-
-            conversions ->
-              Conversions.process(media, conversions)
+          if conversions == [] and conversion_names != [] do
+            Logger.warning(
+              "[PhxMediaLibrary] No conversion definitions resolved for media #{media_id} " <>
+                "(legacy job without mediable_type, requested: #{inspect(conversion_names)})"
+            )
           end
+
+          # Also makes the placeholders, with or without conversions.
+          Conversions.process(media, conversions)
       end
     end
 

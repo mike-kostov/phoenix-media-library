@@ -18,7 +18,9 @@ defmodule PhxMediaLibrary.Conversions do
   require Logger
 
   @doc """
-  Process all conversions for a media item.
+  Process all conversions for a media item, then make its placeholders (see
+  `PhxMediaLibrary.Pipeline.placeholder/2`). With no conversions, only the
+  placeholders are made.
 
   The source is read from local disk, or fetched into a temporary file for
   storage without a local path (S3, memory). Conversions that succeed are
@@ -40,6 +42,11 @@ defmodule PhxMediaLibrary.Conversions do
           "[PhxMediaLibrary] media #{inspect(media.id)} no longer exists — skipping conversions"
         )
 
+        :ok
+
+      # Placeholders only: they never fail the job.
+      fresh when conversions == [] ->
+        generate_placeholders(fresh, [])
         :ok
 
       fresh ->
@@ -68,7 +75,7 @@ defmodule PhxMediaLibrary.Conversions do
 
       # Generate responsive images for conversions if enabled
       maybe_generate_responsive_for_conversions(media, results)
-      maybe_generate_placeholders_for_conversions(media, results)
+      generate_placeholders(media, results)
 
       case Enum.reject(results, &match?({:ok, _}, &1)) do
         [] ->
@@ -207,11 +214,11 @@ defmodule PhxMediaLibrary.Conversions do
     end
   end
 
-  defp maybe_generate_placeholders_for_conversions(media, results) do
-    case successful_conversion_names(results) do
-      [] -> :ok
-      names -> Pipeline.placeholder(Config.repo().reload!(media), of: names)
-    end
+  # Placeholders for the original and the new conversions (crops).
+  defp generate_placeholders(media, results) do
+    Pipeline.placeholder(Config.repo().reload!(media),
+      of: [nil | successful_conversion_names(results)]
+    )
   end
 
   defp successful_conversion_names(results) do

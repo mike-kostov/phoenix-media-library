@@ -65,6 +65,7 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
       assert log =~ "No conversion definitions resolved"
     end
 
+    # An empty list is a placeholder-only job (no file here, so it logs that).
     test "returns :ok with empty conversion list" do
       media = Fixtures.create_media(collection_name: "images", mediable_type: "posts")
 
@@ -82,7 +83,8 @@ defmodule PhxMediaLibrary.Workers.ProcessConversionsTest do
                    )
         end)
 
-      assert log =~ "No conversion definitions resolved"
+      refute log =~ "No conversion definitions resolved"
+      assert log =~ "placeholder failed"
     end
   end
 
