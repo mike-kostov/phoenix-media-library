@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+What apps must change when upgrading:
+- **Direct uploads to S3 are a form POST, not a PUT.**
+  `presigned_upload_url/3` still returns `{:ok, url, fields, key}`, but the
+  browser must now send a `multipart/form-data` POST to `url` with every
+  entry of `fields` and the file last. A client that still sends a PUT gets
+  an error from S3. The storage guide ("Direct uploads to S3") has a
+  LiveView uploader. `complete_external_upload/4` needs only `filename:`;
+  `content_type:` and `size:` are read from S3 and may be dropped.
+
 ### Security
 - **Direct uploads to S3 enforce their limits** (behaviour change).
   `presigned_upload_url/3` returns a presigned POST whose signed policy
