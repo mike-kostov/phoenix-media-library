@@ -426,26 +426,57 @@ defmodule PhxMediaLibrary.Media do
 
   @doc """
   Get the srcset attribute value for responsive images.
+
+  A conversion with the original's shape lists the original's variants
+  narrower than itself, then itself (ADR-024).
   """
   @spec srcset(t(), atom() | nil) :: String.t() | nil
-  def srcset(%__MODULE__{responsive_images: responsive} = media, conversion \\ nil) do
-    key = conversion_key(conversion)
-
-    case Map.get(responsive, key) do
-      nil ->
-        nil
-
-      %{"variants" => variants} when is_list(variants) ->
-        build_srcset(media, variants, conversion)
-
-      # Legacy format: list of variants directly
-      variants when is_list(variants) ->
-        build_srcset(media, variants, conversion)
-
-      _ ->
-        nil
+  def srcset(%__MODULE__{} = media, conversion \\ nil) do
+    case responsive_variants(media, conversion) do
+      [] -> nil
+      variants -> build_srcset(media, variants, conversion)
     end
   end
+
+  @doc """
+  The responsive variants of the original or a conversion, narrowest
+  first, each a map with `"width"`, `"height"` and `"path"`. The last one
+  is the full-size file. A conversion with the original's shape gets the
+  original's variants narrower than itself, then itself.
+
+  ## Examples
+
+      Media.responsive_variants(media, :preview)
+      #=> [%{"width" => 160, ...}, %{"width" => 320, ...}, %{"width" => 800, ...}]
+
+  """
+  @spec responsive_variants(t(), atom() | String.t() | nil) :: [map()]
+  def responsive_variants(%__MODULE__{responsive_images: responsive}, conversion) do
+    responsive = responsive || %{}
+    entry = Map.get(responsive, conversion_key(conversion))
+    own = entry |> variants_in() |> Enum.filter(&is_map/1)
+
+    case entry do
+      %{"reuses" => "original"} ->
+        width = own |> Enum.map(& &1["width"]) |> Enum.max(fn -> 0 end)
+
+        original =
+          responsive
+          |> Map.get("original")
+          |> variants_in()
+          |> Enum.filter(&(is_map(&1) and &1["width"] < width))
+
+        Enum.sort_by(original ++ own, & &1["width"])
+
+      _ ->
+        Enum.sort_by(own, & &1["width"])
+    end
+  end
+
+  # Responsive data is either %{"variants" => [...]} or a legacy bare list.
+  defp variants_in(%{"variants" => variants}) when is_list(variants), do: variants
+  defp variants_in(variants) when is_list(variants), do: variants
+  defp variants_in(_), do: []
 
   @doc """
   Check whether a media item has been soft-deleted.

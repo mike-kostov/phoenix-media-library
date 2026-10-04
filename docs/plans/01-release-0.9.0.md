@@ -332,11 +332,11 @@ original); the full-size `srcset` entry points at the best served file;
 variants of their own; their `srcset` (and the `width:` URL option) uses
 the original's variants up to the conversion's width, plus the conversion.
 **Acceptance criteria:**
-- [ ] The 1600x1200 JPEG with `:preview` at 800px produces no
+- [x] The 1600x1200 JPEG with `:preview` at 800px produces no
       `preview_160w`/`preview_320w` files.
-- [ ] `srcset(media, :preview)` lists the original's 160w and 320w and the
+- [x] `srcset(media, :preview)` lists the original's 160w and 320w and the
       800w preview.
-- [ ] Crops (`:thumb`, `:banner`) keep their own variants.
+- [x] Crops (`:thumb`, `:banner`) keep their own variants.
 **Verification:** responsive, URL and component tests; `mix precommit`.
 **Dependencies:** Task 13
 **Files:** `responsive_images.ex`, `conversions.ex`, `media.ex`, `url_generator.ex`, tests

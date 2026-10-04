@@ -76,17 +76,23 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       # descriptor must carry the served size, not the source's.
       {orig_width, orig_height} = served_dimensions(media, conversion, orig_dims)
 
+      reuses_original? =
+        conversion != nil and same_shape_as_original?(media, orig_width, orig_height)
+
       variants =
-        generate_variants(
-          media,
-          image,
-          orig_width,
-          orig_height,
-          conversion,
-          processor,
-          storage,
-          widths
-        )
+        if reuses_original?,
+          do: [],
+          else:
+            generate_variants(
+              media,
+              image,
+              orig_width,
+              orig_height,
+              conversion,
+              processor,
+              storage,
+              widths
+            )
 
       data =
         build_responsive_data(
@@ -99,7 +105,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
           processor
         )
 
-      {:ok, data}
+      {:ok, if(reuses_original?, do: mark_reuse(data, conversion), else: data)}
     end
   end
 
@@ -342,6 +348,24 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       _ -> %{}
     end
   end
+
+  # A conversion with the original's shape (within a pixel of rounding) gets
+  # no variants of its own: its srcset reuses the original's (ADR-024). Only
+  # when the original has variants to reuse.
+  defp same_shape_as_original?(%Media{responsive_images: responsive}, width, height) do
+    variants = get_in(responsive || %{}, ["original", "variants"]) || []
+
+    case Enum.max_by(variants, &(&1["width"] || 0), fn -> nil end) do
+      %{"width" => ow, "height" => oh} when is_integer(ow) and is_integer(oh) and ow > 0 ->
+        length(variants) > 1 and abs(round(width * oh / ow) - height) <= 1
+
+      _ ->
+        false
+    end
+  end
+
+  defp mark_reuse(data, conversion),
+    do: update_in(data, [conversion_key(conversion)], &Map.put(&1, "reuses", "original"))
 
   defp served_dimensions(
          %Media{custom_properties: %{"webp_width" => w, "webp_height" => h}},

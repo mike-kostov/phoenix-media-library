@@ -178,6 +178,12 @@ What apps must change when upgrading:
   removed in 0.10.0.
 
 ### Changed
+- **Same-shape conversions share the original's variants** (ADR-024). A
+  conversion with the original's aspect ratio (e.g. a width-only
+  `:preview`) gets no responsive variants of its own; its `srcset` and the
+  `width:` URL option use the original's variants narrower than it, then
+  the conversion. Crops keep their own. Existing media keeps its variants
+  until they are rebuilt. New: `Media.responsive_variants/2`.
 - `<.picture>` offers the media's WebP as a typed `<source>` (and its
   AVIF before it), instead of putting the WebP `srcset` on the `<img>`.
   Browsers pick the same files.

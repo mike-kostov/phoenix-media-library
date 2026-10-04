@@ -119,9 +119,11 @@ defmodule PhxMediaLibrary.PipelineTest do
       assert Enum.sort(widths) == [320, 360]
     end
 
+    # A crop: same-shape conversions reuse the original's variants (ADR-024).
     test "conversions use the collection's widths when it sets them", %{png: png} do
       media = add(png, :responsive_plain)
-      assert :ok = Conversions.process(media, [Conversion.new(:big, width: 360)])
+      big = Conversion.new(:big, width: 360, height: 100, fit: :crop)
+      assert :ok = Conversions.process(media, [big])
 
       widths =
         Repo.reload!(media).responsive_images["big"]["variants"] |> Enum.map(& &1["width"])

@@ -186,9 +186,13 @@ defmodule PhxMediaLibrary.Pipeline do
   defp responsive_for?(target, media, _conversion, _requested?),
     do: Model.conversion_responsive?(target, media.collection_name)
 
+  # Conversions see the original's data generated before them, so they can
+  # reuse its variants (ADR-024).
   defp generate_variants(media, sources, widths) do
     Enum.reduce_while(sources, {:ok, %{}}, fn source, {:ok, acc} ->
-      case {source, ResponsiveImages.generate(media, source, widths: widths)} do
+      media_so_far = %{media | responsive_images: Map.merge(media.responsive_images || %{}, acc)}
+
+      case {source, ResponsiveImages.generate(media_so_far, source, widths: widths)} do
         {_, {:ok, data}} -> {:cont, {:ok, Map.merge(acc, data)}}
         {nil, {:error, _} = error} -> {:halt, error}
         {_conversion, {:error, _}} -> {:cont, {:ok, acc}}

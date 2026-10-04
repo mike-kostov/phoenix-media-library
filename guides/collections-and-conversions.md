@@ -383,6 +383,11 @@ whole `srcset` is WebP at no extra cost. Otherwise variants keep the source
 format. With `webp: [max_dimension: n]` the largest descriptor is the capped
 WebP at its real size, and widths above it are not generated.
 
+Conversions get variants too. One with the original's shape (a width-only
+`:preview`, say) gets none of its own: its `srcset` lists the original's
+variants narrower than it, then the conversion itself, since those files
+would be the same. Crops (`:thumb`, `:banner`) get their own.
+
 For a fixed-size slot (a cart thumbnail, a search result) ask for a single
 variant instead of a `srcset`. `width:` returns the smallest variant at least
 that wide, the widest one when none is, or the regular URL for media without
