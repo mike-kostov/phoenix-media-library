@@ -28,6 +28,7 @@ defmodule PhxMediaLibrary.TestPost do
     has_media(:no_avif)
     has_media(:avif_responsive)
     has_media(:color_placeholder)
+    has_media(:big_placeholder)
     has_media(:no_placeholder)
 
     timestamps(type: :utc_datetime)
@@ -70,6 +71,7 @@ defmodule PhxMediaLibrary.TestPost do
       ),
       collection(:no_avif, avif: false, accepts: ~w(image/jpeg image/png image/webp)),
       collection(:color_placeholder, placeholder: :color),
+      collection(:big_placeholder, placeholder: [size: 48]),
       collection(:no_placeholder, placeholder: false),
       # AVIF + WebP + responsive: variants in AVIF only (ADR-024).
       collection(:avif_responsive,

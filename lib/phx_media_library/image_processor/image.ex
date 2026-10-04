@@ -61,10 +61,13 @@ if Code.ensure_loaded?(Image) do
     end
 
     @impl true
-    # 16px wide WebP without EXIF or color profile: about 120 bytes on
+    def tiny_placeholder(image), do: tiny_placeholder(image, 32)
+
+    # A WebP without EXIF or color profile: at 32px, about 240 bytes on
     # product photos (docs/ideas/placeholders.md).
-    def tiny_placeholder(image) do
-      with {:ok, tiny} <- Image.thumbnail(image, 16),
+    @impl true
+    def tiny_placeholder(image, size) do
+      with {:ok, tiny} <- Image.thumbnail(image, size),
            {:ok, buffer} <- Image.write(tiny, :memory, suffix: ".webp", strip_metadata: true) do
         {:ok,
          %{

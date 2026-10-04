@@ -50,7 +50,17 @@ defmodule PhxMediaLibrary.PlaceholderTest do
     assert byte_size(bytes) < 400
     refute bytes =~ "ICCP"
     refute bytes =~ "EXIF"
-    assert placeholder(media)["width"] == 16
+    # 32px by default: smoother than 16px for about twice the bytes.
+    assert {placeholder(media)["width"], placeholder(media)["height"]} == {32, 24}
+  end
+
+  test "a collection sets the blur's size", %{photo: photo} do
+    assert placeholder(add(photo, :big_placeholder))["width"] == 48
+  end
+
+  test "the global setting sets the size too", %{photo: photo} do
+    Application.put_env(:phx_media_library, :placeholder, size: 16)
+    assert placeholder(add(photo, :images))["width"] == 16
   end
 
   test ":color stores the average color", %{photo: _photo} do

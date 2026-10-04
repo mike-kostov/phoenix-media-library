@@ -374,7 +374,8 @@ gallery.
 
 ```elixir
 media_collections do
-  collection :products, placeholder: :blur    # default: a 16px WebP, about 120 bytes
+  collection :products, placeholder: :blur          # default: a 32px WebP, about 260 bytes
+  collection :heroes,   placeholder: [size: 64]     # smoother, about 600 bytes
   collection :avatars,  placeholder: :color   # the average color
   collection :icons,    placeholder: false
 end

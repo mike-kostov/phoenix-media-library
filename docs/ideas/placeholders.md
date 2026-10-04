@@ -42,15 +42,17 @@ fills them in for existing media.
 
 ## Key Assumptions to Validate
 
-- [ ] A 16px image scaled up by the browser looks smoothly blurred, not
-      blocky. Check in a browser on a product grid and a hero image before
-      building.
+- [x] A 16px image scaled up by the browser looks smoothly blurred, not
+      blocky. Checked in a browser 2026-10-04 (Mike) on a product grid and
+      a hero: 16px looks a bit blocky, 32px much better. 32px is the
+      default, with a size setting.
 - [x] About 150 bytes holds across typical photos, not only the two
       measured. Measured 2026-10-04 on the 235 photos in
       `sharo-shop/tmp/rc-photos`, 16px WebP, default quality, metadata
       stripped: median 122 bytes, 95th percentile 172, max 384; none carry
-      EXIF or a color profile.
-- [ ] Today's `tiny_placeholder` setting can map onto the new option so
+      EXIF or a color profile. At 32px: median 260, p95 444, max 776; 48px:
+      median 398; 64px: median 592.
+- [x] Today's `tiny_placeholder` setting can map onto the new option so
       existing configs keep working.
 
 ## MVP Scope

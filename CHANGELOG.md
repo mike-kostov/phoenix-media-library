@@ -77,9 +77,10 @@ What apps must change when upgrading:
   a `caption` attribute or `custom_properties["caption"]`; image options
   (`conversion`, `sizes`, `priority`, `class`, ...) pass through.
 - Placeholders for every image, not only those with responsive variants:
-  `placeholder: :blur | :color | false` globally or per collection
-  (default `:blur`). `:blur` is a 16px WebP without metadata (median 122
-  bytes on 235 product photos); `:color` is the average color. Crop
+  `placeholder: :blur | :color | false | [size: px]` globally or per
+  collection (default `:blur`). `:blur` is a 32px WebP without metadata
+  (median 260 bytes on 235 product photos; `[size: 16]` halves that,
+  `[size: 48]` or `64` look smoother); `:color` is the average color. Crop
   conversions get their own; same-shape ones use the original's. Images
   with transparency get none, as it would show through them. Stored
   in `responsive_images` under `"placeholder"`; no migration. Made in the

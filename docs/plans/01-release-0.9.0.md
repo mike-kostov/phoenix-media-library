@@ -358,7 +358,9 @@ and crop conversions, stored in `responsive_images`.
 **Acceptance criteria:**
 - [x] `:blur` placeholders are under 400 bytes on the sample photos and
       contain no EXIF or color profile. (235 photos measured, max 384
-      bytes; tests use a generated photo with a color profile.)
+      bytes at 16px; tests use a generated photo with a color profile.
+      The default became 32px after the browser review: median 260 bytes,
+      max 776.)
 - [x] `:color` stores a `#rrggbb` average color.
 - [x] `false` stores nothing.
 **Verification:** pipeline tests with real photos; `mix precommit`.

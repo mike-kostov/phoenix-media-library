@@ -31,6 +31,14 @@ defmodule PhxMediaLibrary.ImageProcessor do
               {:ok, %{data_uri: String.t(), width: pos_integer(), height: pos_integer()}}
               | {:error, term()}
 
+  @doc """
+  Like `c:tiny_placeholder/1`, at `size` pixels wide. Optional: without it,
+  `c:tiny_placeholder/1` is used whatever the size setting.
+  """
+  @callback tiny_placeholder(image(), size :: pos_integer()) ::
+              {:ok, %{data_uri: String.t(), width: pos_integer(), height: pos_integer()}}
+              | {:error, term()}
+
   @doc "The image's average color as `#rrggbb`. Optional: without it, `:color` placeholders are skipped."
   @callback average_color(image()) :: {:ok, String.t()} | {:error, term()}
 
@@ -47,7 +55,7 @@ defmodule PhxMediaLibrary.ImageProcessor do
   """
   @callback has_alpha?(image()) :: boolean()
 
-  @optional_callbacks [supports_format?: 1, average_color: 1, has_alpha?: 1]
+  @optional_callbacks [supports_format?: 1, average_color: 1, has_alpha?: 1, tiny_placeholder: 2]
 
   @doc """
   Whether `processor` can save images in `format`; `true` for processors

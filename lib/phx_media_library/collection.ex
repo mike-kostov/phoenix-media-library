@@ -29,7 +29,8 @@ defmodule PhxMediaLibrary.Collection do
     `quality:`), merged over `config :phx_media_library, :avif`. Off unless
     set; the AVIF is made beside the served file.
   - `:placeholder` — what images show while they load: `:blur` (a tiny
-    WebP), `:color` (the average color) or `false`. `nil` (default) uses
+    WebP, 32px wide), `[size: 48]` (the same at another width), `:color`
+    (the average color) or `false`. `nil` (default) uses
     `config :phx_media_library, :placeholder` (`:blur` unless configured).
   - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.
@@ -71,7 +72,7 @@ defmodule PhxMediaLibrary.Collection do
           webp: override(),
           avif: override(),
           responsive: override(),
-          placeholder: :blur | :color | false | nil
+          placeholder: :blur | :color | false | keyword() | nil
         }
 
   @doc """
@@ -92,7 +93,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:webp` - WebP override: `true`/`false`/keyword, merged over global config (default: inherit)
   - `:avif` - AVIF override: `true`/`false`/keyword (`quality:`), merged over global config (default: inherit)
   - `:responsive` - Responsive-images override: `true`/`false`/keyword, merged over global (default: inherit)
-  - `:placeholder` - `:blur`, `:color` or `false` (default: global `:placeholder`, else `:blur`)
+  - `:placeholder` - `:blur`, `:color`, `false` or `[size: px]` (default: global `:placeholder`, else `:blur` at 32px)
 
   ## Examples
 

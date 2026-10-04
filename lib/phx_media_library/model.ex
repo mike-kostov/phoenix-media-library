@@ -151,7 +151,21 @@ defmodule PhxMediaLibrary.Model do
   """
   @spec placeholder(target(), atom() | String.t()) :: :blur | :color | false
   def placeholder(target, collection_name) do
-    Config.resolve_placeholder(override(target, collection_name, :placeholder))
+    Config.resolve_placeholder(override(target, collection_name, :placeholder))[:type]
+  end
+
+  @doc """
+  The width of a collection's `:blur` placeholders, in pixels (default 32).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.placeholder_size(post, :photos)
+      #=> 32
+
+  """
+  @spec placeholder_size(target(), atom() | String.t()) :: pos_integer()
+  def placeholder_size(target, collection_name) do
+    Config.resolve_placeholder(override(target, collection_name, :placeholder))[:size]
   end
 
   @doc """

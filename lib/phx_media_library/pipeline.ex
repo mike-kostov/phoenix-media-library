@@ -165,6 +165,7 @@ defmodule PhxMediaLibrary.Pipeline do
   @spec placeholder(Media.t(), keyword()) :: result()
   def placeholder(%Media{} = media, opts \\ []) do
     kind = Model.placeholder(target(media, opts), media.collection_name)
+    size = Model.placeholder_size(target(media, opts), media.collection_name)
     of = Keyword.get(opts, :of, [nil | Map.keys(media.generated_conversions || %{})])
 
     cond do
@@ -177,7 +178,8 @@ defmodule PhxMediaLibrary.Pipeline do
       true ->
         placeholders =
           for source <- of,
-              {:ok, placeholder} <- [logged(make_placeholder(media, source, kind, opts), media)],
+              {:ok, placeholder} <-
+                [logged(make_placeholder(media, source, {kind, size}, opts), media)],
               into: %{},
               do: {responsive_key(source), placeholder}
 
@@ -236,13 +238,20 @@ defmodule PhxMediaLibrary.Pipeline do
     end
   end
 
-  defp tiny_or_color(image, :blur, processor) do
-    with {:ok, tiny} <- processor.tiny_placeholder(image) do
+  defp tiny_or_color(image, {:blur, size}, processor) do
+    Code.ensure_loaded(processor)
+
+    result =
+      if function_exported?(processor, :tiny_placeholder, 2),
+        do: processor.tiny_placeholder(image, size),
+        else: processor.tiny_placeholder(image)
+
+    with {:ok, tiny} <- result do
       {:ok, %{"data_uri" => tiny.data_uri, "width" => tiny.width, "height" => tiny.height}}
     end
   end
 
-  defp tiny_or_color(image, :color, processor) do
+  defp tiny_or_color(image, {:color, _size}, processor) do
     Code.ensure_loaded(processor)
 
     if function_exported?(processor, :average_color, 1) do

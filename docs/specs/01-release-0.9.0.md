@@ -250,6 +250,9 @@ longer carries EXIF or color profiles.
   use it; images without one render without a placeholder.
 - The doctor reports and repairs missing placeholders.
 - Today's `tiny_placeholder` setting maps onto the new option.
+- `:blur` is 32px wide by default; `[size: px]` sets another width,
+  globally or per collection. (Amended 2026-10-04, Mike: 32px looked
+  clearly better than 16px in the browser review.)
 - Images with transparency get no placeholder, which would show through
   once they load; the placeholder slot records `%{"none" => "transparent"}`
   so the doctor doesn't report them. (Amended 2026-10-04, Mike.)

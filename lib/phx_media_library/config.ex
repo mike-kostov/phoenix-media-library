@@ -237,23 +237,43 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @doc """
-  The image placeholder for a collection: its `placeholder:` override, else
-  the global `config :phx_media_library, placeholder:`, else `:blur`.
+  The image placeholder settings for a collection, as `[type:, size:]`:
+  its `placeholder:` override, over the global
+  `config :phx_media_library, placeholder:`, over `[type: :blur, size: 32]`.
+
+  Each level is `:blur`, `:color`, `false` or a keyword such as
+  `[size: 48]` (a keyword means `:blur` unless it sets `:type`).
   `responsive_images: [tiny_placeholder: false]`, the setting before 0.9,
   still turns placeholders off. Placeholders need the `:image` library;
-  without it, `false`.
+  without it, the type is `false`.
+
+  ## Examples
+
+      PhxMediaLibrary.Config.resolve_placeholder([size: 48])
+      #=> [type: :blur, size: 48]
+
   """
-  @spec resolve_placeholder(:blur | :color | false | nil) :: :blur | :color | false
+  @spec resolve_placeholder(atom() | keyword() | nil) :: keyword()
   def resolve_placeholder(override) do
     global =
       case Application.fetch_env(:phx_media_library, :placeholder) do
-        {:ok, value} -> value
-        :error -> if tiny_placeholders_enabled?(), do: :blur, else: false
+        {:ok, value} -> placeholder_keyword(value)
+        :error -> if tiny_placeholders_enabled?(), do: [], else: [type: false]
       end
 
-    resolved = if is_nil(override), do: global, else: override
-    if Code.ensure_loaded?(Image), do: resolved, else: false
+    settings =
+      [type: :blur, size: 32]
+      |> Keyword.merge(global)
+      |> Keyword.merge(placeholder_keyword(override))
+
+    if Code.ensure_loaded?(Image), do: settings, else: Keyword.put(settings, :type, false)
   end
+
+  defp placeholder_keyword(nil), do: []
+  defp placeholder_keyword(type) when type in [:blur, :color, false], do: [type: type]
+
+  defp placeholder_keyword(keyword) when is_list(keyword),
+    do: Keyword.put_new(keyword, :type, :blur)
 
   @doc """
   Resolve the effective responsive-images settings for a collection.
