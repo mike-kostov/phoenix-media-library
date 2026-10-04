@@ -71,6 +71,13 @@ What apps must change when upgrading:
   longer crash the LiveView.
 
 ### Added
+- AVIF, opt-in: `avif: true` (or `[quality: n]`) globally or per
+  collection stores an AVIF beside the original, at the served file's size
+  (`custom_properties["avif"]`). Conversions in such a collection are AVIF
+  too, over WebP. Without AVIF support in libvips, uploads go on without
+  it and a warning is logged once.
+- Optional `supports_format?/1` image processor callback, so the library
+  can tell whether a processor writes a format such as AVIF.
 - `PhxMediaLibrary.presigned_upload/3` signs a direct upload and returns
   `%{method, url, fields, headers, key}`, so one browser uploader handles
   form POSTs and PUTs. The method comes from the disk's `direct_upload:`

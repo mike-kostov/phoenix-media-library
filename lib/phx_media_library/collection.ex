@@ -25,6 +25,9 @@ defmodule PhxMediaLibrary.Collection do
   - `:webp` — WebP conversion override for this collection: `true`/`false` or a
     keyword of knobs (`quality:`, `keep_original:`, `max_dimension:`) deep-merged over the global
     `config :phx_media_library, :webp`. `nil` (default) inherits the global.
+  - `:avif` — AVIF override, same shape (`true`/`false`/keyword with
+    `quality:`), merged over `config :phx_media_library, :avif`. Off unless
+    set; the AVIF is made beside the served file.
   - `:responsive` — responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.
 
@@ -43,6 +46,7 @@ defmodule PhxMediaLibrary.Collection do
     :fallback_path,
     :verify_content_type,
     :webp,
+    :avif,
     :responsive
   ]
 
@@ -61,6 +65,7 @@ defmodule PhxMediaLibrary.Collection do
           fallback_path: String.t() | nil,
           verify_content_type: boolean(),
           webp: override(),
+          avif: override(),
           responsive: override()
         }
 
@@ -80,6 +85,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:fallback_path` - Path when collection is empty
   - `:verify_content_type` - Verify file content matches declared MIME type (default: true)
   - `:webp` - WebP override: `true`/`false`/keyword, merged over global config (default: inherit)
+  - `:avif` - AVIF override: `true`/`false`/keyword (`quality:`), merged over global config (default: inherit)
   - `:responsive` - Responsive-images override: `true`/`false`/keyword, merged over global (default: inherit)
 
   ## Examples
@@ -115,6 +121,7 @@ defmodule PhxMediaLibrary.Collection do
       fallback_path: Keyword.get(opts, :fallback_path),
       verify_content_type: Keyword.get(opts, :verify_content_type, true),
       webp: Keyword.get(opts, :webp),
+      avif: Keyword.get(opts, :avif),
       responsive: Keyword.get(opts, :responsive)
     }
   end

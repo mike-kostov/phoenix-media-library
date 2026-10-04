@@ -291,10 +291,12 @@ resolved by `Model`; the WebP encoder becomes format-generic; a `Pipeline`
 step generates the AVIF of the served file on upload; skipped with a log
 line when libvips lacks AVIF; conversions use AVIF over WebP (F7).
 **Acceptance criteria:**
-- [ ] A collection with `avif: true` stores `custom_properties["avif"]`
+- [x] A collection with `avif: true` stores `custom_properties["avif"]`
       pointing at an AVIF file.
-- [ ] Off by default; collection setting overrides global.
-- [ ] Without AVIF support the upload succeeds and logs once.
+- [x] Off by default; collection setting overrides global.
+- [x] Without AVIF support the upload succeeds and logs once.
+      (README and guide coverage lands with Task 13, when `<picture>`
+      serves the AVIF.)
 **Verification:** pipeline tests; `mix precommit`.
 **Dependencies:** Task 10
 **Files:** `config.ex`, `collection.ex`, `model.ex`, `webp.ex`, `pipeline.ex`, `media_adder.ex`

@@ -13,6 +13,8 @@ if Code.ensure_loaded?(Image) do
 
     @behaviour PhxMediaLibrary.ImageProcessor
 
+    alias Vix.Vips.Foreign
+
     @impl true
     def open(path) do
       Image.open(path)
@@ -46,6 +48,12 @@ if Code.ensure_loaded?(Image) do
 
     defp write_opts_for_format(_format, nil), do: []
     defp write_opts_for_format(_format, quality), do: [quality: quality]
+
+    # libvips picks a saver by extension; AVIF needs one built with libheif.
+    @impl true
+    def supports_format?(format) do
+      match?({:ok, _saver}, Foreign.find_save("probe.#{format}"))
+    end
 
     @impl true
     def dimensions(image) do

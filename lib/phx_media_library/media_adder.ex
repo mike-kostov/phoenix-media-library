@@ -422,6 +422,7 @@ defmodule PhxMediaLibrary.MediaAdder do
       # The same Pipeline steps repairs use. WebP runs FIRST so responsive
       # variants inherit the .webp encoding; it reads the uploaded temp file.
       media = step(media, Pipeline.webp(media, model: adder.model, source: file_info.path))
+      media = step(media, Pipeline.avif(media, model: adder.model, source: file_info.path))
 
       media =
         if image?(file_info.mime_type) do

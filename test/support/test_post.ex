@@ -23,6 +23,9 @@ defmodule PhxMediaLibrary.TestPost do
     has_media(:responsive_webp)
     has_media(:responsive_plain)
     has_media(:webp_capped)
+    has_media(:avif_photos)
+    has_media(:avif_webp)
+    has_media(:no_avif)
 
     timestamps(type: :utc_datetime)
   end
@@ -55,6 +58,14 @@ defmodule PhxMediaLibrary.TestPost do
         responsive: [widths: [160, 320]],
         accepts: ~w(image/jpeg image/png image/webp)
       ),
+      collection(:avif_photos, avif: true, accepts: ~w(image/jpeg image/png image/webp)),
+      # AVIF + capped WebP: the AVIF matches the served WebP's size.
+      collection(:avif_webp,
+        avif: true,
+        webp: [max_dimension: 20],
+        accepts: ~w(image/jpeg image/png image/webp)
+      ),
+      collection(:no_avif, avif: false, accepts: ~w(image/jpeg image/png image/webp)),
       # Capped WebP: the served file fits in 100px; variants above it are skipped.
       collection(:webp_capped,
         webp: [max_dimension: 100],

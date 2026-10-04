@@ -212,6 +212,30 @@ defmodule PhxMediaLibrary.Config do
     |> require_image_lib()
   end
 
+  @avif_defaults [enabled: false, quality: nil]
+
+  @doc "Global AVIF config (`config :phx_media_library, :avif`)."
+  def avif_config do
+    case Application.get_env(:phx_media_library, :avif, []) do
+      true -> [enabled: true]
+      false -> [enabled: false]
+      keyword -> Keyword.put_new(keyword, :enabled, keyword != [])
+    end
+  end
+
+  @doc """
+  Resolve the effective AVIF settings for a collection.
+
+  Same merge semantics as `resolve_webp/1`, over the global `:avif` config
+  (`true`, `false` or a keyword). Returns a keyword with `:enabled` and
+  `:quality` (`nil`: the image processor's default).
+  """
+  def resolve_avif(override) do
+    @avif_defaults
+    |> merge_override(avif_config(), override)
+    |> require_image_lib()
+  end
+
   @doc """
   Resolve the effective responsive-images settings for a collection.
 

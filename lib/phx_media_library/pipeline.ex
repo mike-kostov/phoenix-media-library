@@ -24,6 +24,7 @@ defmodule PhxMediaLibrary.Pipeline do
   """
 
   alias PhxMediaLibrary.{
+    Avif,
     Config,
     Conversions,
     FileName,
@@ -90,6 +91,48 @@ defmodule PhxMediaLibrary.Pipeline do
         storage = Config.storage_adapter(media.disk)
         original = PathGenerator.relative_path(media, nil)
         with_source(media, opts, &Webp.encode(media, &1, settings, storage, original))
+    end
+  end
+
+  @doc """
+  Generate the AVIF of the served file when the collection has `avif:` on.
+  It has the served file's size (WebP's `max_dimension`, when WebP is on).
+  Skipped, and logged once, when the image processor can't write AVIF.
+
+  ## Options
+
+    * `:source` — a local copy of the original, to avoid fetching it
+    * `:model` — the model, when the media's type isn't registered
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.avif(media)
+      {:skip, :disabled} = PhxMediaLibrary.Pipeline.avif(media_without_avif)
+
+  """
+  @spec avif(Media.t(), keyword()) :: result()
+  def avif(%Media{} = media, opts \\ []) do
+    target = target(media, opts)
+    settings = Model.avif_settings(target, media.collection_name)
+
+    cond do
+      not Keyword.get(settings, :enabled, false) ->
+        {:skip, :disabled}
+
+      not Avif.convertible?(media.mime_type) ->
+        {:skip, :not_convertible}
+
+      not Avif.supported?() ->
+        Avif.log_unsupported_once()
+        {:skip, :unsupported}
+
+      true ->
+        webp = Model.webp_settings(target, media.collection_name)
+        max_dimension = if webp[:enabled], do: webp[:max_dimension]
+        settings = Keyword.put(settings, :max_dimension, max_dimension)
+        storage = Config.storage_adapter(media.disk)
+        original = PathGenerator.relative_path(media, nil)
+        with_source(media, opts, &Avif.encode(media, &1, settings, storage, original))
     end
   end
 

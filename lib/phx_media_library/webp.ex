@@ -58,41 +58,60 @@ defmodule PhxMediaLibrary.Webp do
   @spec encode(map(), String.t(), keyword(), term(), String.t()) ::
           {:ok, map()} | {:error, term()}
   def encode(media, source_path, settings, storage, orig_storage_path) do
-    quality = Keyword.get(settings, :quality, 82)
-    max_dimension = Keyword.get(settings, :max_dimension)
-    processor = Config.image_processor()
+    settings = Keyword.put_new(settings, :quality, 82)
     webp_path = Path.rootname(orig_storage_path) <> ".webp"
-    tmp = Path.join(System.tmp_dir!(), "#{media.uuid}-#{System.unique_integer([:positive])}.webp")
 
-    result =
-      with {:ok, image} <- processor.open(source_path),
-           {:ok, {image, dims}} <- fit_within(image, max_dimension, processor),
-           # save to a `.webp` path — libvips picks the encoder by the destination
-           # extension, so the path (not just `format:`) must be `.webp`.
-           {:ok, _} <- processor.save(image, tmp, format: :webp, quality: quality),
-           {:ok, content} <- File.read(tmp),
-           :ok <- StorageWrapper.put(storage, webp_path, content) do
-        {:ok, webp_path, dims}
-      end
-
-    _ = File.rm(tmp)
-
-    case result do
-      {:ok, wpath, dims} ->
+    case transcode(source_path, :webp, settings, storage, webp_path) do
+      {:ok, dims} ->
         props =
           (media.custom_properties || %{})
-          |> Map.put("webp", wpath)
+          |> Map.put("webp", webp_path)
           |> put_dims(dims)
 
         media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
 
-      other ->
+      {:error, reason} = error ->
         Logger.warning(
-          "[webp] generation failed for media #{inspect(media.id)}: #{inspect(other)}"
+          "[webp] generation failed for media #{inspect(media.id)}: #{inspect(reason)}"
         )
 
-        {:error, unwrap_error(other)}
+        error
     end
+  end
+
+  @doc """
+  Transcode `source_path` (a local file) to `format` and store it at
+  `storage_path`. `settings` carries `:quality` (`nil`: the processor's
+  default) and `:max_dimension`. Returns the stored image's dimensions when
+  `:max_dimension` is set, else `nil`. Shared by WebP and AVIF.
+
+  ## Examples
+
+      {:ok, {1200, 800}} =
+        Webp.transcode("/tmp/photo.jpg", :avif, [max_dimension: 1200], storage, "posts/1/u/photo.avif")
+
+  """
+  @spec transcode(String.t(), atom(), keyword(), term(), String.t()) ::
+          {:ok, {pos_integer(), pos_integer()} | nil} | {:error, term()}
+  def transcode(source_path, format, settings, storage, storage_path) do
+    processor = Config.image_processor()
+    save_opts = Enum.reject([format: format, quality: settings[:quality]], &is_nil(elem(&1, 1)))
+    tmp = Path.join(System.tmp_dir!(), "#{System.unique_integer([:positive])}.#{format}")
+
+    result =
+      with {:ok, image} <- processor.open(source_path),
+           {:ok, {image, dims}} <-
+             fit_within(image, Keyword.get(settings, :max_dimension), processor),
+           # libvips picks the encoder by the destination extension, so the
+           # temp path (not just `format:`) carries the format's extension.
+           {:ok, _} <- processor.save(image, tmp, save_opts),
+           {:ok, content} <- File.read(tmp),
+           :ok <- StorageWrapper.put(storage, storage_path, content) do
+        {:ok, dims}
+      end
+
+    _ = File.rm(tmp)
+    result
   end
 
   @doc """
@@ -140,9 +159,6 @@ defmodule PhxMediaLibrary.Webp do
       {max(round(w * scale), 1), max(round(h * scale), 1)}
     end
   end
-
-  defp unwrap_error({:error, reason}), do: reason
-  defp unwrap_error(reason), do: reason
 
   # No cap: dimensions are unknown here and left unrecorded (`nil`).
   defp fit_within(image, nil, _processor), do: {:ok, {image, nil}}

@@ -125,10 +125,25 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
-  The format conversions without their own `format:` are saved in: the
-  format the collection serves for this type of image (`:webp` when WebP is
-  on and the image can be converted), else `nil`, the original's format
-  (ADR-024).
+  Resolved AVIF settings for a collection: its `avif:` override merged over
+  the global config (see `PhxMediaLibrary.Config.resolve_avif/1`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.avif_settings(post, :photos)
+      #=> [enabled: true, quality: nil]
+
+  """
+  @spec avif_settings(target(), atom() | String.t()) :: keyword()
+  def avif_settings(target, collection_name) do
+    Config.resolve_avif(override(target, collection_name, :avif))
+  end
+
+  @doc """
+  The format conversions without their own `format:` are saved in: the best
+  modern format the collection has on for this type of image, AVIF (when
+  the image processor supports it) over WebP; else `nil`, the original's
+  format (ADR-024).
 
   ## Examples
 
@@ -136,11 +151,20 @@ defmodule PhxMediaLibrary.Model do
       #=> :webp
 
   """
-  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) :: :webp | nil
+  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) :: :avif | :webp | nil
   def conversion_format(target, collection_name, mime_type) do
-    if Keyword.get(webp_settings(target, collection_name), :enabled, false) and
-         PhxMediaLibrary.Webp.convertible?(mime_type),
-       do: :webp
+    cond do
+      Keyword.get(avif_settings(target, collection_name), :enabled, false) and
+        PhxMediaLibrary.Avif.convertible?(mime_type) and PhxMediaLibrary.Avif.supported?() ->
+        :avif
+
+      Keyword.get(webp_settings(target, collection_name), :enabled, false) and
+          PhxMediaLibrary.Webp.convertible?(mime_type) ->
+        :webp
+
+      true ->
+        nil
+    end
   end
 
   @doc """
