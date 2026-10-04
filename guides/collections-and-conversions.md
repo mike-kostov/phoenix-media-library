@@ -388,8 +388,10 @@ Images with transparency (a product cut-out on a transparent background)
 get no placeholder, since it would show through once they load.
 
 For your own `<img>` tags, `PhxMediaLibrary.ViewHelpers.placeholder_style/2`
-returns the CSS. Media uploaded before 0.9 has none until the doctor makes
-it (`mix phx_media_library.doctor --regenerate`).
+returns the CSS. Media uploaded before 0.9 has none, or 0.8's heavier JPEG
+one, until the doctor makes it (`mix phx_media_library.doctor
+--regenerate`). After changing the size, remake them all with
+`mix phx_media_library.doctor --rebuild --only placeholders`.
 
 ## Responsive images
 

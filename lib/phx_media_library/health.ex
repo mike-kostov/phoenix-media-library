@@ -18,6 +18,7 @@ defmodule PhxMediaLibrary.Health do
   | `:missing_webp`                | repairable | `Pipeline.webp/2`             |
   | `:missing_avif`                | repairable | `Pipeline.avif/2`             |
   | `:missing_placeholder`         | repairable | `Pipeline.placeholder/2`      |
+  | `:outdated_placeholder`        | repairable | `Pipeline.placeholder/2`      |
   | `:missing_responsive`          | repairable | `Pipeline.responsive/2`       |
   | `:missing_metadata`            | repairable | `Pipeline.metadata/2`         |
   | `:needs_rename`                | repairable | `Pipeline.rename/2`           |
@@ -47,6 +48,7 @@ defmodule PhxMediaLibrary.Health do
           | :missing_webp
           | :missing_avif
           | :missing_placeholder
+          | :outdated_placeholder
           | :missing_responsive
           | :missing_metadata
           | :needs_rename
@@ -125,6 +127,7 @@ defmodule PhxMediaLibrary.Health do
   def repair(media, :missing_webp), do: Pipeline.webp(media)
   def repair(media, :missing_avif), do: Pipeline.avif(media)
   def repair(media, :missing_placeholder), do: Pipeline.placeholder(media)
+  def repair(media, :outdated_placeholder), do: Pipeline.placeholder(media)
 
   def repair(media, :missing_responsive),
     do: Pipeline.responsive(media, of: [nil | Map.keys(media.generated_conversions || %{})])
@@ -242,12 +245,43 @@ defmodule PhxMediaLibrary.Health do
   defp avif_issue(_media, _present, false), do: nil
 
   defp placeholder_issue(media, true = _original?) do
-    if image?(media) and Model.placeholder(media, media.collection_name) != false and
-         is_nil(get_in(media.responsive_images || %{}, ["original", "placeholder"])),
-       do: :missing_placeholder
+    if image?(media) and Model.placeholder(media, media.collection_name) != false do
+      case get_in(media.responsive_images || %{}, ["original", "placeholder"]) do
+        nil -> :missing_placeholder
+        %{"data_uri" => data_uri} when is_binary(data_uri) -> outdated_placeholder(data_uri)
+        _color_or_none -> nil
+      end
+    end
   end
 
   defp placeholder_issue(_media, false), do: nil
+
+  # Placeholders from 0.8 are JPEGs carrying the photo's metadata; a WebP
+  # one with alpha was made from an image with transparency, which now
+  # gets none. Both are read from the record, without opening the image.
+  defp outdated_placeholder("data:image/webp;base64," <> data) do
+    case Base.decode64(data) do
+      {:ok, webp} -> if webp_alpha?(webp), do: :outdated_placeholder
+      :error -> :outdated_placeholder
+    end
+  end
+
+  defp outdated_placeholder(_jpeg_or_other), do: :outdated_placeholder
+
+  # Extended format: the VP8X flags byte has an alpha bit (0x10).
+  defp webp_alpha?(
+         <<"RIFF", _::binary-size(4), "WEBP", "VP8X", _::binary-size(4), flags, _::binary>>
+       ),
+       do: Bitwise.band(flags, 0x10) != 0
+
+  # Lossless: the alpha_is_used bit follows the 14-bit width and height.
+  defp webp_alpha?(
+         <<"RIFF", _::binary-size(4), "WEBP", "VP8L", _::binary-size(4), 0x2F, _, _, _, b4,
+           _::binary>>
+       ),
+       do: Bitwise.band(b4, 0x10) != 0
+
+  defp webp_alpha?(_lossy), do: false
 
   defp responsive_issue(media, present, true = _original?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do

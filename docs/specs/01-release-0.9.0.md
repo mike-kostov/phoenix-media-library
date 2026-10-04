@@ -255,7 +255,10 @@ longer carries EXIF or color profiles.
   clearly better than 16px in the browser review.)
 - Images with transparency get no placeholder, which would show through
   once they load; the placeholder slot records `%{"none" => "transparent"}`
-  so the doctor doesn't report them. (Amended 2026-10-04, Mike.)
+  so the doctor doesn't report them. The doctor reports placeholders made
+  before that (a WebP with alpha) and 0.8's JPEG placeholders as outdated,
+  and `--regenerate` replaces them; `--rebuild --only placeholders` remakes
+  all. (Amended 2026-10-04, Mike.)
 
 **F6. Variants in one format only.** (ADR-024)
 - Responsive variants are generated only in the best format that is on:

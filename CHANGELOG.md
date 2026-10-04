@@ -90,8 +90,9 @@ What apps must change when upgrading:
   gallery show it as the image's inline background (`placeholder={false}`
   turns it off for one image); `ViewHelpers.placeholder_style/2` gives the
   CSS for your own tags. `mix phx_media_library.doctor` reports images
-  without one, and `--regenerate` makes them for media uploaded before
-  0.9.
+  without one, and outdated ones (0.8's JPEG placeholders, or a blur on an
+  image with transparency); `--regenerate` makes or replaces them, and
+  `--rebuild --only placeholders` remakes all after changing the size.
   `responsive_images: [tiny_placeholder: false]` still turns them off.
 - AVIF, opt-in: `avif: true` (or `[quality: n]`) globally or per
   collection stores an AVIF beside the original, at the served file's size

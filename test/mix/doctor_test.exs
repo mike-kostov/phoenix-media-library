@@ -4,7 +4,17 @@ defmodule Mix.Tasks.PhxMediaLibrary.DoctorTest do
   import PhxMediaLibrary.Fixtures
 
   alias Mix.Tasks.PhxMediaLibrary.Doctor
-  alias PhxMediaLibrary.{Config, Health, Media, PathGenerator, Pipeline, StorageWrapper}
+
+  alias PhxMediaLibrary.{
+    Config,
+    Health,
+    ImageProcessor,
+    Media,
+    PathGenerator,
+    Pipeline,
+    StorageWrapper
+  }
+
   alias PhxMediaLibrary.TestRepo, as: Repo
 
   @moduletag :db
@@ -243,6 +253,59 @@ defmodule Mix.Tasks.PhxMediaLibrary.DoctorTest do
 
     assert_raise Mix.Error, ~r/No media with ID #{unknown}/, fn -> doctor(["--id", unknown]) end
     assert_raise Mix.Error, ~r/--id must be a media UUID/, fn -> doctor(["--id", "42"]) end
+  end
+
+  defp put_placeholder(media, placeholder) do
+    responsive =
+      Map.put(media.responsive_images || %{}, "original", %{"placeholder" => placeholder})
+
+    media |> Ecto.Changeset.change(responsive_images: responsive) |> Repo.update!()
+  end
+
+  test "--regenerate replaces a 0.8 placeholder (JPEG with metadata)", %{png: png} do
+    media =
+      put_placeholder(add(png, :images), %{
+        "data_uri" => "data:image/jpeg;base64,/9j/4AAQ",
+        "width" => 32,
+        "height" => 24
+      })
+
+    assert :outdated_placeholder in Health.check(media)
+
+    doctor(["--regenerate", "--yes"])
+
+    assert %{"data_uri" => "data:image/webp;base64," <> _} =
+             Repo.reload!(media).responsive_images["original"]["placeholder"]
+  end
+
+  test "--regenerate removes a blur placeholder from an image with transparency" do
+    {:ok, image} = Image.new(40, 30, color: [255, 0, 0, 0])
+    cutout = Path.join(System.tmp_dir!(), "cutout_#{System.unique_integer([:positive])}.png")
+    Image.write!(image, cutout)
+    on_exit(fn -> File.rm(cutout) end)
+
+    # As made before transparency was detected: the blur keeps the alpha.
+    {:ok, tiny} = ImageProcessor.Image.tiny_placeholder(image, 32)
+    old = %{"data_uri" => tiny.data_uri, "width" => tiny.width, "height" => tiny.height}
+    media = put_placeholder(add(cutout, :images), old)
+    assert :outdated_placeholder in Health.check(media)
+
+    doctor(["--regenerate", "--yes"])
+
+    repaired = Repo.reload!(media)
+    assert repaired.responsive_images["original"]["placeholder"] == %{"none" => "transparent"}
+    assert Health.check(repaired) == []
+  end
+
+  test "--rebuild --only placeholders remakes them at the current size", %{png: png} do
+    restore_env_on_exit(:placeholder)
+    media = add(png, :images)
+    assert media.responsive_images["original"]["placeholder"]["width"] == 32
+
+    Application.put_env(:phx_media_library, :placeholder, size: 16)
+    doctor(["--rebuild", "--only", "placeholders", "--yes"])
+
+    assert Repo.reload!(media).responsive_images["original"]["placeholder"]["width"] == 16
   end
 
   test "--strict exits with status 1 when errors are found" do
