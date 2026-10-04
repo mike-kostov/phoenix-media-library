@@ -263,6 +263,62 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
+  Media already preloaded on `model` through its `has_media` associations,
+  so callers can skip the database. Uses the collection's own association
+  (`has_media(:images)`) when loaded, else the general `has_media()` one.
+
+  Returns `{:ok, media}` — filtered to the collection, without trashed
+  media, ordered like `PhxMediaLibrary.get_media/2` — or `:not_loaded`.
+
+  ## Examples
+
+      products = Repo.all(Product) |> Repo.preload(:images)
+      PhxMediaLibrary.Model.preloaded_media(hd(products), :images)
+      #=> {:ok, [%Media{}, ...]}
+
+  """
+  @spec preloaded_media(struct(), atom() | String.t() | nil) :: {:ok, [Media.t()]} | :not_loaded
+  def preloaded_media(%module{} = model, collection_name) do
+    fields = if collection_name, do: [collection_name, :media], else: [:media]
+
+    Enum.find_value(fields, :not_loaded, fn field ->
+      with name when is_atom(name) <- media_association(module, field),
+           media when is_list(media) <- Map.get(model, name) do
+        {:ok, media |> in_collection(collection_name) |> visible() |> sort_media()}
+      else
+        _ -> nil
+      end
+    end)
+  end
+
+  # The association named `field` (atom or string), when it holds media.
+  defp media_association(module, field) do
+    if function_exported?(module, :__schema__, 1) do
+      Enum.find(module.__schema__(:associations), fn name ->
+        to_string(name) == to_string(field) and
+          match?(%{related: Media}, module.__schema__(:association, name))
+      end)
+    end
+  end
+
+  defp in_collection(media, nil), do: media
+
+  defp in_collection(media, collection_name) do
+    name = to_string(collection_name)
+    Enum.filter(media, &(&1.collection_name == name))
+  end
+
+  defp visible(media) do
+    if Media.soft_deletes_enabled?(), do: Enum.filter(media, &is_nil(&1.deleted_at)), else: media
+  end
+
+  defp sort_media(media) do
+    Enum.sort_by(media, fn m ->
+      {m.order_column || 0, m.inserted_at && DateTime.to_unix(m.inserted_at, :microsecond)}
+    end)
+  end
+
+  @doc """
   The `order_column` for the next media added to a collection.
 
   ## Examples

@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `get_media/2`, `get_first_media/2` and `get_first_media_url/3` use media
+  preloaded through `has_media` associations (`Repo.preload(products,
+  :images)`) instead of querying, so a page of 40 products no longer runs
+  40 queries.
 - **`mix phx_media_library.doctor` checks and repairs.** It reports media
   with no files, missing conversions/WebP/responsive variants, missing
   metadata (e.g. from the EXIF bug fixed in 0.8.4), files not named by

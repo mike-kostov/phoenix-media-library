@@ -259,6 +259,15 @@ defmodule PhxMediaLibrary do
   @doc """
   Get all media for a model, optionally filtered by collection.
 
+  Uses media preloaded through the model's `has_media` associations when
+  present, so pages listing many records don't run one query per record:
+
+      products = Product |> Repo.all() |> Repo.preload(:images)
+      # no further queries:
+      Enum.map(products, &PhxMediaLibrary.get_first_media_url(&1, :images, :thumb))
+
+  Otherwise it queries. Preloaded media is as fresh as when it was loaded.
+
   ## Examples
 
       PhxMediaLibrary.get_media(post)
@@ -267,9 +276,10 @@ defmodule PhxMediaLibrary do
   """
   @spec get_media(Ecto.Schema.t(), atom() | nil) :: [Media.t()]
   def get_media(model, collection_name \\ nil) do
-    model
-    |> media_query(collection_name)
-    |> Config.repo().all()
+    case Model.preloaded_media(model, collection_name) do
+      {:ok, media} -> media
+      :not_loaded -> model |> media_query(collection_name) |> Config.repo().all()
+    end
   end
 
   @doc """
