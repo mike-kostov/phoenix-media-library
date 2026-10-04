@@ -1,6 +1,8 @@
 # Idea: Real services in tests through Testcontainers
 
-Captured 2026-10-04. Direction chosen: ADR-026. Spike on branch
+Captured 2026-10-04. Direction chosen: ADR-026, amended the same day to
+start the container with podman or Docker instead of Testcontainers (its
+hackney 1.x has unfixed advisories). Spike on branch
 `spike/testcontainers`
 (`test/spike/containers_spike_test.exs`, run with `--only spike`).
 

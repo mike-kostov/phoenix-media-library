@@ -198,6 +198,12 @@ Full API documentation is available on [HexDocs](https://hexdocs.pm/phx_media_li
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+The tests need Postgres on `localhost` (user and password `postgres`), and
+podman or Docker for the S3 tests. Those run against a
+[Ministack](https://hub.docker.com/r/ministackorg/ministack) container that
+the first `mix test` starts and later runs reuse; without podman or Docker
+they are skipped. Run `mix precommit` before opening a pull request.
+
 1. Fork it
 2. Create your feature branch (`git checkout -b feature/my-feature`)
 3. Commit your changes (`git commit -am 'Add my feature'`)

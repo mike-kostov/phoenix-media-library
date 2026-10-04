@@ -269,10 +269,12 @@ and the unformatted `path_generator/tenant.ex` are fixed (ADR-022).
   (ADR-017).
 
 **P4. Real S3 in tests.** (ADR-026)
-- S3 tests run against a reused Ministack container through Testcontainers
-  in the normal `mix test`; `FakeS3Client` is gone.
-- A project `.testcontainers.properties` makes it work with podman and
-  Docker without per-machine settings.
+- S3 tests run against a reused Ministack container in the normal
+  `mix test`; `FakeS3Client` is gone.
+- The test helper starts the container with podman or Docker, whichever is
+  installed, and reuses it on later runs; no extra dependency and no
+  per-machine settings. (Amended 2026-10-04: Testcontainers dropped, see
+  ADR-026.)
 
 **P3. Release.**
 - The backlog is reviewed again; anything moved in is specced here first.

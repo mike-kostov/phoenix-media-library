@@ -47,42 +47,6 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
     end
   end
 
-  describe "Storage.S3.stat/3" do
-    alias PhxMediaLibrary.FakeS3Client
-
-    setup do
-      previous = Application.fetch_env(:ex_aws, :http_client)
-      Application.put_env(:ex_aws, :http_client, FakeS3Client)
-      FakeS3Client.reset()
-
-      on_exit(fn ->
-        case previous do
-          {:ok, client} -> Application.put_env(:ex_aws, :http_client, client)
-          :error -> Application.delete_env(:ex_aws, :http_client)
-        end
-      end)
-    end
-
-    test "returns the size from HEAD and the first bytes from a ranged GET" do
-      FakeS3Client.put_object("posts/1/u/a.txt", String.duplicate("a", 1_500))
-
-      assert {:ok, %{size: 1_500, header: header}} = S3.stat("posts/1/u/a.txt", 512, @s3)
-      assert byte_size(header) == 512
-      assert FakeS3Client.requests() == [{:head, "posts/1/u/a.txt"}, {:get, "posts/1/u/a.txt"}]
-    end
-
-    test "a missing object is :not_found" do
-      assert {:error, :not_found} = S3.stat("posts/1/u/ghost.txt", 512, @s3)
-    end
-
-    test "an empty object is read without a ranged GET" do
-      FakeS3Client.put_object("posts/1/u/empty.txt", "")
-
-      assert {:ok, %{size: 0, header: ""}} = S3.stat("posts/1/u/empty.txt", 512, @s3)
-      assert FakeS3Client.requests() == [{:head, "posts/1/u/empty.txt"}]
-    end
-  end
-
   describe "PhxMediaLibrary.presigned_upload_url/3" do
     @describetag :db
 

@@ -142,20 +142,22 @@ library's calls if its API changed.
 **Scope:** S
 
 #### Task 5b: Real S3 in tests, reached through `endpoint:` (P4, part of S4)
-**Description:** Add `testcontainers` (test only) and a project
-`.testcontainers.properties` (reuse, privileged Ryuk). The S3 adapter takes
+**Description:** The test helper starts a named Ministack container with
+podman or Docker and reuses it on later runs (ADR-026, amended: no
+Testcontainers). The S3 adapter takes
 an `endpoint:` (scheme, host, port) and path-style addressing so it can
 reach the container. Presign and `stat` tests move to a reused Ministack
 container; `FakeS3Client` is removed.
 **Acceptance criteria:**
-- [ ] S3 tests run in the normal `mix test` against Ministack; a second run
-      reuses the container.
-- [ ] Put, get, delete, exists, `stat`, presigned POST (policy enforced) and
-      presigned PUT work against the container through the adapter.
-- [ ] No `FakeS3Client` remains.
+- [x] S3 tests run in the normal `mix test` against Ministack; a second run
+      reuses the container. (Cold 9.7 s, reused 7.3 s for the whole suite.)
+- [x] Put, get, delete, exists, `stat`, signed URLs and presigned POST
+      (policy enforced) work against the container through the adapter.
+      Presigned PUT moves to Task 5e, where the adapter gains it.
+- [x] No `FakeS3Client` remains.
 **Verification:** full suite twice (timing of the second run); `mix precommit`.
 **Dependencies:** Task 5a
-**Files:** `mix.exs`, `.testcontainers.properties`, `storage/s3.ex`, S3 tests, `test/test_helper.exs`
+**Files:** `test/support/ministack.ex`, `storage/s3.ex`, S3 tests, `test/test_helper.exs`
 **Scope:** M
 
 #### Task 5c: Provider presets and public URLs (S4)

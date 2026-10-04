@@ -26,6 +26,10 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     - `:bucket` - S3 bucket name (required)
     - `:region` - AWS region (default: from ExAws config)
+    - `:endpoint` - API URL of an S3-compatible service, e.g.
+      `"https://<account_id>.r2.cloudflarestorage.com"` (default: AWS).
+      Requests use path-style addressing (`<endpoint>/<bucket>/<key>`),
+      ExAws's default
     - `:base_url` - Custom base URL (for CDN)
     - `:acl` - Default ACL for uploads (default: "private")
     - `:cache_control` - `Cache-Control` header stored with every upload,
@@ -252,6 +256,21 @@ if Code.ensure_loaded?(ExAws.S3) do
       opts
       |> Keyword.take([:access_key_id, :secret_access_key, :region])
       |> Enum.reject(fn {_, v} -> is_nil(v) end)
+      |> Keyword.merge(endpoint_opts(Keyword.get(opts, :endpoint)))
+    end
+
+    defp endpoint_opts(nil), do: []
+
+    defp endpoint_opts(endpoint) do
+      case URI.parse(endpoint) do
+        %URI{scheme: scheme, host: host, port: port}
+        when scheme in ["http", "https"] and is_binary(host) and host != "" ->
+          [scheme: scheme <> "://", host: host, port: port]
+
+        _ ->
+          raise ArgumentError,
+                "the S3 disk's :endpoint must be an http(s) URL, got: #{inspect(endpoint)}"
+      end
     end
 
     # ---------------------------------------------------------------------------

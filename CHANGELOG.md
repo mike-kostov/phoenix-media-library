@@ -67,6 +67,8 @@ What apps must change when upgrading:
   edit alt text, captions and other custom properties after upload (`nil`
   removes a key). Keys the library maintains (`webp`, `webp_width`,
   `webp_height`, `source_url`) are refused.
+- `endpoint:` option for S3 disks, the API URL of an S3-compatible service
+  (path-style addressing).
 - `cache_control:` option for S3 disks, stored as the `Cache-Control`
   header of every upload. The storage guide has a new Caching section.
 - `priority` on `media_img`, `responsive_img` and `picture` for the page's

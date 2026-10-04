@@ -58,7 +58,21 @@ db_available? =
       false
   end
 
-# Exclude integration tests if the database is not available
-unless db_available? do
-  ExUnit.configure(exclude: [:db])
-end
+# S3 tests run against a reused Ministack container (ADR-026), through
+# Req like the rest of the library.
+Application.put_env(:ex_aws, :http_client, ExAws.Request.Req)
+
+s3_available? =
+  case PhxMediaLibrary.Ministack.ensure_started() do
+    {:ok, _endpoint} ->
+      PhxMediaLibrary.Ministack.create_bucket() == :ok
+
+    {:error, reason} ->
+      IO.puts("S3 tests excluded: #{reason}")
+      false
+  end
+
+# Exclude integration tests whose service is not available
+ExUnit.configure(
+  exclude: if(db_available?, do: [], else: [:db]) ++ if(s3_available?, do: [], else: [:s3])
+)
