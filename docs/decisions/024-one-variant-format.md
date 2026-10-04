@@ -31,8 +31,9 @@ question of producing every size twice.
 
 ### Variants in both AVIF and WebP
 - Pros: browsers without AVIF still choose a size.
-- Rejected: doubles the variant files for about 5% of browsers, which still
-  get the full-size WebP.
+- Rejected: doubles the variant files for the few browsers without AVIF
+  (Safari before 16.4, Edge before 121), which still get the full-size
+  WebP.
 
 ### Conversions keep the original's format
 - Pros: no behaviour change.
