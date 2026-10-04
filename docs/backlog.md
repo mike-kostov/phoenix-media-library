@@ -52,6 +52,33 @@ publishing, the whole backlog is reviewed again.
 - Release 0.9.0.
 
 ## 0.10.0 (agreed, not yet specced)
+
+Release plan (Mike, 2026-10-04): 0.9.0 is tagged and pushed but not
+published to Hex; 0.10.0 follows directly and is the next published
+release, so its CHANGELOG and upgrade notes cover 0.8.x to 0.10.0.
+
+- An ordered `formats:` list (Mike, 2026-10-04; ADR-024 amendment).
+  Agreed shape:
+  - Per collection, and per conversion (a conversion's list wins):
+    `collection :products, formats: [:avif, :webp]`,
+    `convert :email, width: 600, formats: [:original]`.
+  - Quality per format, as a keyword list that keeps the order:
+    `formats: [avif: [quality: 50], webp: [quality: 80]]`; plain atoms
+    mix in.
+  - Priority order: the library makes each conversion and responsive
+    variant in every listed format, from the original. The last format is
+    the safe one: `url/2`, `og:image`, emails and the `<img>` use it; the
+    earlier ones become typed `<picture>` sources in order.
+  - `:original` means the uploaded file's format (a PNG stays PNG).
+  - Covers conversions and variants only; the original's own copies stay
+    with `webp:` (served copy, `keep_original`, `max_dimension`) and
+    `avif:`.
+  - `avif: true` becomes shorthand for `formats: [:avif, :webp]`.
+  - Default `[:webp]`, as 0.9.0's safe defaults (F7a).
+  - Touches paths and `generated_conversions` (several extensions per
+    conversion), the `responsive_images` data (variants per format),
+    delete, clean, rename, the doctor, shared variants (F8) and the
+    components. Needs its own spec.
 - Media table indexes, per `docs/ideas/media-indexes.md` (Mike, 2026-10-04):
   drop the redundant (mediable_type, mediable_id) index, make
   (deleted_at) a partial index, consider dropping (collection_name); in

@@ -273,6 +273,21 @@ longer carries EXIF or color profiles.
   (AVIF over WebP) unless the conversion sets `format:` itself.
 - `doctor --rebuild --only conversions` converts existing ones.
 
+**F7a. Safe formats.** (ADR-024 amendment, 2026-10-04, Mike; from the AVIF
+compatibility spike.)
+- Conversions are WebP by default, in every collection; a conversion's
+  `format:` overrides it and `format: :original` keeps the original's
+  format.
+- Conversions are never AVIF unless they ask for it; AVIF exists only for
+  the original and its variants, and only inside `<picture>` with a WebP
+  or original fallback. AVIF-rendering components use
+  `<picture style="display: contents">`.
+- Same-shape conversions reuse the original's variants only in the same
+  format.
+- The upgrade notes say how to keep 0.8's conversion formats and that
+  Outlook for Windows can't show WebP (use `format: :original` for email
+  conversions).
+
 **F8. No duplicate variants for same-shape conversions.** (ADR-024)
 - A conversion with the original's aspect ratio (width-only or height-only)
   gets no responsive variants of its own; its `srcset` uses the original's
@@ -321,7 +336,8 @@ quality.)
 - The backlog is reviewed again; anything moved in is specced here first.
 - `mix precommit` is green, `mix hex.build --unpack` contains no `docs/` or
   `.agents/`, the version is 0.9.0, the CHANGELOG section is dated.
-- Tagging and publishing happen only when asked.
+- Tagging and publishing happen only when asked. (2026-10-04, Mike: 0.9.0
+  is tagged and pushed, not published to Hex; work continues on 0.10.0.)
 
 ## Resolved Questions
 

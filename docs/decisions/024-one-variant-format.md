@@ -17,6 +17,29 @@ WebP and responsive variants:
 AVIF (spec 01, F3) would add a second modern format, and with it the
 question of producing every size twice.
 
+## Amendment (2026-10-04, Mike)
+The AVIF compatibility spike (`docs/ideas/avif-compatibility.md`) found
+that the AI APIs (Claude, OpenAI, Gemini) and most link previews read WebP
+but not AVIF, and an `<img>` has no fallback for a format the reader can't
+decode. Conversions are what plain URLs carry (`og:image`, emails, JSON,
+your own `<img>` tags), so:
+- Conversions are WebP by default, whatever the collection's `webp:` or
+  `avif:` say; `format:` on a conversion overrides it, and
+  `format: :original` keeps the original's format (0.8's behaviour).
+- Conversions are never AVIF unless the conversion asks for it.
+- AVIF exists only for the original and its variants, and is only offered
+  through `<picture>` sources, with the WebP or original `<img>` as the
+  fallback. Components that render AVIF wrap it in
+  `<picture style="display: contents">`, so the page's layout sees only
+  the `<img>`.
+- Same-shape conversions reuse the original's variants only when both are
+  in the same format; otherwise they get their own.
+- An ordered, per-collection and per-conversion `formats:` list (AVIF and
+  WebP side by side, quality per format) is planned for 0.10.0 (backlog).
+
+The rules below are the original decision; where they conflict, the
+amendment wins.
+
 ## Decision
 - Responsive variants are generated only in the best format that is on:
   AVIF, else WebP, else the original's format.

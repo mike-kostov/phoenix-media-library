@@ -528,16 +528,36 @@ loads, preloads) with `EXPLAIN ANALYZE`; record the plans and timings.
 **Dependencies:** none
 **Scope:** M
 
+#### Task 24e: Safe formats (F7a, ADR-024 amendment)
+**Description:** Conversions default to WebP in every collection and are
+never AVIF unless asked; AVIF only for the original and its variants,
+inside `<picture style="display: contents">`; conversion variants follow
+the conversion's format; same-shape reuse only within one format; upgrade
+notes, guides and CHANGELOG updated.
+**Acceptance criteria:**
+- [ ] In a collection without `webp:`, `:thumb` is a WebP file;
+      `format: :original` keeps the original's format.
+- [ ] In an AVIF collection, no conversion or conversion variant is AVIF,
+      and no `<img src>` or plain URL points at an AVIF file.
+- [ ] `<.responsive_img>` with AVIF renders
+      `<picture style="display: contents">`.
+- [ ] A WebP conversion doesn't reuse AVIF or JPEG variants of the
+      original.
+**Verification:** conversion, responsive and component tests; `mix precommit`.
+**Dependencies:** Tasks 24c, 24d
+**Scope:** M
+
 #### Task 24: Release preparation (P3)
 **Description:** Review the backlog again with Mike, set the version to
-0.9.0, date the CHANGELOG section, check the package. Tag and publish only
-when asked.
+0.9.0, date the CHANGELOG section, check the package. Tag and push only
+when asked; 0.9.0 is not published to Hex (Mike, 2026-10-04), work
+continues on 0.10.0.
 **Acceptance criteria:**
 - [ ] `mix precommit` green; `mix hex.build --unpack` has no `docs/` or
       `.agents/`.
 - [ ] Version and CHANGELOG say 0.9.0 with the release date.
 **Verification:** commands above; Mike's go-ahead.
-**Dependencies:** Tasks 23, 24a to 24d
+**Dependencies:** Tasks 23, 24a to 24e
 **Files:** `mix.exs`, `CHANGELOG.md`, `docs/backlog.md`
 **Scope:** S
 
