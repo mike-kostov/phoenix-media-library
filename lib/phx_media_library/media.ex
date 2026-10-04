@@ -12,7 +12,9 @@ defmodule PhxMediaLibrary.Media do
   - `disk` - Storage disk name (e.g., "local", "s3")
   - `size` - File size in bytes
   - `custom_properties` - User-defined metadata
-  - `generated_conversions` - Map of conversion names to completion status
+  - `generated_conversions` - Map of generated conversion names to `true`,
+    or to the file extension of a conversion stored in another format than
+    the original (e.g. `"thumb" => "webp"`)
   - `responsive_images` - Data for responsive image srcset
   - `mediable_type` - The type of the associated model (e.g., "posts")
   - `mediable_id` - The ID of the associated model
@@ -578,7 +580,7 @@ defmodule PhxMediaLibrary.Media do
   """
   @spec has_conversion?(t(), atom()) :: boolean()
   def has_conversion?(%__MODULE__{generated_conversions: conversions}, name) do
-    Map.get(conversions, to_string(name), false)
+    Map.get(conversions || %{}, to_string(name), false) not in [false, nil]
   end
 
   @doc """

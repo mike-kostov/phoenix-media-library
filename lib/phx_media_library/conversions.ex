@@ -58,10 +58,9 @@ defmodule PhxMediaLibrary.Conversions do
 
       # Update media with generated conversions
       generated =
-        results
-        |> Enum.filter(&match?({:ok, _}, &1))
-        |> Enum.map(fn {:ok, name} -> {to_string(name), true} end)
-        |> Map.new()
+        for {conversion, {:ok, _name}} <- Enum.zip(conversions, results),
+            into: %{},
+            do: {to_string(conversion.name), recorded(conversion)}
 
       update_generated_conversions(media, generated)
 
@@ -97,7 +96,7 @@ defmodule PhxMediaLibrary.Conversions do
 
     with {:ok, image} <- processor.open(original_path),
          {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do
-      update_generated_conversions(media, %{to_string(conversion.name) => true})
+      update_generated_conversions(media, %{to_string(conversion.name) => recorded(conversion)})
       :ok
     end
   end
@@ -106,7 +105,9 @@ defmodule PhxMediaLibrary.Conversions do
     telemetry_metadata = %{media: media, conversion: conversion.name}
 
     Telemetry.span([:phx_media_library, :conversion], telemetry_metadata, fn ->
-      conversion_path = PathGenerator.relative_path(media, conversion.name)
+      conversion_path =
+        PathGenerator.relative_path(with_recorded(media, conversion), conversion.name)
+
       temp_path = temp_file_path(conversion_path)
 
       result =
@@ -143,6 +144,24 @@ defmodule PhxMediaLibrary.Conversions do
       |> Enum.reject(fn {_, v} -> is_nil(v) end)
 
     processor.save(image, path, opts)
+  end
+
+  # What generated_conversions records for a conversion: the extension of
+  # its format, which PathGenerator puts on its file, or `true` when it
+  # keeps the original's (no format, or `:original`).
+  defp recorded(%Conversion{format: format}) when format in [nil, :original], do: true
+  defp recorded(%Conversion{format: :jpeg}), do: "jpg"
+  defp recorded(%Conversion{format: format}), do: Atom.to_string(format)
+
+  defp with_recorded(%Media{} = media, %Conversion{} = conversion) do
+    recorded =
+      Map.put(
+        media.generated_conversions || %{},
+        to_string(conversion.name),
+        recorded(conversion)
+      )
+
+    %{media | generated_conversions: recorded}
   end
 
   defp update_generated_conversions(%Media{} = media, new_conversions) do

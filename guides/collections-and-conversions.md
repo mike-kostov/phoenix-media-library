@@ -208,6 +208,9 @@ convert :name,
   collections: [:images]   # Only apply to these collections
 ```
 
+A conversion with `format:` is stored with that format's extension:
+`photo_name.webp` for a JPEG original.
+
 ### Fit options
 
 | Mode | Behaviour |

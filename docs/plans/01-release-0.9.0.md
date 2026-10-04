@@ -256,10 +256,10 @@ extension; `PathGenerator.relative_path/2` swaps the extension for
 conversions that have one recorded; `true` (legacy) keeps the original's.
 `owned_paths/1`, rename and the doctor follow automatically.
 **Acceptance criteria:**
-- [ ] A conversion with `format: :webp` on a JPEG is stored as `…_thumb.webp`
+- [x] A conversion with `format: :webp` on a JPEG is stored as `…_thumb.webp`
       with WebP bytes, and its URL ends in `.webp`.
-- [ ] Media with `"thumb" => true` keeps resolving to `…_thumb.jpg`.
-- [ ] Delete, clean, rename and the doctor handle both.
+- [x] Media with `"thumb" => true` keeps resolving to `…_thumb.jpg`.
+- [x] Delete, clean, rename and the doctor handle both.
 **Verification:** conversion, path and doctor tests (fail first on the old
 code); `mix precommit`.
 **Dependencies:** Task 1
@@ -267,7 +267,7 @@ code); `mix precommit`.
 **Scope:** M
 
 ### Checkpoint: Bugs
-- [ ] Full suite and `mix precommit` green.
+- [x] Full suite and `mix precommit` green.
 
 ### Phase 3: Image formats
 

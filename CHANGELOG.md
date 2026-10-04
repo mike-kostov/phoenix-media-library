@@ -175,6 +175,11 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- A conversion with `format:` wrote its bytes under the original's
+  extension (WebP bytes in `photo_thumb.jpg`), so it was served with the
+  wrong content type. It is now stored with its format's extension
+  (`photo_thumb.webp`), recorded in `generated_conversions` (e.g.
+  `"thumb" => "webp"`); conversions recorded before keep their old paths.
 - `Plug.MediaDownload` read each file into memory before sending it; it
   now streams it from disk with `send_file`, so large downloads don't grow
   the server's memory. Headers are unchanged.

@@ -130,7 +130,9 @@ defmodule PhxMediaLibrary.PathGenerator do
   """
   @spec relative_path(Media.t(), atom() | String.t() | nil) :: String.t()
   def relative_path(%Media{} = media, conversion \\ nil) do
-    Config.path_generator().relative_path(media, conversion)
+    media
+    |> Config.path_generator().relative_path(conversion)
+    |> with_recorded_extension(media, conversion)
   end
 
   @doc """
@@ -150,10 +152,26 @@ defmodule PhxMediaLibrary.PathGenerator do
     gen = Config.path_generator()
     Code.ensure_loaded(gen)
 
-    if function_exported?(gen, :relative_path, 3) do
-      gen.relative_path(media, conversion, path_context)
-    else
-      gen.relative_path(media, conversion)
+    path =
+      if function_exported?(gen, :relative_path, 3) do
+        gen.relative_path(media, conversion, path_context)
+      else
+        gen.relative_path(media, conversion)
+      end
+
+    with_recorded_extension(path, media, conversion)
+  end
+
+  # Generators name a conversion after the original, extension included. A
+  # conversion stored in another format has that format's extension recorded
+  # in generated_conversions (e.g. "thumb" => "webp"); `true` keeps the
+  # original's, as for media recorded before 0.9.
+  defp with_recorded_extension(path, _media, nil), do: path
+
+  defp with_recorded_extension(path, %Media{generated_conversions: conversions}, conversion) do
+    case (conversions || %{})[to_string(conversion)] do
+      extension when is_binary(extension) -> Path.rootname(path) <> "." <> extension
+      _ -> path
     end
   end
 
