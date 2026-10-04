@@ -150,21 +150,17 @@ defmodule PhxMediaLibrary.Webp do
   defp fit_within(image, max, processor) do
     with {:ok, {w, h}} <- processor.dimensions(image) do
       case fit_dimensions({w, h}, max) do
-        {^w, ^h} ->
-          {:ok, {image, {w, h}}}
-
-        {tw, th} ->
-          conversion = %PhxMediaLibrary.Conversion{
-            name: :webp,
-            width: tw,
-            height: th,
-            fit: :contain
-          }
-
-          with {:ok, resized} <- processor.apply_conversion(image, conversion) do
-            {:ok, {resized, {tw, th}}}
-          end
+        {^w, ^h} -> {:ok, {image, {w, h}}}
+        {tw, th} -> resize(image, {tw, th}, processor)
       end
+    end
+  end
+
+  defp resize(image, {tw, th}, processor) do
+    conversion = %PhxMediaLibrary.Conversion{name: :webp, width: tw, height: th, fit: :contain}
+
+    with {:ok, resized} <- processor.apply_conversion(image, conversion) do
+      {:ok, {resized, {tw, th}}}
     end
   end
 

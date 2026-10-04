@@ -9,6 +9,7 @@ defmodule PhxMediaLibrary.PipelineTest do
 
   import PhxMediaLibrary.Fixtures
 
+  alias Mix.Tasks.PhxMediaLibrary.DropOriginals
   alias PhxMediaLibrary.{Config, Conversion, Conversions, Media, PathGenerator, Pipeline}
   alias PhxMediaLibrary.TestRepo, as: Repo
 
@@ -84,7 +85,7 @@ defmodule PhxMediaLibrary.PipelineTest do
       # Bring the original back, as if it predates keep_original: false.
       File.cp!(png, original)
 
-      Mix.Tasks.PhxMediaLibrary.DropOriginals.run([])
+      DropOriginals.run([])
       refute File.exists?(original)
     end
 

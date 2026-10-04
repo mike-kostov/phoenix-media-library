@@ -480,7 +480,6 @@ defmodule PhxMediaLibrary.MediaAdder do
         {:ok, checksum}
 
       {:error, _} = error ->
-        Process.delete(hash_key)
         error
     end
   end

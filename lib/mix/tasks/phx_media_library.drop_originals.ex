@@ -45,28 +45,11 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
 
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()
-    module = opts[:model] && Module.concat([opts[:model]])
 
     Mix.shell().info("\n#{IO.ANSI.cyan()}PhxMediaLibrary — Drop originals#{IO.ANSI.reset()}")
     if dry_run?, do: Mix.shell().info("#{IO.ANSI.yellow()}DRY RUN#{IO.ANSI.reset()}")
 
-    query =
-      from(m in PhxMediaLibrary.Media,
-        where: like(m.mime_type, "image/%") and m.mime_type != "image/webp",
-        order_by: [asc: m.inserted_at]
-      )
-
-    query =
-      if opts[:collection],
-        do: where(query, [m], m.collection_name == ^opts[:collection]),
-        else: query
-
-    query =
-      if module,
-        do: where(query, [m], m.mediable_type == ^module.__schema__(:source)),
-        else: query
-
-    media = repo.all(query)
+    media = repo.all(build_query(opts))
     total = length(media)
     Mix.shell().info("Found #{total} image(s)\n")
 
@@ -85,6 +68,25 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
     Mix.shell().info(
       "\n#{IO.ANSI.green()}✓ #{dropped} #{verb}, #{skipped} skipped#{IO.ANSI.reset()}"
     )
+  end
+
+  defp build_query(opts) do
+    module = opts[:model] && Module.concat([opts[:model]])
+
+    query =
+      from(m in PhxMediaLibrary.Media,
+        where: like(m.mime_type, "image/%") and m.mime_type != "image/webp",
+        order_by: [asc: m.inserted_at]
+      )
+
+    query =
+      if opts[:collection],
+        do: where(query, [m], m.collection_name == ^opts[:collection]),
+        else: query
+
+    if module,
+      do: where(query, [m], m.mediable_type == ^module.__schema__(:source)),
+      else: query
   end
 
   # Settings come from the media's own collection (PhxMediaLibrary.Model), the

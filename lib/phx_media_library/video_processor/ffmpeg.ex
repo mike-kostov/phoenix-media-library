@@ -118,17 +118,8 @@ defmodule PhxMediaLibrary.VideoProcessor.FFmpeg do
         ]
 
         case System.cmd(ffmpeg, args, stderr_to_stdout: false, into: []) do
-          {chunks, 0} ->
-            jpeg = IO.iodata_to_binary(chunks)
-
-            if byte_size(jpeg) > 0 do
-              {:ok, jpeg}
-            else
-              {:error, :empty_poster_frame}
-            end
-
-          {_output, code} ->
-            {:error, {:ffmpeg_failed, code}}
+          {chunks, 0} -> poster_result(IO.iodata_to_binary(chunks))
+          {_output, code} -> {:error, {:ffmpeg_failed, code}}
         end
     end
   end
@@ -136,6 +127,9 @@ defmodule PhxMediaLibrary.VideoProcessor.FFmpeg do
   # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  defp poster_result(<<>>), do: {:error, :empty_poster_frame}
+  defp poster_result(jpeg), do: {:ok, jpeg}
 
   defp parse_ffprobe_output(json_str) do
     case Jason.decode(json_str) do

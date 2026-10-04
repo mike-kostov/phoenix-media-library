@@ -9,6 +9,7 @@ defmodule PhxMediaLibrary.HardeningTest do
 
   import PhxMediaLibrary.Fixtures
 
+  alias Mix.Tasks.PhxMediaLibrary.{Clean, Doctor}
   alias PhxMediaLibrary.{Config, Conversion, Conversions, Media, PathGenerator, StorageWrapper}
   alias PhxMediaLibrary.Storage.Disk
   alias PhxMediaLibrary.TestRepo, as: Repo
@@ -267,7 +268,7 @@ defmodule PhxMediaLibrary.HardeningTest do
       refute File.exists?(PathGenerator.full_path(webp_only, nil))
       orphan = create_media(disk: "local")
 
-      Mix.Tasks.PhxMediaLibrary.Clean.run(["--records-only", "--force", "--disk", "local"])
+      Clean.run(["--records-only", "--force", "--disk", "local"])
 
       assert Repo.get(Media, webp_only.id)
       refute Repo.get(Media, orphan.id)
@@ -306,7 +307,7 @@ defmodule PhxMediaLibrary.HardeningTest do
 
       # Parents are plain structs in these tests, so skip the orphan check.
       send(self(), {:mix_shell_input, :yes?, true})
-      Mix.Tasks.PhxMediaLibrary.Doctor.run(["--fix", "--skip-orphans"])
+      Doctor.run(["--fix", "--skip-orphans"])
 
       assert Repo.get(Media, webp_only.id)
       assert Repo.get(Media, missing_thumb.id)

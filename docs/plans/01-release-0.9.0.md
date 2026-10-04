@@ -47,15 +47,15 @@ files) and format `path_generator/tenant.ex`. Remove the dead
 `Process.delete` in `MediaAdder.stream_and_checksum/3` (B4). No behaviour
 change.
 **Acceptance criteria:**
-- [ ] `mix precommit` exits 0 on a clean checkout.
-- [ ] No test changes besides the 3 alias fixes.
+- [x] `mix precommit` exits 0 on a clean checkout.
+- [x] No test changes besides the 3 alias fixes.
 **Verification:** `mix precommit`; full suite count unchanged.
 **Dependencies:** None
 **Files:** the 11 flagged files, `media_adder.ex`
 **Scope:** M (many files, mechanical)
 
 ### Checkpoint: Gate
-- [ ] `mix precommit` green; from here on it runs before every commit.
+- [x] `mix precommit` green; from here on it runs before every commit.
 
 ### Phase 1: Security
 

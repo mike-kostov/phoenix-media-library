@@ -170,20 +170,23 @@ defmodule PhxMediaLibrary.UrlGenerator do
        when is_integer(width) and width > 0 do
     key = if conversion, do: to_string(conversion), else: "original"
 
-    variants =
-      case Map.get(responsive || %{}, key) do
-        %{"variants" => list} when is_list(list) -> list
-        list when is_list(list) -> list
-        _ -> []
-      end
-
-    sorted = variants |> Enum.filter(&is_map/1) |> Enum.sort_by(& &1["width"])
+    sorted =
+      (responsive || %{})
+      |> Map.get(key)
+      |> variants_of()
+      |> Enum.filter(&is_map/1)
+      |> Enum.sort_by(& &1["width"])
 
     case Enum.find(sorted, &(&1["width"] >= width)) || List.last(sorted) do
       %{"path" => path} when is_binary(path) -> path
       _ -> nil
     end
   end
+
+  # Responsive data is either %{"variants" => [...]} or a legacy bare list.
+  defp variants_of(%{"variants" => list}) when is_list(list), do: list
+  defp variants_of(list) when is_list(list), do: list
+  defp variants_of(_), do: []
 
   @doc """
   Generate a URL for a specific path (used for responsive images / poster
