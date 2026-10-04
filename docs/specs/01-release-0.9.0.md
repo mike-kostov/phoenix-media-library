@@ -302,6 +302,21 @@ and the unformatted `path_generator/tenant.ex` are fixed (ADR-022).
   per-machine settings. (Amended 2026-10-04: Testcontainers dropped, see
   ADR-026.)
 
+**P5. Release quality.** (Added 2026-10-04, Mike: 0.9.0 should be prime
+quality.)
+- No warnings from `mix compile`, `mix test`, `mix docs`, credo or
+  dialyzer.
+- HexDocs reads well: modules grouped in the sidebar, internal modules
+  hidden, every public module documented with an example; the README links
+  into it.
+- AVIF compatibility researched with sources (browsers, mobile, Googlebot,
+  AI tools that read images); a finding that changes ADR-024 goes to Mike
+  before any change.
+- The media table's indexes measured on Postgres with 15 models and about
+  10,000 media each; a migration only if the numbers show a need.
+- Known limits are documented (the doctor doesn't notice placeholder
+  setting changes).
+
 **P3. Release.**
 - The backlog is reviewed again; anything moved in is specced here first.
 - `mix precommit` is green, `mix hex.build --unpack` contains no `docs/` or

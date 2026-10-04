@@ -480,6 +480,50 @@ responsive-rule unification (ADR-017) in the CHANGELOG.
 **Files:** `guides/*.md`, `CHANGELOG.md`
 **Scope:** M
 
+#### Task 24a: Zero warnings (P5)
+**Description:** Fix every warning from compile, tests (including the
+unused import in `direct_upload_test.exs`), docs (old CHANGELOG
+references, the README's `LICENSE` link), credo and dialyzer.
+**Acceptance criteria:**
+- [ ] `mix compile --force`, `mix test`, `mix docs`, `mix credo --strict`
+      and `mix dialyzer` print no warnings.
+**Verification:** the commands above; `mix precommit`.
+**Dependencies:** Task 23
+**Scope:** S
+
+#### Task 24b: HexDocs pass (P5)
+**Description:** Group modules in the sidebar, hide internal modules,
+check every public module's docs for an example, document the
+placeholder-settings limit in the placeholders and doctor docs, link the
+README to HexDocs where it helps.
+**Acceptance criteria:**
+- [ ] The sidebar groups modules; internal modules don't appear.
+- [ ] Every public module has a `@moduledoc` with an example.
+**Verification:** `mix docs` and a look at the output; review with Mike.
+**Dependencies:** Task 24a
+**Scope:** M
+
+#### Task 24c: AVIF compatibility spike (P5)
+**Description:** Research with sources which browsers (desktop and mobile),
+Googlebot and AI tools read AVIF; record it in `docs/ideas/`. Bring any
+finding that changes ADR-024 (conversions in AVIF) to Mike first.
+**Acceptance criteria:**
+- [ ] An idea doc with a sourced support table and a recommendation.
+**Verification:** review with Mike.
+**Dependencies:** none
+**Scope:** S
+
+#### Task 24d: Media table index spike (P5)
+**Description:** Fill a Postgres database with 15 models and about 10,000
+media each; run the library's queries (`get_media`, ordering, the doctor's
+loads, preloads) with `EXPLAIN ANALYZE`; record the plans and timings.
+**Acceptance criteria:**
+- [ ] An idea doc with the plans and a recommendation (keep, add or drop
+      indexes); a migration only with Mike's agreement.
+**Verification:** review with Mike.
+**Dependencies:** none
+**Scope:** M
+
 #### Task 24: Release preparation (P3)
 **Description:** Review the backlog again with Mike, set the version to
 0.9.0, date the CHANGELOG section, check the package. Tag and publish only
@@ -489,7 +533,7 @@ when asked.
       `.agents/`.
 - [ ] Version and CHANGELOG say 0.9.0 with the release date.
 **Verification:** commands above; Mike's go-ahead.
-**Dependencies:** Task 23
+**Dependencies:** Tasks 23, 24a to 24d
 **Files:** `mix.exs`, `CHANGELOG.md`, `docs/backlog.md`
 **Scope:** S
 
