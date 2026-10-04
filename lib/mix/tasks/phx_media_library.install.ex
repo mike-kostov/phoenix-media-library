@@ -187,6 +187,18 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
 
         config :phx_media_library, mediable_id_type: :integer
 
+    #{IO.ANSI.cyan()}Serving uploads#{IO.ANSI.reset()}
+    ---------------
+
+    Serve the local disk from your #{IO.ANSI.yellow()}endpoint.ex#{IO.ANSI.reset()}, before the other
+    Plug.Static. The headers serve SVG uploads sandboxed, so scripts in them
+    never run:
+
+        plug Plug.Static,
+          at: "/uploads",
+          from: {#{inspect(Mix.Project.config()[:app])}, "priv/static/uploads"},
+          headers: {PhxMediaLibrary.Plug.StaticHeaders, :headers, []}
+
     """)
   end
 

@@ -75,11 +75,11 @@ explicitly and falls back to a default.
 sets a sandboxing CSP and `nosniff` on `.svg`; `Plug.MediaDownload` sends
 the same; the install task's endpoint snippet and the storage guide use it.
 **Acceptance criteria:**
-- [ ] `Plug.Static` with the function serves `.svg` with
+- [x] `Plug.Static` with the function serves `.svg` with
       `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`
       and `X-Content-Type-Options: nosniff`; a `.jpg` gets neither CSP nor change.
-- [ ] `Plug.MediaDownload` sends the same headers for SVG.
-- [ ] Install task output and storage guide show the setup.
+- [x] `Plug.MediaDownload` sends the same headers for SVG.
+- [x] Install task output and storage guide show the setup.
 **Verification:** new plug tests; `mix precommit`.
 **Dependencies:** Task 1
 **Files:** new `plug/static_headers.ex`, `plug/media_download.ex`, `mix/tasks/phx_media_library.install.ex`, `guides/storage.md`, tests

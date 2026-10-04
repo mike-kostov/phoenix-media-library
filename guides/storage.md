@@ -41,6 +41,23 @@ disks: [
 ]
 ```
 
+Serve the files from your endpoint with their own `Plug.Static`, placed
+before the default one. Phoenix's default `static_paths` don't include
+`uploads`, so without this the URLs return 404:
+
+```elixir
+# lib/my_app_web/endpoint.ex
+plug Plug.Static,
+  at: "/uploads",
+  from: {:my_app, "priv/static/uploads"},
+  headers: {PhxMediaLibrary.Plug.StaticHeaders, :headers, []}
+```
+
+The `headers` option serves SVG uploads sandboxed. An SVG can contain
+JavaScript; through an `<img>` tag it never runs, but opening the file's URL
+directly would run it on your domain. With these headers it doesn't. See
+`PhxMediaLibrary.Plug.StaticHeaders`.
+
 ### Amazon S3
 
 Requires the optional `:ex_aws`, `:ex_aws_s3`, and `:sweet_xml` dependencies.

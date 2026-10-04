@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- SVG uploads could run JavaScript when someone opened their URL directly.
+  `PhxMediaLibrary.Plug.StaticHeaders` serves SVG sandboxed (a restrictive
+  `Content-Security-Policy` plus `nosniff`) for the `Plug.Static` that
+  serves uploads, and `Plug.MediaDownload` applies the same headers. The
+  install task and the storage guide now show how to serve uploads at all;
+  Phoenix's default static paths don't include them.
 - The image processor turned a file's extension into an atom when saving,
   so files with many unusual extensions slowly filled the atom table (which
   is never garbage collected). Extensions are now matched against a fixed

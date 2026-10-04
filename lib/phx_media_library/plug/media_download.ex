@@ -71,6 +71,8 @@ if Code.ensure_loaded?(Plug.Conn) do
     - Without `:require_signed`, any file under the configured `:root`
       directory can be downloaded via this plug. Use Phoenix's existing auth
       pipeline (`:require_authenticated_user`, etc.) to restrict access.
+    - SVG files are served sandboxed (see `PhxMediaLibrary.Plug.StaticHeaders`),
+      so scripts inside them never run.
     - The HMAC secret (`secret_key_base`) should be at least 32 bytes of
       cryptographically random data.  Do **not** reuse your Phoenix
       `secret_key_base` for this purpose in production.
@@ -81,6 +83,7 @@ if Code.ensure_loaded?(Plug.Conn) do
     import Plug.Conn
 
     alias PhxMediaLibrary.{Config, SignedUrl}
+    alias PhxMediaLibrary.Plug.StaticHeaders
 
     @impl Plug
     def init(opts) do
@@ -119,6 +122,7 @@ if Code.ensure_loaded?(Plug.Conn) do
         # Serve strictly as the declared type; never let the browser sniff
         # an upload into HTML.
         |> put_resp_header("x-content-type-options", "nosniff")
+        |> merge_resp_headers(StaticHeaders.for_path(filename))
         |> send_resp(200, content)
         |> halt()
       else
