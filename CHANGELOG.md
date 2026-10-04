@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `PhxMediaLibrary.absolute_url/4`: a full URL (scheme and host) for
+  `og:image` tags, image sitemaps, emails and APIs, from your endpoint or a
+  URL string such as a CDN host. Already-absolute URLs (S3) pass through.
 - `PhxMediaLibrary.update_alt_text/2` and `update_custom_properties/2` to
   edit alt text, captions and other custom properties after upload (`nil`
   removes a key). Keys the library maintains (`webp`, `webp_width`,

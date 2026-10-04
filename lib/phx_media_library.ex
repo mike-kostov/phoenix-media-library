@@ -336,6 +336,19 @@ defmodule PhxMediaLibrary do
   defdelegate url(media, conversion \\ nil, opts \\ []), to: Media
 
   @doc """
+  A full URL (scheme and host included) for `og:image` tags, image sitemaps,
+  emails and APIs. `base` is your endpoint or a URL string. See
+  `PhxMediaLibrary.UrlGenerator.absolute_url/4`.
+
+  ## Examples
+
+      <meta property="og:image" content={PhxMediaLibrary.absolute_url(@product.image, :preview, MyAppWeb.Endpoint)} />
+
+  """
+  @spec absolute_url(Media.t(), atom() | nil, module() | String.t(), keyword()) :: String.t()
+  defdelegate absolute_url(media, conversion, base, opts \\ []), to: PhxMediaLibrary.UrlGenerator
+
+  @doc """
   Get a CDN-friendly URL with a cache-busting fingerprint query parameter.
 
   Appends `?vsn={checksum[0..7]}` when the media item has a stored checksum so

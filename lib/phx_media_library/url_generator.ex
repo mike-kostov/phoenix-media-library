@@ -108,6 +108,41 @@ defmodule PhxMediaLibrary.UrlGenerator do
   """
   @spec url(Media.t(), atom() | nil, keyword()) :: String.t()
   def url(%Media{} = media, conversion \\ nil, opts \\ []) do
+    do_url(media, conversion, opts)
+  end
+
+  @doc """
+  A full URL, including scheme and host, for places that need one: the
+  `og:image` meta tag, image sitemaps, emails, JSON APIs.
+
+  `base` is your Phoenix endpoint (its `url/0` is used) or a URL string,
+  e.g. a CDN host. URLs that are already absolute (S3, a CDN `base_url`)
+  are returned unchanged. `opts` are those of `url/3`.
+
+  ## Examples
+
+      UrlGenerator.absolute_url(media, :preview, MyAppWeb.Endpoint)
+      #=> "https://shop.example/uploads/products/42/…/preview.jpg"
+
+      UrlGenerator.absolute_url(media, nil, "https://cdn.example")
+      #=> "https://cdn.example/uploads/products/42/…/red-dress.jpg"
+
+  """
+  @spec absolute_url(Media.t(), atom() | nil, module() | String.t(), keyword()) :: String.t()
+  def absolute_url(%Media{} = media, conversion, base, opts \\ []) do
+    url = do_url(media, conversion, opts)
+
+    case URI.parse(url) do
+      %URI{scheme: scheme} when scheme in ["http", "https"] -> url
+      %URI{host: host} when is_binary(host) -> "https:" <> url
+      _relative -> base |> base_url() |> URI.merge(url) |> URI.to_string()
+    end
+  end
+
+  defp base_url(base) when is_binary(base), do: base
+  defp base_url(endpoint) when is_atom(endpoint), do: endpoint.url()
+
+  defp do_url(%Media{} = media, conversion, opts) do
     {cache_bust, opts} = Keyword.pop(opts, :cache_bust, false)
     {width, adapter_opts} = Keyword.pop(opts, :width)
 
