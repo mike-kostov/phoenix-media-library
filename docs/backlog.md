@@ -28,6 +28,8 @@ publishing, the whole backlog is reviewed again.
   entry fails, so the media already saved isn't reported back.
 - `Plug.MediaDownload` reads the whole file into memory; use `send_file`.
 - Dead `Process.delete` in `MediaAdder.stream_and_checksum/3`.
+- The tiny placeholder keeps the photo's metadata, so it weighs 2 to 5.5 KB
+  instead of about 1 KB (see `docs/ideas/placeholders.md`).
 
 ### Features
 - Original filenames on document downloads. Since ADR-015 a downloaded
@@ -38,13 +40,15 @@ publishing, the whole backlog is reviewed again.
 - AVIF next to WebP, served through `<picture>` with WebP as fallback.
 - `<.media_figure>` component with a caption from
   `custom_properties["caption"]`.
-- Placeholders: see `docs/ideas/placeholders.md` (needs a decision).
+- Placeholders on by default for every image: `placeholder: :blur | :color |
+  false` per collection (`docs/ideas/placeholders.md`).
 
 ### Project
 - Make `mix precommit` pass: 16 `credo --strict` findings and the
   unformatted `lib/phx_media_library/path_generator/tenant.ex` (ADR-022).
 - Docs and examples pass over the README and guides for everything new in
-  0.9.0.
+  0.9.0. The README promotes the developer experience and features, with
+  short examples.
 - Release 0.9.0.
 
 ## After 0.9.0
