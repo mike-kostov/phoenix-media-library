@@ -251,8 +251,8 @@ These rules are always active. They govern how code is written in this repositor
 
 ### Path conventions
 
-- Use a consistent, predictable path structure: `{collection}/{id}/{conversion}/{filename}`
-- Make paths configurable but provide sensible defaults
+- The default path structure (`PathGenerator.Default`) is `{mediable_type}/{mediable_id}/{uuid}/{file_name}`; conversions sit beside the original as `{name}_{conversion}.{ext}`, responsive variants in a `responsive/` subfolder. `Flat`, `DateBased` and `Tenant` generators exist; every generator keeps the media `uuid` in the path so names never collide
+- Make paths configurable (the `PathGenerator` behaviour) but provide sensible defaults
 - Support both public and private file URLs
 - Generate **signed/expiring URLs** for private storage backends
 
@@ -267,8 +267,8 @@ These rules are always active. They govern how code is written in this repositor
         convert :preview, width: 800, quality: 85
       end
 
-- Process conversions **asynchronously** by default (via Oban or similar)
-- Store conversion status to track processing state
+- Process conversions **asynchronously** by default: `AsyncProcessor.Task` is the default, `AsyncProcessor.Oban` is optional (retries, persistence), `AsyncProcessor.Inline` runs synchronously (ADR-003)
+- `generated_conversions` records which conversions exist; there is no pending/failed status yet (backlog). `mix phx_media_library.doctor` reports missing conversions
 - Support **responsive images** (multiple sizes/srcset generation)
 - Handle processing failures gracefully with retries and error reporting
 
