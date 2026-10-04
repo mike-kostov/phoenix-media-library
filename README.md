@@ -112,7 +112,7 @@ end
 | **Schema integration** | Polymorphic `has_media()` macro, declarative DSL for collections & conversions |
 | **Collections** | MIME validation, file limits, size limits, single-file mode, fallback URLs |
 | **Image conversions** | Thumbnails, resizes, format conversion, responsive `srcset`. Optional, works without libvips |
-| **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); responsive variants inherit WebP |
+| **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); conversions and responsive variants are WebP too |
 | **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits, custom headers, download telemetry |
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO, …), in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |

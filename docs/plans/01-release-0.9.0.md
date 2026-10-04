@@ -275,10 +275,11 @@ code); `mix precommit`.
 **Description:** Without an explicit `format:`, a conversion in a WebP
 collection is saved as WebP (AVIF hook added in Task 11).
 **Acceptance criteria:**
-- [ ] In `:webp_photos`, `:thumb` and `:preview` are WebP files.
-- [ ] An explicit `format: :png` still wins.
-- [ ] `doctor --rebuild --only conversions` converts existing JPEG
-      conversions.
+- [x] In `:webp_photos`, `:thumb` and `:preview` are WebP files.
+- [x] An explicit `format: :png` still wins.
+- [x] `doctor --rebuild --only conversions` converts existing JPEG
+      conversions (tested through `Pipeline.conversions/2`, the step the
+      doctor runs; the old file is removed).
 **Verification:** pipeline and doctor tests; `mix precommit`.
 **Dependencies:** Task 9
 **Files:** `conversions.ex`, `model.ex`, tests

@@ -274,6 +274,9 @@ media_collections do
 end
 ```
 
+Conversions in a WebP collection are WebP too (`photo_thumb.webp`), unless
+the conversion sets its own `format:`.
+
 Or turn it on globally (each knob overridable per collection):
 
 ```elixir

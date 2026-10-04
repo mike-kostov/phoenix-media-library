@@ -8,6 +8,7 @@ defmodule PhxMediaLibrary.Conversions do
     Conversion,
     LocalSource,
     Media,
+    Model,
     PathGenerator,
     Pipeline,
     StorageWrapper,
@@ -49,6 +50,7 @@ defmodule PhxMediaLibrary.Conversions do
   defp process(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
+    conversions = Enum.map(conversions, &in_served_format(media, &1))
 
     with {:ok, image} <- processor.open(original_path) do
       results =
@@ -93,6 +95,7 @@ defmodule PhxMediaLibrary.Conversions do
   defp process_single(%Media{} = media, %Conversion{} = conversion, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
+    conversion = in_served_format(media, conversion)
 
     with {:ok, image} <- processor.open(original_path),
          {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do
@@ -108,6 +111,7 @@ defmodule PhxMediaLibrary.Conversions do
       conversion_path =
         PathGenerator.relative_path(with_recorded(media, conversion), conversion.name)
 
+      previous_path = previous_path(media, conversion)
       temp_path = temp_file_path(conversion_path)
 
       result =
@@ -116,6 +120,10 @@ defmodule PhxMediaLibrary.Conversions do
                {:ok, _} <- save_image(processor, converted, temp_path, conversion),
                {:ok, content} <- File.read(temp_path),
                :ok <- StorageWrapper.put(storage, conversion_path, content) do
+            # Rebuilt in another format: the old file is no longer owned.
+            if previous_path not in [nil, conversion_path],
+              do: StorageWrapper.delete(storage, previous_path)
+
             {:ok, conversion.name}
           else
             error ->
@@ -144,6 +152,21 @@ defmodule PhxMediaLibrary.Conversions do
       |> Enum.reject(fn {_, v} -> is_nil(v) end)
 
     processor.save(image, path, opts)
+  end
+
+  # Without its own format:, a conversion is saved in the collection's
+  # served format (ADR-024).
+  defp in_served_format(media, %Conversion{format: nil} = conversion) do
+    format = Model.conversion_format(media, media.collection_name, media.mime_type)
+    %{conversion | format: format}
+  end
+
+  defp in_served_format(_media, conversion), do: conversion
+
+  # Where the conversion was stored before, if it was generated already.
+  defp previous_path(media, conversion) do
+    if Map.has_key?(media.generated_conversions || %{}, to_string(conversion.name)),
+      do: PathGenerator.relative_path(media, conversion.name)
   end
 
   # What generated_conversions records for a conversion: the extension of

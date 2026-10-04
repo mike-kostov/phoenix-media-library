@@ -96,4 +96,55 @@ defmodule PhxMediaLibrary.ConversionExtensionTest do
     assert webp_path =~ ~r/\.webp$/
     assert webp_path in Media.owned_paths(media)
   end
+
+  describe "in a WebP collection (ADR-024)" do
+    setup do
+      jpeg = create_temp_image(format: :jpg, width: 40, height: 40)
+      on_exit(fn -> File.rm(jpeg) end)
+
+      {:ok, media} =
+        create_test_post()
+        |> PhxMediaLibrary.add(jpeg)
+        |> PhxMediaLibrary.to_collection(:webp_photos, disk: :local)
+
+      media = TestRepo.get!(Media, media.id)
+      on_exit(fn -> Media.delete_files(TestRepo.get(Media, media.id) || media) end)
+      %{webp_media: media}
+    end
+
+    test "conversions without a format are WebP files", %{webp_media: media} do
+      for name <- [:thumb, :preview] do
+        assert media.generated_conversions[to_string(name)] == "webp"
+
+        assert <<"RIFF", _::binary-size(4), "WEBP", _::binary>> =
+                 File.read!(PathGenerator.full_path(media, name))
+      end
+    end
+
+    test "an explicit format still wins", %{webp_media: media} do
+      media = convert(media, %Conversion{name: :small_png, width: 20, format: :png})
+
+      assert media.generated_conversions["small_png"] == "png"
+
+      assert <<0x89, "PNG", _::binary>> =
+               File.read!(PathGenerator.full_path(media, :small_png))
+    end
+
+    test "rebuilding converts a conversion stored before, and removes the old file",
+         %{webp_media: media} do
+      # As stored before 0.9: a JPEG thumb recorded as `true`.
+      old =
+        TestRepo.update!(Ecto.Changeset.change(media, generated_conversions: %{"thumb" => true}))
+
+      old_path = PathGenerator.full_path(old, :thumb)
+      File.write!(old_path, File.read!(PathGenerator.full_path(old, nil)))
+
+      assert :ok = Pipeline.conversions(old, only: [:thumb])
+
+      rebuilt = TestRepo.get!(Media, media.id)
+      assert rebuilt.generated_conversions["thumb"] == "webp"
+      assert File.exists?(PathGenerator.full_path(rebuilt, :thumb))
+      refute File.exists?(old_path)
+    end
+  end
 end

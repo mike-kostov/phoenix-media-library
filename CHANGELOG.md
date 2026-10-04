@@ -167,6 +167,12 @@ What apps must change when upgrading:
   removed in 0.10.0.
 
 ### Changed
+- **Conversions follow the served format** (ADR-024). In a collection with
+  `webp:` on, conversions without their own `format:` are saved as WebP
+  (`photo_thumb.webp`), as they are what pages show most. A conversion's
+  `format:` still wins. Existing conversions change with
+  `mix phx_media_library.doctor --rebuild --only conversions`, which also
+  removes the old files.
 - The `cache_bust: true` fingerprint is now `?vsn=…` (was `?v=…`), which
   `Plug.Static` answers with a one-year `Cache-Control` out of the box.
 - `responsive_img` defaults `sizes` to `"auto, 100vw"` for lazy images
