@@ -121,6 +121,7 @@ defmodule PhxMediaLibrary.MixProject do
         "guides/telemetry.md",
         "guides/advanced.md",
         "guides/multi-tenant.md",
+        "guides/upgrading-to-0.9.md",
         "CHANGELOG.md"
       ],
       groups_for_extras: [
@@ -132,7 +133,8 @@ defmodule PhxMediaLibrary.MixProject do
           "guides/error-handling.md",
           "guides/telemetry.md",
           "guides/advanced.md",
-          "guides/multi-tenant.md"
+          "guides/multi-tenant.md",
+          "guides/upgrading-to-0.9.md"
         ]
       ]
     ]

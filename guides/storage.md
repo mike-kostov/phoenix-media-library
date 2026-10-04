@@ -170,7 +170,7 @@ a fingerprint of the file's checksum:
 
 ```elixir
 PhxMediaLibrary.url(media, :thumb, cache_bust: true)
-#=> "/uploads/posts/42/…/posts_42_images_….jpg?vsn=a1b2c3d4"
+#=> "/uploads/posts/42/…/posts_42_images_…_thumb.jpg?vsn=a1b2c3d4"
 ```
 
 - **Local disk:** `Plug.Static` already answers `?vsn=` requests with
@@ -373,8 +373,8 @@ defmodule MyApp.Storage.CustomAdapter do
 
   @impl true
   def url(path, opts) do
-    # Return a public URL string
-    "https://my-cdn.com/#{path}"
+    # Return a public URL string; url_path/1 percent-encodes each segment
+    "https://my-cdn.com/" <> PhxMediaLibrary.Storage.url_path(path)
   end
 end
 ```
@@ -411,24 +411,26 @@ relying on global config.
 
 ## Path structure
 
-PhxMediaLibrary stores files using a predictable path convention:
+Each media item gets a folder of its own. With the default path generator
+and file naming, a photo in a WebP collection with responsive variants is
+stored as:
 
 ```
-{collection}/{mediable_id}/{filename}
-{collection}/{mediable_id}/conversions/{conversion_name}/{filename}
-{collection}/{mediable_id}/responsive/{filename}-{width}.{ext}
+posts/42/<uuid>/posts_42_images_<uuid>.jpg                       original
+posts/42/<uuid>/posts_42_images_<uuid>.webp                      served WebP (.avif beside it)
+posts/42/<uuid>/posts_42_images_<uuid>_thumb.webp                conversion
+posts/42/<uuid>/responsive/posts_42_images_<uuid>_320w.webp      variant of the original
+posts/42/<uuid>/responsive/posts_42_images_<uuid>_thumb_320w.webp  variant of a conversion
 ```
 
-For example:
+That is `{mediable_type}/{mediable_id}/{uuid}/{file_name}`. Conversions add
+`_{name}` and carry their format's extension; variants live in
+`responsive/` and add `_{width}w`. Other layouts come with the
+`PathGenerator.Flat`, `PathGenerator.DateBased` and `PathGenerator.Tenant`
+generators, or your own.
 
-```
-images/42/photo.jpg
-images/42/conversions/thumb/photo.jpg
-images/42/responsive/photo-320.jpg
-```
-
-For safety, PhxMediaLibrary sanitizes the filenames users provide. It preserves
-the original name in the database `file_name` field for display.
+The library chooses the stored name (see `file_naming:` in the collections
+guide); the uploaded name is kept in `metadata["original_file_name"]`.
 
 ## Telemetry
 

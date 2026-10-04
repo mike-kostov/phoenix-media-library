@@ -76,38 +76,38 @@ Generate the `media` table migration with all required fields:
 mix phx_media_library.install
 ```
 
-### Regenerate conversions
+### Check and repair: the doctor
 
-Regenerate derived images after changing conversion definitions:
-
-```bash
-mix phx_media_library.regenerate --conversion thumb
-mix phx_media_library.regenerate --collection images
-mix phx_media_library.regenerate --dry-run
-```
-
-### Regenerate responsive images
+`mix phx_media_library.doctor` checks every media item and repairs what it
+can. Without flags it only reports. Repairs show their plan and ask before
+running (`--yes` skips the question, `--dry-run` only shows the plan).
 
 ```bash
-mix phx_media_library.regenerate_responsive
-mix phx_media_library.regenerate_responsive --collection images
+mix phx_media_library.doctor                       # report
+mix phx_media_library.doctor --regenerate          # missing conversions, WebP, AVIF, variants, placeholders
+mix phx_media_library.doctor --reextract           # missing metadata (dimensions, EXIF)
+mix phx_media_library.doctor --rename              # move files to their collection's file_naming (URLs change)
+mix phx_media_library.doctor --drop-originals      # where WebP keep_original: false
+mix phx_media_library.doctor --fix                 # delete records with no files left
+mix phx_media_library.doctor --deep                # also verify checksums
+mix phx_media_library.doctor --id <uuid> --regenerate
 ```
 
-### Regenerate WebP
+After changing settings, `--rebuild` regenerates derivatives that already
+exist, all or `--only conversions,webp,avif,responsive,placeholders`
+(`--conversion thumb` for one conversion). Narrow any run with `--model`,
+`--collection` or `--disk`. `--strict` exits with status 1 when it finds
+errors, for scheduled jobs.
 
-Re-derive the WebP sibling from each media's original using the current config
-(run after changing `quality` or enabling WebP on existing media). Media stored
-with `keep_original: false` have no source, so the task skips them and logs a
-warning.
-
-```bash
-mix phx_media_library.regenerate_webp
-mix phx_media_library.regenerate_webp --collection photos --dry-run
-```
+The doctor replaces `regenerate`, `regenerate_webp`,
+`regenerate_responsive` and `drop_originals`, which still run, print a
+notice, and go in 0.10.0.
 
 ### Clean orphaned files
 
-Remove files from storage that no longer have a corresponding database record:
+Remove files from storage that no longer have a database record, and
+records whose files are gone. It works on local disks; use the doctor
+elsewhere.
 
 ```bash
 # Dry run: see what would be deleted
@@ -115,6 +115,10 @@ mix phx_media_library.clean
 
 # Actually delete
 mix phx_media_library.clean --force
+
+# Only files, or only records
+mix phx_media_library.clean --files-only
+mix phx_media_library.clean --records-only
 ```
 
 ### Generate custom migration
@@ -178,14 +182,17 @@ children = [
 
 ### How it works
 
-When media is uploaded and conversions are defined, PhxMediaLibrary enqueues an
-Oban job with the media ID, conversion names, and the `mediable_type`. The
-`PhxMediaLibrary.Workers.ProcessConversions` worker then:
+When an image is uploaded (or any file to a collection with conversions),
+PhxMediaLibrary enqueues an Oban job with the media ID, conversion names,
+and the `mediable_type`. Images enqueue a job even without conversions,
+for their placeholder. The `PhxMediaLibrary.Workers.ProcessConversions`
+worker then:
 
 1. Looks up the media record from the database
 2. Discovers the originating Ecto schema module from the `mediable_type`
 3. Retrieves the full `Conversion` definitions (width, height, quality, fit, etc.)
 4. Processes each conversion and updates the media record
+5. Makes the placeholders of the image and its new conversions
 
 ### Retry behaviour
 

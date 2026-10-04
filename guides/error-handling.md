@@ -46,11 +46,13 @@ media = PhxMediaLibrary.to_collection!(adder, :images)
 
 | Error | When it occurs |
 |-------|---------------|
-| `:invalid_mime_type` | File MIME type not in collection's `:accepts` list |
-| `{:file_too_large, actual, max}` | File size exceeds collection's `:max_size` |
-| `:content_type_mismatch` | Magic-bytes detection doesn't match declared MIME type |
-| `:file_not_found` | Source file path doesn't exist |
-| `:not_found` | Media record not found in database |
+| `{:invalid_mime_type, detected, accepts}` | The file's type is not in the collection's `:accepts` list |
+| `{:file_too_large, actual, max}` | The file exceeds the collection's `:max_size` (also from `presigned_upload/3` for a declared `:size`) |
+| `{:content_type_mismatch, detected, declared}` | The content doesn't match the type its extension declares |
+| `{:image_too_large, pixels, max}` | The image has more pixels than `:max_pixels` allows |
+| `{:download_failed, reason}` | `add_from_url/3` couldn't fetch the file |
+| `:not_found` | The media record, or a direct upload's stored object, doesn't exist |
+| `{:partial, saved, failed}` | Some uploads in `consume_media/5` failed; `saved` were stored |
 | `%Ecto.Changeset{}` | Database validation failure |
 
 ## Custom exception types
@@ -84,8 +86,8 @@ Raised when a storage backend operation fails:
 %PhxMediaLibrary.StorageError{
   message: "failed to write file",
   operation: :put,
-  path: "images/1/photo.jpg",
-  adapter: PhxMediaLibrary.Storage.Local
+  path: "posts/42/<uuid>/posts_42_images_<uuid>.jpg",
+  adapter: PhxMediaLibrary.Storage.Disk
 }
 ```
 

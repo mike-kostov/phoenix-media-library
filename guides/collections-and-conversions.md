@@ -37,6 +37,25 @@ media_collections do
 end
 ```
 
+### File naming
+
+The library chooses the name a file is stored under; the uploader's name
+is never used in a path. Pick a strategy per collection with
+`file_naming:`, or globally with `config :phx_media_library, file_naming:`:
+
+| Strategy | Stored as | For |
+|---|---|---|
+| `:semantic` (default) | `posts_42_images_<uuid>.jpg` | Rebuilding a lost record from the name alone |
+| `:slug` | `red-summer-dress.jpg` | Readable names for search engines; Cyrillic is transliterated (`снимка` becomes `snimka`) |
+| `:random` | `k3j5x…q2.jpg` | Names that reveal nothing |
+
+The extension always follows the detected content, so a PNG uploaded as
+`photo.jpg` is stored as `.png`. The uploaded name is kept in
+`metadata["original_file_name"]`; `Media.alt_text/1` and download URLs use
+it. `using_filename/2` replaces that name (and the `:slug` base). Media
+stored under other names moves with
+`mix phx_media_library.doctor --rename`.
+
 ### Collection options
 
 | Option | Type | Default | Description |
@@ -45,11 +64,15 @@ end
 | `:single_file` | `boolean()` | `false` | Keep only one file; new upload replaces existing |
 | `:max_files` | `pos_integer()` | `nil` (unlimited) | Maximum number of files; oldest excess is removed |
 | `:max_size` | `pos_integer()` | `nil` (unlimited) | Maximum file size in bytes |
+| `:max_pixels` | `pos_integer() \| :infinity` | global `:max_image_pixels` | Largest image accepted, in pixels |
+| `:file_naming` | `:semantic \| :slug \| :random` | global `:file_naming`, else `:semantic` | How stored files are named ([File naming](#file-naming)) |
 | `:disk` | `atom()` | configured default | Storage disk override |
 | `:fallback_url` | `String.t()` | `nil` | URL returned when collection is empty |
 | `:fallback_path` | `String.t()` | `nil` | Filesystem path returned when collection is empty |
 | `:verify_content_type` | `boolean()` | `true` | Verify file content matches declared MIME type via magic bytes |
 | `:webp` | `boolean() \| keyword()` | inherits global | Transcode raster/HEIC uploads to WebP and serve them ([WebP Conversion](#webp-conversion)) |
+| `:avif` | `boolean() \| keyword()` | inherits global, off | Add an AVIF beside each image ([AVIF](#avif)) |
+| `:placeholder` | `:blur \| :color \| false \| keyword()` | global, else `:blur` | What images show while they load ([Placeholders](#placeholders)) |
 | `:responsive` | `boolean() \| keyword()` | inherits global | Generate multi-width `srcset` variants on add ([Responsive Images](#responsive-images)) |
 
 ### Content-Type verification
@@ -204,12 +227,14 @@ convert :name,
   height: 150,             # Target height in pixels
   fit: :cover,             # Resize strategy (see table below)
   quality: 85,             # JPEG/WebP quality (1-100)
-  format: :webp,           # Output format (:jpg, :png, :webp)
+  format: :webp,           # Output format (:jpg, :png, :webp, :avif, or :original)
   collections: [:images]   # Only apply to these collections
 ```
 
 A conversion with `format:` is stored with that format's extension:
-`photo_name.webp` for a JPEG original.
+`photo_name.webp` for a JPEG original. Without `format:`, it follows the
+collection's served format (WebP or AVIF, when on); `format: :original`
+keeps the original's format.
 
 ### Fit options
 
@@ -234,12 +259,12 @@ post
 
 ### Regenerating conversions
 
-If you change conversion definitions, regenerate existing media:
+If you change conversion definitions, rebuild them for existing media:
 
 ```bash
-mix phx_media_library.regenerate --conversion thumb
-mix phx_media_library.regenerate --collection images
-mix phx_media_library.regenerate --dry-run
+mix phx_media_library.doctor --rebuild --only conversions --conversion thumb
+mix phx_media_library.doctor --rebuild --only conversions --collection images
+mix phx_media_library.doctor --rebuild --only conversions --dry-run
 ```
 
 ## Checksum & integrity verification
@@ -313,8 +338,8 @@ Regenerate WebP from each media's original after changing `quality` (or after
 enabling WebP on existing media):
 
 ```bash
-mix phx_media_library.regenerate_webp
-mix phx_media_library.regenerate_webp --collection photos --dry-run
+mix phx_media_library.doctor --rebuild --only webp
+mix phx_media_library.doctor --rebuild --only webp --collection photos --dry-run
 ```
 
 > Regeneration reads the original, which is why `keep_original: true` is the
@@ -325,10 +350,9 @@ Switching an existing collection to `keep_original: false` (or adding a
 `max_dimension`) is a three-step migration, in this order:
 
 ```bash
-mix phx_media_library.regenerate_webp --model MyApp.Catalog.Product
-mix phx_media_library.regenerate_responsive --model products
-mix phx_media_library.drop_originals --model MyApp.Catalog.Product   # last: the two above read the original
-mix phx_media_library.clean --files-only                              # then --force to delete stale variants
+mix phx_media_library.doctor --rebuild --only webp,responsive --model products
+mix phx_media_library.doctor --drop-originals --model products   # last: the rebuild reads the original
+mix phx_media_library.clean --files-only                          # local disks; then --force to delete stale variants
 ```
 
 ## AVIF
@@ -440,26 +464,27 @@ PhxMediaLibrary.srcset(media)
 # => "…/responsive/image_320w.webp 320w, …/responsive/image_640w.webp 640w, …"
 ```
 
-Configure the default widths (and placeholder) globally. This global
-`:enabled` supplies defaults but does not auto-generate variants for every
-collection. Generation is opt-in via the per-collection `:responsive` flag (or
-`with_responsive_images/1`):
+Configure the default widths globally:
 
 ```elixir
 config :phx_media_library,
   responsive_images: [
-    enabled: true,
-    widths: [320, 640, 960, 1280, 1920],
-    tiny_placeholder: true
+    enabled: true,          # the default
+    widths: [320, 640, 960, 1280, 1920]
   ]
 ```
 
-Regenerate responsive variants for existing media (WebP-encoded when the media
-already serves WebP):
+Originals get variants only in collections that set `responsive:` (or with
+`with_responsive_images/1`). Conversions get them whenever the global
+`enabled` is on, which is the default; `enabled: false` turns them off.
+A later minor release will make conversions follow their collection too
+(ADR-017).
+
+Rebuild responsive variants for existing media after changing widths:
 
 ```bash
-mix phx_media_library.regenerate_responsive
-mix phx_media_library.regenerate_responsive --collection photos
+mix phx_media_library.doctor --rebuild --only responsive
+mix phx_media_library.doctor --rebuild --only responsive --collection photos
 ```
 
 See the [LiveView guide](liveview.md) for rendering responsive images with the

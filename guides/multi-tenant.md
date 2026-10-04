@@ -44,6 +44,9 @@ acme/posts/42/550e8400-.../photo.jpg
 acme/posts/42/550e8400-.../photo_thumb.jpg
 ```
 
+The examples use a collection with `file_naming: :slug`; by default the
+stored name is `posts_42_images_<uuid>.jpg`.
+
 ### Configure
 
 ```elixir
@@ -68,7 +71,7 @@ Without a `tenant_id` key the generator falls back to `"shared"`, so
 existing call sites that omit context keep working:
 
 ```elixir
-# Falls back to "shared/posts/42/.../photo.jpg"
+# Falls back to "shared/posts/42/.../photo_thumb.jpg"
 PhxMediaLibrary.PathGenerator.relative_path(media, :thumb)
 ```
 

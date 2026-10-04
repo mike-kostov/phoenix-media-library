@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+See [Upgrading to 0.9](guides/upgrading-to-0.9.md) for what to do after
+upgrading and how to keep the old behaviour where possible.
+
 ### Breaking changes
 What apps must change when upgrading:
 - **Direct uploads to AWS are a form POST by default, not a PUT.**
@@ -155,7 +158,7 @@ What apps must change when upgrading:
   metadata (e.g. from the EXIF bug fixed in 0.8.4), files not named by
   their collection's `file_naming`, originals kept despite
   `keep_original: false`, checksum mismatches (`--deep`), orphaned records
-  and the soft-delete backlog — on any storage, not only local disks.
+  and the soft-delete backlog, on any storage, not only local disks.
   Repairs are opt-in and confirmed: `--regenerate`, `--reextract`,
   `--rename`, `--drop-originals`, `--fix`, and `--rebuild` (with `--only`,
   `--conversion`) to regenerate after changing settings. Filters `--model`,
@@ -230,6 +233,10 @@ What apps must change when upgrading:
   (`"100vw"` before), so supporting browsers pick a file for the image's
   real width instead of the full screen; in a 4-column grid that is about a
   quarter of the bytes. Pass `sizes` to keep the old value.
+- Planned for a later minor release (ADR-017): conversions will get
+  responsive variants only when their collection sets `responsive:`,
+  instead of whenever the global switch is on. A deprecation notice will
+  come first; nothing changes in 0.9.
 
 ### Fixed
 - The tiny placeholder kept the photo's metadata (EXIF, color profile),

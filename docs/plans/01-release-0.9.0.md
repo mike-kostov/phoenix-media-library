@@ -471,8 +471,10 @@ each behaviour change (S1, F1, F5, F7, file naming, loading defaults, cache
 fingerprint, doctor) and how to keep the old behaviour; announce the
 responsive-rule unification (ADR-017) in the CHANGELOG.
 **Acceptance criteria:**
-- [ ] No guide describes 0.8 behaviour as current.
-- [ ] Each behaviour change has a migration note.
+- [x] No guide describes 0.8 behaviour as current. (Audited guide by
+      guide against the CHANGELOG and the code.)
+- [x] Each behaviour change has a migration note
+      (`guides/upgrading-to-0.9.md`).
 **Verification:** `mix docs` without new warnings; review with Mike.
 **Dependencies:** Task 22
 **Files:** `guides/*.md`, `CHANGELOG.md`

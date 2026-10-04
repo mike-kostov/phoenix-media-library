@@ -320,7 +320,8 @@ defmodule MyAppWeb.PostLive.Edit do
   end
 
   def handle_event("delete_media", %{"id" => id}, socket) do
-    case delete_media_by_id(id, notify: self()) do
+    # The ID comes from the browser: scope it to this post's images.
+    case delete_media_by_id(id, model: socket.assigns.post, collection: :images, notify: self()) do
       :ok -> {:noreply, stream_delete_by_dom_id(socket, :media, "media-#{id}")}
       {:error, reason} -> {:noreply, put_flash(socket, :error, inspect(reason))}
     end
@@ -476,7 +477,7 @@ Compact inline upload trigger:
 | `consume_media/5` | Consumes uploads and persists via `PhxMediaLibrary.add/2 \|> to_collection/2` |
 | `stream_existing_media/4` | Loads existing media into a LiveView stream |
 | `stream_media_items/3` | Inserts newly created media into a stream |
-| `delete_media_by_id/2` | Deletes a media record and its files |
+| `delete_media_by_id/2` | Deletes a media record and its files; pass `:model` (and `:collection`) so a browser-sent ID can only delete that record's media |
 | `media_upload_errors/1` | Human-readable error strings for an upload |
 | `media_entry_errors/2` | Human-readable error strings for an entry |
 | `has_upload_entries?/1` | Whether the upload has any entries |
@@ -528,7 +529,8 @@ def handle_info({:media_error, {:partial, _saved, failed}}, socket) do
 end
 
 def handle_info({:media_removed, media}, socket) do
-  {:noreply, put_flash(socket, :info, "Removed #{media.file_name}")}
+  name = media.metadata["original_file_name"] || media.file_name
+  {:noreply, put_flash(socket, :info, "Removed #{name}")}
 end
 ```
 
@@ -566,7 +568,31 @@ PhxMediaLibrary provides rendering components.
 > Requires the collection to opt into responsive variants (`responsive: true`,
 > see [Collections & Conversions](collections-and-conversions.md#responsive-images)).
 > When the collection also serves WebP (`webp: true`), the generated `srcset` is
-> WebP automatically.
+> WebP automatically. With `avif: true` it renders a `<picture>` with an AVIF
+> source first, so browsers without AVIF still get the WebP.
+
+### What the image components do for you
+
+`<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>`
+share these defaults:
+
+- `width` and `height` from the stored file, so the browser reserves the
+  space (pair with CSS `height: auto`, Tailwind's default).
+- `alt` from `custom_properties["alt"]`, else the uploaded file's name made
+  readable (`Media.alt_text/1`). Set it with
+  `PhxMediaLibrary.update_alt_text/2`.
+- The stored placeholder as the image's background while it loads;
+  `placeholder={false}` turns it off for one image.
+- `decoding="async"`, except for the page's main image, which you mark with
+  `priority`: it gets `loading="eager"` and `fetchpriority="high"`.
+- Lazy `<.responsive_img>` defaults `sizes` to `"auto, 100vw"`, so
+  supporting browsers measure the slot; set `sizes` when you know the
+  layout. `<.picture>` applies `sizes` to every source.
+
+```heex
+<%!-- The hero image --%>
+<.responsive_img media={@post.cover} priority class="w-full h-auto" />
+```
 
 ### Image with a caption
 

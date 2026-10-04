@@ -9,7 +9,7 @@ Add `phx_media_library` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.7.0"},
+    {:phx_media_library, "~> 0.9"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},
@@ -74,15 +74,15 @@ config :phx_media_library,
 The current default is `:binary_id`, kept for backwards compatibility with
 existing installations. No existing app needs to change anything.
 
-Starting in 0.8, the default will change to `:string`. A `varchar` column
+The default may change to `:string` in a later release. A `varchar` column
 accepts UUID strings, integer-to-string coercions, and slug values equally
 well. That makes it the best fit for a library used across many apps. The
 tradeoff is a marginal index overhead compared to a native `bigint` or `uuid`
 column on very large tables; if that matters, set `:integer` or `:binary_id`
 explicitly.
 
-For new apps, set `:string` today. You will need no change
-when 0.8 ships.
+For new apps, set `:string` today, and a change of default won't affect
+you.
 
 ```elixir
 # New app: set it explicitly now, no change needed if the default shifts later
@@ -144,11 +144,14 @@ See the [Storage guide](storage.md) for custom adapters and advanced configurati
 ```elixir
 config :phx_media_library,
   responsive_images: [
-    enabled: true,
-    widths: [320, 640, 960, 1280, 1920],
-    tiny_placeholder: true
-  ]
+    widths: [320, 640, 960, 1280, 1920]
+  ],
+  # What images show while they load: :blur (default), :color or false
+  placeholder: :blur
 ```
+
+Collections opt in with `responsive: true`; see
+[Collections & Conversions](collections-and-conversions.md#responsive-images).
 
 ### Async processing with Oban (optional)
 
@@ -321,11 +324,13 @@ Collection-scoped variants like `has_media(:images)` add a scoped `has_many` fil
   |> PhxMediaLibrary.add("/path/to/image.jpg")
   |> PhxMediaLibrary.to_collection(:images)
 
-# With custom filename and metadata
+# With a display name and metadata. The library still picks the stored
+# name (see file naming); using_filename/2 sets metadata["original_file_name"],
+# used for alt text and downloads.
 {:ok, media} =
   post
   |> PhxMediaLibrary.add(upload)
-  |> PhxMediaLibrary.using_filename("custom-name.jpg")
+  |> PhxMediaLibrary.using_filename("Summer dress.jpg")
   |> PhxMediaLibrary.with_custom_properties(%{"alt" => "My image"})
   |> PhxMediaLibrary.to_collection(:images)
 
@@ -373,6 +378,14 @@ PhxMediaLibrary.get_first_media_url(post, :avatar, fallback: "/default.jpg")
 PhxMediaLibrary.url(media)
 PhxMediaLibrary.url(media, :thumb)
 
+# A full URL (og:image, sitemaps, emails)
+PhxMediaLibrary.absolute_url(media, :preview, MyAppWeb.Endpoint)
+
+# Preloaded associations are used without a query: a page of 40 products
+# runs one query for their images, not 40
+products = Repo.preload(products, :images)
+Enum.map(products, &PhxMediaLibrary.get_first_media_url(&1, :images, :thumb))
+
 # Composable Ecto queries
 PhxMediaLibrary.media_query(post, :images)
 |> where([m], m.mime_type == "image/png")
@@ -398,6 +411,7 @@ media.metadata
 #   "width" => 1920,
 #   "height" => 1080,
 #   "has_alpha" => false,
+#   "original_file_name" => "photo.jpg",
 #   "exif" => %{"orientation" => 1, ...},
 #   "extracted_at" => "2026-02-27T16:00:00Z"
 # }
