@@ -59,8 +59,8 @@ db_available? =
   end
 
 # S3 tests run against a reused Ministack container (ADR-026), through
-# Req like the rest of the library.
-Application.put_env(:ex_aws, :http_client, ExAws.Request.Req)
+# Req like the rest of the library; tests can inspect the requests sent.
+Application.put_env(:ex_aws, :http_client, PhxMediaLibrary.RecordingS3Client)
 
 s3_available? =
   case PhxMediaLibrary.Ministack.ensure_started() do

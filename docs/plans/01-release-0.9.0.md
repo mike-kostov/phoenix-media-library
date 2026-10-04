@@ -179,7 +179,7 @@ endpoint from `account_id:`.
 **Description:** Upload requests carry an ACL header only when the disk sets
 `acl:`.
 **Acceptance criteria:**
-- [ ] Without `acl:`, put and multipart upload send no `x-amz-acl`
+- [x] Without `acl:`, put and multipart upload send no `x-amz-acl`
       (asserted on the request); with `acl:`, they send it.
 **Verification:** S3 tests; `mix precommit`.
 **Dependencies:** Task 5c

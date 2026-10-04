@@ -73,7 +73,7 @@ service; `provider:` picks the right defaults for each.
 | `:endpoint` | `:generic` | API URL, e.g. `"https://s3.example.com"` |
 | `:base_url` | R2 | Public URL base: a CDN or custom domain |
 | `:addressing` | no | `:path` (default) or `:virtual_host` |
-| `:acl` | no | ACL sent with uploads (default: `"private"`) |
+| `:acl` | no | ACL sent with uploads (default: none, the bucket's settings apply) |
 | `:cache_control` | no | `Cache-Control` stored with uploads (see Caching) |
 
 ```elixir

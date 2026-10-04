@@ -59,7 +59,8 @@ if Code.ensure_loaded?(ExAws.S3) do
       public files only from a custom domain or r2.dev URL, so `:r2` disks
       need it
     - `:direct_upload` - how browsers upload directly: `:post` or `:put`
-    - `:acl` - Default ACL for uploads (default: "private")
+    - `:acl` - ACL sent with uploads, e.g. `"public-read"` (default: none,
+      so the bucket's settings apply)
     - `:cache_control` - `Cache-Control` header stored with every upload,
       e.g. `"public, max-age=31536000, immutable"` for files served through
       a CDN with `cache_bust: true` URLs (default: none)
@@ -135,13 +136,9 @@ if Code.ensure_loaded?(ExAws.S3) do
     def put(path, content, opts) do
       opts = options(opts)
       bucket = Keyword.fetch!(opts, :bucket)
-      acl = Keyword.get(opts, :acl, "private")
-
-      upload_opts =
-        case Keyword.get(opts, :cache_control) do
-          nil -> [acl: acl]
-          cache_control -> [acl: acl, cache_control: cache_control]
-        end
+      # No ACL unless the disk sets one: AWS buckets with default settings
+      # reject most ACLs, and R2 doesn't support them (ADR-025).
+      upload_opts = Keyword.take(opts, [:acl, :cache_control])
 
       result =
         case content do

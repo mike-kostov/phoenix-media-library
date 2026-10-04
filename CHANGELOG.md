@@ -147,6 +147,10 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- S3 uploads no longer send `acl: "private"` unless the disk sets `acl:`.
+  Per AWS's documentation, buckets with default settings (ACLs disabled)
+  reject uploads with that ACL, and R2 doesn't support ACL headers. Without an ACL, the bucket's own
+  settings apply, which keep objects private by default on AWS.
 - Files added to an S3 disk lost their end: the adapter dropped the last
   partial 5 MiB part of every upload, so files under 5 MiB were stored
   empty or failed to upload, and bigger ones were cut short. Broken since

@@ -48,6 +48,20 @@ defmodule PhxMediaLibrary.Storage.S3Test do
       assert {:ok, ""} = S3.get(path, s3)
     end
 
+    test "uploads send no ACL unless the disk sets one", %{prefix: prefix, s3: s3} do
+      PhxMediaLibrary.RecordingS3Client.record_to(self())
+      on_exit(fn -> PhxMediaLibrary.RecordingS3Client.record_to(nil) end)
+
+      :ok = S3.put("#{prefix}/a.txt", "a", s3)
+      :ok = S3.put("#{prefix}/b.txt", {:stream, ["b"]}, s3)
+      assert upload_acls() == [nil, nil]
+
+      s3 = Keyword.put(s3, :acl, "public-read")
+      :ok = S3.put("#{prefix}/c.txt", "c", s3)
+      :ok = S3.put("#{prefix}/d.txt", {:stream, ["d"]}, s3)
+      assert upload_acls() == ["public-read", "public-read"]
+    end
+
     test "stat returns the size and the first bytes", %{prefix: prefix, s3: s3} do
       path = "#{prefix}/a.txt"
       :ok = S3.put(path, String.duplicate("a", 1_500), s3)
@@ -153,6 +167,25 @@ defmodule PhxMediaLibrary.Storage.S3Test do
       assert media.size == byte_size("plain notes")
       assert media.mime_type == "text/plain"
       assert S3.exists?(key, s3)
+    end
+  end
+
+  # The ACL header of each upload request seen so far: a single PUT, or the
+  # request that starts a multipart upload.
+  defp upload_acls(acc \\ []) do
+    receive do
+      {:s3_request, method, url, headers} ->
+        if (method == :put and not String.contains?(url, "partNumber=")) or
+             (method == :post and String.contains?(url, "?uploads")) do
+          acl =
+            Enum.find_value(headers, fn {k, v} -> if String.downcase(k) == "x-amz-acl", do: v end)
+
+          upload_acls([acl | acc])
+        else
+          upload_acls(acc)
+        end
+    after
+      0 -> Enum.reverse(acc)
     end
   end
 
