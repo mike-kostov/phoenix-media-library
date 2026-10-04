@@ -445,8 +445,10 @@ repair flag.
 
 ### Checkpoint: Features
 - [x] Full suite, `mix precommit` and `mix dialyzer` green.
-- [ ] Review with Mike: components on a product grid and a hero image,
+- [x] Review with Mike: components on a product grid and a hero image,
       checked in a browser (placeholder blur assumption from the idea).
+      (2026-10-04: 16px a bit blocky, 32px much better; 32px became the
+      default with a size setting, and transparent images get none.)
 
 ### Phase 5: Docs and release
 
