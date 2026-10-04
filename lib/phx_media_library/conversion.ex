@@ -46,7 +46,7 @@ defmodule PhxMediaLibrary.Conversion do
   - `:height` - Target height in pixels
   - `:fit` - Resize strategy (`:contain`, `:cover`, `:fill`, `:crop`)
   - `:quality` - Output quality for JPEG/WebP (1-100)
-  - `:format` - Output format (`:jpg`, `:png`, `:webp`, `:avif`, `:original`); without it, the collection's served format
+  - `:format` - Output format (`:jpg`, `:png`, `:webp`, `:avif`, `:original`); without it, WebP (never AVIF unless asked)
   - `:collections` - Only apply to these collections (default: all)
   - `:queued` - Process asynchronously (default: true)
 

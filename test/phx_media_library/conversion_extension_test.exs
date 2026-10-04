@@ -40,8 +40,15 @@ defmodule PhxMediaLibrary.ConversionExtensionTest do
     assert Media.has_conversion?(media, :small_webp) == true
   end
 
-  test "a conversion without a format keeps the original's extension", %{media: media} do
+  test "a conversion without a format is WebP, in any collection", %{media: media} do
     media = convert(media, %Conversion{name: :small, width: 20})
+
+    assert media.generated_conversions["small"] == "webp"
+    assert PathGenerator.relative_path(media, :small) =~ ~r/_small\.webp$/
+  end
+
+  test "format: :original keeps the original's format", %{media: media} do
+    media = convert(media, %Conversion{name: :small, width: 20, format: :original})
 
     assert media.generated_conversions["small"] == true
     assert PathGenerator.relative_path(media, :small) =~ ~r/_small\.jpg$/

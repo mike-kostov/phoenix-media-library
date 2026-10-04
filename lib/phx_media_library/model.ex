@@ -173,10 +173,12 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
-  The format conversions without their own `format:` are saved in: the best
-  modern format the collection has on for this type of image, AVIF (when
-  the image processor supports it) over WebP; else `nil`, the original's
-  format (ADR-024).
+  The format conversions without their own `format:` are saved in: WebP
+  for images libvips can convert, in every collection; else `nil`, the
+  original's format. Never AVIF: conversions are what plain URLs carry
+  (`og:image`, emails, your own `<img>` tags), and AI tools and most link
+  previews can't read AVIF (ADR-024, amended). `format: :original` on a
+  conversion keeps the original's format.
 
   ## Examples
 
@@ -184,20 +186,9 @@ defmodule PhxMediaLibrary.Model do
       #=> :webp
 
   """
-  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) :: :avif | :webp | nil
-  def conversion_format(target, collection_name, mime_type) do
-    cond do
-      Keyword.get(avif_settings(target, collection_name), :enabled, false) and
-        PhxMediaLibrary.Avif.convertible?(mime_type) and PhxMediaLibrary.Avif.supported?() ->
-        :avif
-
-      Keyword.get(webp_settings(target, collection_name), :enabled, false) and
-          PhxMediaLibrary.Webp.convertible?(mime_type) ->
-        :webp
-
-      true ->
-        nil
-    end
+  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) :: :webp | nil
+  def conversion_format(_target, _collection_name, mime_type) do
+    if PhxMediaLibrary.Webp.convertible?(mime_type), do: :webp
   end
 
   @doc """

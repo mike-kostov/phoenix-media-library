@@ -36,8 +36,14 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
     assert Enum.all?(paths, &String.ends_with?(&1, ".avif"))
     assert List.last(paths) == media.custom_properties["avif"]
 
+    # No size of the original exists twice (conversions' WebP variants live
+    # in the same folder).
     responsive_dir = Path.join(["priv/static/uploads", Path.dirname(hd(paths))])
-    refute responsive_dir |> File.ls!() |> Enum.any?(&String.ends_with?(&1, ".webp"))
+    base = Path.rootname(media.file_name)
+
+    refute responsive_dir
+           |> File.ls!()
+           |> Enum.any?(&(&1 =~ ~r/^#{base}_\d+w\.webp$/))
   end
 
   test "<.picture> offers AVIF, then WebP, then the img", %{jpeg: jpeg} do
@@ -56,7 +62,8 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
   test "<.responsive_img> becomes a <picture> when the media has an AVIF", %{jpeg: jpeg} do
     html = render_component(&ViewHelpers.responsive_img/1, media: add(jpeg, :avif_responsive))
 
-    assert html =~ "<picture>"
+    # display: contents: the page's layout sees only the <img>.
+    assert html =~ ~s(<picture style="display: contents">)
     assert html =~ ~s(type="image/avif")
     assert html =~ ~s(loading="lazy")
   end
@@ -66,5 +73,22 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
 
     refute html =~ "<picture>"
     assert html =~ "srcset="
+  end
+
+  test "no conversion, conversion variant or plain URL is AVIF", %{jpeg: jpeg} do
+    media = add(jpeg, :avif_responsive)
+
+    assert media.generated_conversions |> Map.values() |> Enum.all?(&(&1 == "webp"))
+
+    for {key, %{"variants" => variants}} <- media.responsive_images,
+        key != "original",
+        variant <- variants,
+        do: refute(variant["path"] =~ ".avif", "#{key} has an AVIF variant")
+
+    for conversion <- [nil, :thumb, :preview],
+        do: refute(PhxMediaLibrary.url(media, conversion) =~ ".avif")
+
+    html = render_component(&ViewHelpers.responsive_img/1, media: media, conversion: :preview)
+    refute html =~ ".avif"
   end
 end

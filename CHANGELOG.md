@@ -100,11 +100,13 @@ What apps must change when upgrading:
   `responsive_images: [tiny_placeholder: false]` still turns them off.
 - AVIF, opt-in: `avif: true` (or `[quality: n]`) globally or per
   collection stores an AVIF beside the original, at the served file's size
-  (`custom_properties["avif"]`). Conversions in such a collection are AVIF
-  too, over WebP. Without AVIF support in libvips, uploads go on without
-  it and a warning is logged once. Responsive variants are then AVIF only
-  (ADR-024), and `<.picture>` and `<.responsive_img>` offer AVIF first,
-  then WebP, then the `<img>`. The AVIF is deleted, cleaned and renamed
+  (`custom_properties["avif"]`). Without AVIF support in libvips, uploads
+  go on without it and a warning is logged once. The original's responsive
+  variants are then AVIF only (ADR-024), and `<.picture>` and
+  `<.responsive_img>` offer them first, then WebP, then the `<img>`;
+  `<.responsive_img>` uses `<picture style="display: contents">`, so
+  layouts see only the `<img>`. Conversions stay WebP: a plain URL is
+  never AVIF. The AVIF is deleted, cleaned and renamed
   with its media; `mix phx_media_library.doctor` reports a missing AVIF,
   `--regenerate` creates it and `--rebuild --only avif` rebuilds it.
 - Optional `supports_format?/1` image processor callback, so the library
@@ -216,15 +218,19 @@ What apps must change when upgrading:
   conversion with the original's aspect ratio (e.g. a width-only
   `:preview`) gets no responsive variants of its own; its `srcset` and the
   `width:` URL option use the original's variants narrower than it, then
-  the conversion. Crops keep their own. Existing media keeps its variants
-  until they are rebuilt. New: `Media.responsive_variants/2`.
+  the conversion, when both are in the same format (a WebP collection).
+  Crops keep their own. Existing media keeps its variants until they are
+  rebuilt. New: `Media.responsive_variants/2`.
 - `<.picture>` offers the media's WebP as a typed `<source>` (and its
   AVIF before it), instead of putting the WebP `srcset` on the `<img>`.
   Browsers pick the same files.
-- **Conversions follow the served format** (ADR-024). In a collection with
-  `webp:` on, conversions without their own `format:` are saved as WebP
-  (`photo_thumb.webp`), as they are what pages show most. A conversion's
-  `format:` still wins. Existing conversions change with
+- **Conversions are WebP by default** (ADR-024, amended). Conversions
+  without their own `format:` are saved as WebP (`photo_thumb.webp`) in
+  every collection, as they are what pages show most; they are never AVIF
+  unless they ask, since AI tools and most link previews can't read AVIF.
+  `format: :original` keeps the original's format (0.8's behaviour). For
+  conversions sent in emails, use `format: :original`: Outlook for Windows
+  can't show WebP. Existing conversions change with
   `mix phx_media_library.doctor --rebuild --only conversions`, which also
   removes the old files.
 - The `cache_bust: true` fingerprint is now `?vsn=…` (was `?v=…`), which

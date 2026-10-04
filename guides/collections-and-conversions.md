@@ -232,9 +232,12 @@ convert :name,
 ```
 
 A conversion with `format:` is stored with that format's extension:
-`photo_name.webp` for a JPEG original. Without `format:`, it follows the
-collection's served format (WebP or AVIF, when on); `format: :original`
-keeps the original's format.
+`photo_name.webp` for a JPEG original. Without `format:`, conversions are
+WebP, in every collection; `format: :original` keeps the original's format.
+Conversions are never AVIF unless they ask: their URLs end up in
+`og:image`, emails and JSON, read by tools that can't decode AVIF.
+Outlook for Windows can't show WebP, so use `format: :original` for
+conversions sent in emails.
 
 ### Fit options
 
@@ -299,8 +302,8 @@ media_collections do
 end
 ```
 
-Conversions in a WebP collection are WebP too (`photo_thumb.webp`), unless
-the conversion sets its own `format:`.
+Conversions are WebP in every collection (`photo_thumb.webp`), unless the
+conversion sets its own `format:`.
 
 Or turn it on globally (each knob overridable per collection):
 
@@ -370,10 +373,12 @@ end
 - The AVIF is stored beside the original, at the served file's size (inside
   WebP's `max_dimension`, when set). Without `quality:`, libvips uses its
   default.
-- Conversions in the collection are AVIF, and responsive variants come in
-  AVIF only: no size is stored twice.
+- The original's responsive variants come in AVIF only: no size is stored
+  twice. Conversions stay WebP, so a plain URL is never AVIF.
 - `<.picture>` and `<.responsive_img>` offer AVIF first, then WebP, then
-  the `<img>`, so browsers without AVIF still get an image:
+  the `<img>`, so browsers without AVIF still get an image.
+  `<.responsive_img>` wraps it in `<picture style="display: contents">`,
+  so your layout sees only the `<img>`:
 
 ```html
 <picture>
@@ -441,9 +446,12 @@ format. With `webp: [max_dimension: n]` the largest descriptor is the capped
 WebP at its real size, and widths above it are not generated.
 
 Conversions get variants too. One with the original's shape (a width-only
-`:preview`, say) gets none of its own: its `srcset` lists the original's
-variants narrower than it, then the conversion itself, since those files
-would be the same. Crops (`:thumb`, `:banner`) get their own.
+`:preview`, say) gets none of its own when the original's variants are in
+the same format (WebP, in a `webp: true` collection): its `srcset` lists
+the original's variants narrower than it, then the conversion itself,
+since those files would be the same. Crops (`:thumb`, `:banner`) get their
+own, and so does a conversion whose format differs from the original's
+variants, so a `srcset` never mixes formats.
 
 For a fixed-size slot (a cart thumbnail, a search result) ask for a single
 variant instead of a `srcset`. `width:` returns the smallest variant at least

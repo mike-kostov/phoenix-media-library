@@ -37,8 +37,9 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
     File.ls!(dir)
   end
 
+  # :responsive_webp: the original's variants and the conversions are WebP.
   test "a same-shape conversion gets no variants of its own", %{jpeg: jpeg} do
-    media = add(jpeg, :responsive_plain)
+    media = add(jpeg, :responsive_webp)
     files = responsive_files(media)
 
     assert Enum.any?(files, &(&1 =~ ~r/_160w\./))
@@ -46,24 +47,24 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
   end
 
   test "its srcset uses the original's variants up to its width, plus itself", %{jpeg: jpeg} do
-    media = add(jpeg, :responsive_plain)
+    media = add(jpeg, :responsive_webp)
     srcset = PhxMediaLibrary.srcset(media, :preview)
 
     assert [w160, w320, w800] = String.split(srcset, ", ")
     # The original's variants, not the conversion's.
-    assert w160 =~ ~r/_responsive-plain_[^_]+_160w\.jpg 160w$/
-    assert w320 =~ ~r/_responsive-plain_[^_]+_320w\.jpg 320w$/
-    assert w800 =~ ~r/_preview\.jpg 800w$/
+    assert w160 =~ ~r/_responsive-webp_[^_]+_160w\.webp 160w$/
+    assert w320 =~ ~r/_responsive-webp_[^_]+_320w\.webp 320w$/
+    assert w800 =~ ~r/_preview\.webp 800w$/
     assert Media.dimensions(media, :preview) == {800, 600}
   end
 
   test "the width: URL option picks from the same list", %{jpeg: jpeg} do
-    media = add(jpeg, :responsive_plain)
+    media = add(jpeg, :responsive_webp)
 
     assert PhxMediaLibrary.url(media, :preview, width: 300) =~
-             ~r/_responsive-plain_[^_]+_320w\.jpg$/
+             ~r/_responsive-webp_[^_]+_320w\.webp$/
 
-    assert PhxMediaLibrary.url(media, :preview, width: 500) =~ ~r/_preview\.jpg$/
+    assert PhxMediaLibrary.url(media, :preview, width: 500) =~ ~r/_preview\.webp$/
   end
 
   test "crops keep their own variants", %{jpeg: jpeg} do
@@ -72,5 +73,16 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
 
     assert Enum.any?(files, &(&1 =~ ~r/_banner_\d+w\./))
     refute media.responsive_images["banner"]["reuses"]
+  end
+
+  test "a WebP conversion doesn't reuse JPEG variants of the original", %{jpeg: jpeg} do
+    # :responsive_plain keeps the original as JPEG; conversions are WebP.
+    media = add(jpeg, :responsive_plain)
+
+    refute media.responsive_images["preview"]["reuses"]
+
+    assert media.responsive_images["preview"]["variants"]
+           |> Enum.map(&Path.extname(&1["path"]))
+           |> Enum.all?(&(&1 == ".webp"))
   end
 end

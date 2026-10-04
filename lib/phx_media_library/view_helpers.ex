@@ -144,7 +144,8 @@ defmodule PhxMediaLibrary.ViewHelpers do
     <%= if @sources == [] do %>
       {responsive_img_tag(assigns)}
     <% else %>
-      <picture>
+      <%!-- display: contents: the page's layout sees only the <img> --%>
+      <picture style="display: contents">
         <source :for={source <- @sources} type={source.type} srcset={source.srcset} sizes={@sizes} />
         {responsive_img_tag(assigns)}
       </picture>

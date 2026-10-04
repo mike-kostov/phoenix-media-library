@@ -77,7 +77,8 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       {orig_width, orig_height} = served_dimensions(media, conversion, orig_dims)
 
       reuses_original? =
-        conversion != nil and same_shape_as_original?(media, orig_width, orig_height)
+        conversion != nil and same_shape_as_original?(media, orig_width, orig_height) and
+          same_format_as_original?(media, conversion)
 
       variants =
         if reuses_original?,
@@ -225,7 +226,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     # When the media serves a WebP derivative, emit .webp variants. The image
     # processor picks its encoder from the destination path extension, so a
     # .webp path yields a WebP-encoded variant (smaller than the source format).
-    ext = variant_ext(media)
+    ext = variant_ext(media, conversion)
     base_name = Path.rootname(media.file_name)
 
     filename =
@@ -238,15 +239,19 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     Path.join(base_path, filename)
   end
 
-  # Variants come in one format only, the best the media has (ADR-024):
-  # .avif, else .webp, else the original's extension.
-  defp variant_ext(%Media{custom_properties: %{"avif" => avif}}) when is_binary(avif),
+  # A conversion's variants are in the conversion's own format (WebP by
+  # default, never AVIF unless it asks). The original's come in one format,
+  # the best it has (ADR-024): .avif, else .webp, else its own extension.
+  defp variant_ext(media, conversion) when not is_nil(conversion),
+    do: media |> PathGenerator.relative_path(conversion) |> Path.extname()
+
+  defp variant_ext(%Media{custom_properties: %{"avif" => avif}}, nil) when is_binary(avif),
     do: ".avif"
 
-  defp variant_ext(%Media{custom_properties: %{"webp" => webp}}) when is_binary(webp),
+  defp variant_ext(%Media{custom_properties: %{"webp" => webp}}, nil) when is_binary(webp),
     do: ".webp"
 
-  defp variant_ext(%Media{file_name: file_name}), do: Path.extname(file_name)
+  defp variant_ext(%Media{file_name: file_name}, nil), do: Path.extname(file_name)
 
   defp generate_variants(
          media,
@@ -324,6 +329,15 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       _ ->
         false
     end
+  end
+
+  # Reused variants must be in the conversion's format: a srcset mixing
+  # formats could hand a browser an AVIF it can't read.
+  defp same_format_as_original?(%Media{responsive_images: responsive} = media, conversion) do
+    variants = get_in(responsive || %{}, ["original", "variants"]) || []
+
+    variants != [] and
+      Enum.all?(variants, &(Path.extname(&1["path"] || "") == variant_ext(media, conversion)))
   end
 
   defp mark_reuse(data, conversion),

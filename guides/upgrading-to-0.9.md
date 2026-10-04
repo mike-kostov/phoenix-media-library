@@ -96,15 +96,19 @@ image's background. Before, only `<.responsive_img>` showed one, a JPEG of
 - `doctor --regenerate` makes placeholders for existing media and replaces
   the old JPEG ones.
 
-### Conversions in WebP and AVIF collections
+### Conversions are WebP
 
-In a collection with `webp:` or `avif:` on, conversions without their own
-`format:` are now WebP (or AVIF) files. To keep a JPEG conversion, give it
-a format:
+Conversions without their own `format:` are now WebP files, in every
+collection. They are never AVIF unless they ask: AI tools and most link
+previews can't read AVIF. To keep the original's format (a PNG stays PNG,
+a JPEG stays JPEG), set it on the conversion:
 
 ```elixir
-convert :thumb, width: 150, height: 150, fit: :cover, format: :jpg
+convert :thumb, width: 150, height: 150, fit: :cover, format: :original
 ```
+
+Outlook for Windows can't show WebP, so a conversion you put in emails
+should use `format: :original`.
 
 Existing conversions change after
 `mix phx_media_library.doctor --rebuild --only conversions`, which removes
@@ -117,8 +121,8 @@ stored before keep their paths.
 ### Responsive variants of conversions
 
 A conversion with the original's shape, such as a width-only `:preview`,
-gets no variants of its own; its `srcset` uses the original's. Crops keep
-theirs. Existing media keeps its variants until rebuilt.
+gets no variants of its own when the original's are in the same format
+(both WebP); its `srcset` uses the original's. Crops keep theirs. Existing media keeps its variants until rebuilt.
 
 Which conversions get variants at all is unchanged (ADR-017). A later
 minor release will make conversions follow their collection's

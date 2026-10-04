@@ -535,13 +535,13 @@ inside `<picture style="display: contents">`; conversion variants follow
 the conversion's format; same-shape reuse only within one format; upgrade
 notes, guides and CHANGELOG updated.
 **Acceptance criteria:**
-- [ ] In a collection without `webp:`, `:thumb` is a WebP file;
+- [x] In a collection without `webp:`, `:thumb` is a WebP file;
       `format: :original` keeps the original's format.
-- [ ] In an AVIF collection, no conversion or conversion variant is AVIF,
+- [x] In an AVIF collection, no conversion or conversion variant is AVIF,
       and no `<img src>` or plain URL points at an AVIF file.
-- [ ] `<.responsive_img>` with AVIF renders
+- [x] `<.responsive_img>` with AVIF renders
       `<picture style="display: contents">`.
-- [ ] A WebP conversion doesn't reuse AVIF or JPEG variants of the
+- [x] A WebP conversion doesn't reuse AVIF or JPEG variants of the
       original.
 **Verification:** conversion, responsive and component tests; `mix precommit`.
 **Dependencies:** Tasks 24c, 24d

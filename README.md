@@ -127,10 +127,11 @@ The image components do the page-speed work for you:
 - **The right size.** With `responsive: true`, `srcset` lists every
   variant, and lazy images default to `sizes="auto, 100vw"`, so supporting
   browsers measure the slot instead of assuming the full screen.
-- **Small formats.** `webp: true` serves WebP; `avif: true` adds AVIF,
-  which `<.picture>` and `<.responsive_img>` offer first, with WebP and the
-  original as fallbacks. Conversions and variants come in the best format
-  only, so no size is stored twice.
+- **Small formats.** Conversions are WebP by default. `webp: true` also
+  serves the original as WebP; `avif: true` adds an AVIF of the original
+  and its sizes, which `<.picture>` and `<.responsive_img>` offer first,
+  with WebP or the original as the fallback. A plain URL is never AVIF,
+  since AI tools and most link previews can't read it.
 - **Priority.** `priority` marks the page's main image `loading="eager"`
   and `fetchpriority="high"`; other images decode asynchronously.
 - **Caching.** `cdn_url/2` adds a content fingerprint (`?vsn=…`) that
@@ -172,10 +173,10 @@ uploader.
 |----------|-------------|
 | **Schema integration** | Polymorphic `has_media()` macro, a DSL for collections and conversions |
 | **Collections** | MIME validation, file count and size limits, pixel limits, single-file mode, fallback URLs |
-| **Image conversions** | Resizes and crops in the collection's served format, responsive `srcset`; same-shape conversions share the original's variants. Optional: works without libvips |
+| **Image conversions** | Resizes and crops, WebP by default (`format: :original` keeps the upload's format), responsive `srcset`; same-shape conversions share the original's variants. Optional: works without libvips |
 | **Placeholders** | A 32px blurred WebP (or the average color) for every image, made in the background, shown by every image component |
-| **AVIF** | Opt-in `avif: true`: an AVIF beside each image, AVIF conversions and variants, offered first with WebP and the original as fallbacks |
-| **WebP & HEIC** | `webp: true` transcodes raster and HEIC uploads to WebP and serves them; conversions and variants follow |
+| **AVIF** | Opt-in `avif: true`: an AVIF of each image and its sizes, offered first through `<picture>` with WebP or the original as the fallback |
+| **WebP & HEIC** | Conversions are WebP; `webp: true` also transcodes raster and HEIC originals to WebP and serves them |
 | **File naming** | `:semantic` (default), `:slug` or `:random` stored names; the uploaded name kept for alt text and downloads |
 | **Metadata** | Dimensions, EXIF, format and type stored in a `metadata` JSON field |
 | **Signed and download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded name, with a UTF-8 `filename*` |

@@ -330,8 +330,10 @@ defmodule PhxMediaLibrary.HardeningTest do
       thumb = Conversion.new(:thumb, width: 20, height: 20)
 
       assert :ok = Conversions.process(media, [thumb])
+      # Conversions are WebP by default; the record says so.
+      media = Repo.reload!(media)
       assert StorageWrapper.exists?(storage, PathGenerator.relative_path(media, :thumb))
-      assert Repo.reload!(media).generated_conversions == %{"thumb" => true}
+      assert media.generated_conversions == %{"thumb" => "webp"}
 
       Media.delete_files(Repo.reload!(media))
       File.rm(png)
@@ -370,7 +372,7 @@ defmodule PhxMediaLibrary.HardeningTest do
       assert {:error, {:conversions_failed, [{:error, {:broken, {:error, :broken_on_purpose}}}]}} =
                Conversions.process(media, conversions)
 
-      assert Repo.reload!(media).generated_conversions == %{"thumb" => true}
+      assert Repo.reload!(media).generated_conversions == %{"thumb" => "webp"}
 
       Media.delete_files(Repo.reload!(media))
       File.rm(png)
@@ -384,6 +386,7 @@ defmodule PhxMediaLibrary.HardeningTest do
 
       assert :ok = Conversions.process(media, [Conversion.new(:preview, width: 100)])
 
+      media = Repo.reload!(media)
       {:ok, bytes} = StorageWrapper.get(storage, PathGenerator.relative_path(media, :preview))
       {:ok, image} = Image.from_binary(bytes)
       assert {Image.width(image), Image.height(image)} == {100, 50}
