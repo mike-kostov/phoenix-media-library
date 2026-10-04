@@ -117,7 +117,7 @@ if Code.ensure_loaded?(Plug.Conn) do
       download? = Map.get(query, "dl") == "1"
 
       with :ok <- check_signature(sign_token, exp_str, relative_path, disk_config, require_signed),
-           {:ok, content, filename} <- read_file(relative_path, disk_config) do
+           {:ok, full_path, filename} <- locate_file(relative_path, disk_config) do
         conn
         |> put_content_type(filename)
         |> maybe_add_content_disposition(filename, download?)
@@ -126,7 +126,8 @@ if Code.ensure_loaded?(Plug.Conn) do
         # an upload into HTML.
         |> put_resp_header("x-content-type-options", "nosniff")
         |> merge_resp_headers(StaticHeaders.for_path(filename))
-        |> send_resp(200, content)
+        # Streamed from disk: memory doesn't grow with the file's size.
+        |> send_file(200, full_path)
         |> halt()
       else
         {:error, :forbidden} ->
@@ -170,7 +171,7 @@ if Code.ensure_loaded?(Plug.Conn) do
       {:error, :forbidden}
     end
 
-    defp read_file(relative_path, disk_config) do
+    defp locate_file(relative_path, disk_config) do
       root = Keyword.get(disk_config, :root, "priv/static/uploads")
       full_path = Path.join(root, relative_path)
 
@@ -182,14 +183,11 @@ if Code.ensure_loaded?(Plug.Conn) do
         not String.starts_with?(real_full, real_root <> "/") and real_full != real_root ->
           {:error, :forbidden}
 
-        not File.exists?(real_full) ->
-          {:error, :not_found}
+        File.regular?(real_full) ->
+          {:ok, real_full, Path.basename(relative_path)}
 
         true ->
-          case File.read(real_full) do
-            {:ok, content} -> {:ok, content, Path.basename(relative_path)}
-            {:error, _reason} -> {:error, :not_found}
-          end
+          {:error, :not_found}
       end
     end
 

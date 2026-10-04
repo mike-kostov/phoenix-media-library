@@ -243,7 +243,7 @@ returns `{:error, {:partial, saved, failed}}`, and `:notify` reports both.
 **Description:** `Plug.MediaDownload` serves files with `send_file` instead
 of reading them into memory.
 **Acceptance criteria:**
-- [ ] Download responses come from `send_file` (asserted via the conn);
+- [x] Download responses come from `send_file` (asserted via the conn);
       headers unchanged.
 **Verification:** plug tests; `mix precommit`.
 **Dependencies:** Task 3

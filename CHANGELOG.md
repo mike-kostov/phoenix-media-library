@@ -175,6 +175,9 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- `Plug.MediaDownload` read each file into memory before sending it; it
+  now streams it from disk with `send_file`, so large downloads don't grow
+  the server's memory. Headers are unchanged.
 - URLs of files whose stored name has spaces, `#`, `?` or non-ASCII letters
   (media stored before 0.9 kept the uploaded name) didn't load: a `#` cut
   the URL short. Disk and S3 public URLs, and download URLs, now
