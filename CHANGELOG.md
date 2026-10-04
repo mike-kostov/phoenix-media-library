@@ -79,7 +79,10 @@ What apps must change when upgrading:
   in `responsive_images` under `"placeholder"`; no migration. Made in the
   background by the async processor (`Task`, Oban or Inline), which an
   image upload now always starts, even in a collection without
-  conversions.
+  conversions. `<.media_img>`, `<.responsive_img>`, `<.picture>` and the
+  gallery show it as the image's inline background (`placeholder={false}`
+  turns it off for one image); `ViewHelpers.placeholder_style/2` gives the
+  CSS for your own tags.
   `responsive_images: [tiny_placeholder: false]` still turns them off.
 - AVIF, opt-in: `avif: true` (or `[quality: n]`) globally or per
   collection stores an AVIF beside the original, at the served file's size

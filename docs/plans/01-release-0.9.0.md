@@ -386,9 +386,9 @@ render the stored placeholder (background image or color); `tiny_placeholder`
 maps onto the new setting; any remaining tiny-image generation strips
 metadata.
 **Acceptance criteria:**
-- [ ] Each component renders the blur or color placeholder when present
+- [x] Each component renders the blur or color placeholder when present
       and nothing when absent.
-- [ ] `tiny_placeholder: false` turns placeholders off as before.
+- [x] `tiny_placeholder: false` turns placeholders off as before.
 **Verification:** component tests; `mix precommit`.
 **Dependencies:** Task 16
 **Files:** `view_helpers.ex`, `components.ex`, `responsive_images.ex`, `config.ex`, tests

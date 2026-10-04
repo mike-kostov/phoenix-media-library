@@ -37,6 +37,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
   - `loading` - `"lazy"` or `"eager"` (default: not set, i.e. eager)
   - `priority` - the page's main image: loads immediately and first
   - `class` - CSS classes
+  - `placeholder` - Show the stored placeholder while loading (default: true)
   - All other attributes are passed through to the img tag
 
   ## Examples
@@ -54,6 +55,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:loading, :string, default: nil, doc: ~s("lazy" or "eager"; unset means eager))
   attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
   attr(:class, :string, default: nil)
+  attr(:placeholder, :boolean, default: true)
   attr(:rest, :global)
 
   def media_img(assigns) do
@@ -69,6 +71,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
       fetchpriority={@fetchpriority}
       decoding={@decoding}
       class={@class}
+      style={@placeholder && placeholder_style(@media, @conversion)}
       {@rest}
     />
     """
@@ -135,7 +138,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
       |> assign(:sources, sources)
       |> assign(:srcset, if(sources == [], do: PhxMediaLibrary.srcset(media, conversion)))
       |> assign(:src, PhxMediaLibrary.url(media, conversion))
-      |> assign(:placeholder_uri, Media.placeholder(media, conversion))
+      |> assign(:placeholder_style, placeholder_style(media, conversion))
 
     ~H"""
     <%= if @sources == [] do %>
@@ -162,7 +165,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
       loading={@loading}
       fetchpriority={@fetchpriority}
       decoding={@decoding}
-      style={if @placeholder && @placeholder_uri, do: placeholder_style(@placeholder_uri)}
+      style={@placeholder && @placeholder_style}
       {@rest}
     />
     """
@@ -184,6 +187,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
   - `sizes` - as for `responsive_img/1`; applied to every source
   - `loading`, `priority` - as for `media_img/1`
   - `class` - CSS classes for the img element
+  - `placeholder` - Show the stored placeholder while loading (default: true)
   - `sources` - List of source configurations
 
   ## Examples
@@ -206,6 +210,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:loading, :string, default: nil, doc: ~s("lazy" or "eager"; unset means eager))
   attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
   attr(:class, :string, default: nil)
+  attr(:placeholder, :boolean, default: true)
   attr(:sources, :list, default: [])
   attr(:rest, :global)
 
@@ -242,6 +247,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
         fetchpriority={@fetchpriority}
         decoding={@decoding}
         class={@class}
+        style={@placeholder && placeholder_style(@media, @conversion)}
         {@rest}
       />
     </picture>
@@ -302,11 +308,35 @@ defmodule PhxMediaLibrary.ViewHelpers do
     |> assign(:height, assigns.height || (dimensions && elem(dimensions, 1)))
   end
 
-  defp placeholder_style(data_uri) do
-    """
-    background-image: url('#{data_uri}');
-    background-size: cover;
-    background-repeat: no-repeat;
-    """
+  @doc """
+  The inline CSS that shows the image's stored placeholder while it loads:
+  the blurred tiny image or the average color (see the `placeholder:`
+  collection option), or `nil` when it has none. A conversion without its
+  own uses the original's. The components set it; use it for your own
+  `<img>` tags.
+
+  ## Examples
+
+      <img src={PhxMediaLibrary.url(@media)} style={placeholder_style(@media, nil)} />
+
+  """
+  @spec placeholder_style(Media.t(), atom() | nil) :: String.t() | nil
+  def placeholder_style(%Media{responsive_images: responsive}, conversion) do
+    responsive = responsive || %{}
+
+    placeholder =
+      (conversion && get_in(responsive, [to_string(conversion), "placeholder"])) ||
+        get_in(responsive, ["original", "placeholder"])
+
+    case placeholder do
+      %{"data_uri" => data_uri} when is_binary(data_uri) ->
+        "background-image: url('#{data_uri}'); background-size: cover; background-repeat: no-repeat;"
+
+      %{"color" => color} when is_binary(color) ->
+        "background-color: #{color};"
+
+      _ ->
+        nil
+    end
   end
 end

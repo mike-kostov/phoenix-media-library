@@ -778,6 +778,7 @@ defmodule PhxMediaLibrary.Components do
             src={PhxMediaLibrary.url(@media, @conversion)}
             alt={PhxMediaLibrary.Media.alt_text(@media)}
             class="w-full h-full object-cover"
+            style={PhxMediaLibrary.ViewHelpers.placeholder_style(@media, @conversion)}
             loading="lazy"
           />
         <% else %>

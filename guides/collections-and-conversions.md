@@ -364,6 +364,29 @@ uploads go on without AVIF and a warning is logged once.
 `mix phx_media_library.doctor` reports media missing their AVIF;
 `--regenerate` creates it.
 
+## Placeholders
+
+Every image gets a placeholder that shows its shape and colors while it
+loads, with no JavaScript. It is made in the background after the upload
+(by the async processor), and the components set it as the image's inline
+background: `<.media_img>`, `<.responsive_img>`, `<.picture>` and the
+gallery.
+
+```elixir
+media_collections do
+  collection :products, placeholder: :blur    # default: a 16px WebP, about 120 bytes
+  collection :avatars,  placeholder: :color   # the average color
+  collection :icons,    placeholder: false
+end
+
+# Or for every collection without its own:
+config :phx_media_library, placeholder: :color
+```
+
+For your own `<img>` tags, `PhxMediaLibrary.ViewHelpers.placeholder_style/2`
+returns the CSS. Media uploaded before 0.9 has none until the doctor makes
+it (`mix phx_media_library.doctor --regenerate`).
+
 ## Responsive images
 
 Generate multiple sizes so browsers download an appropriately-sized image via
