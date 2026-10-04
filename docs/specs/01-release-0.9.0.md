@@ -337,7 +337,7 @@ quality.)
 - `mix precommit` is green, `mix hex.build --unpack` contains no `docs/` or
   `.agents/`, the version is 0.9.0, the CHANGELOG section is dated.
 - Tagging and publishing happen only when asked. (2026-10-04, Mike: 0.9.0
-  is tagged and pushed, not published to Hex; work continues on 0.10.0.)
+  is tagged and pushed, and Mike publishes it to Hex before 0.10.0.)
 
 ## Resolved Questions
 

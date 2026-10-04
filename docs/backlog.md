@@ -6,14 +6,15 @@ Planned work that has no spec yet. When work starts, it gets a spec in
 ## 0.9.0
 
 Done: everything agreed for 0.9.0 is in `docs/specs/01-release-0.9.0.md`
-and `docs/plans/01-release-0.9.0.md`, tagged 2026-10-04 (not published to
-Hex).
+and `docs/plans/01-release-0.9.0.md`, tagged 2026-10-04. Mike publishes it
+to Hex before 0.10.0, so 0.8.4 users see its deprecation notices first.
 
 ## 0.10.0 (agreed, not yet specced)
 
-Release plan (Mike, 2026-10-04): 0.9.0 is tagged and pushed but not
-published to Hex; 0.10.0 follows directly and is the next published
-release, so its CHANGELOG and upgrade notes cover 0.8.x to 0.10.0.
+Release plan (Mike, 2026-10-04, revised the same day): 0.9.0 is published
+to Hex before 0.10.0, so its deprecation notices reach users; 0.10.0 then
+removes what 0.9.0 deprecated. The library is 0.x with few users, so
+breaking changes are acceptable with a CHANGELOG entry and upgrade notes.
 
 - An ordered `formats:` list (Mike, 2026-10-04; ADR-024 amendment).
   Agreed shape:

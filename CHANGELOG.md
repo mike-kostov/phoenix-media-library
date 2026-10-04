@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.0] - 2026-10-04
 
-Tagged, not published to Hex: 0.10.0 follows directly and is the next
-published release.
-
 See [Upgrading to 0.9](guides/upgrading-to-0.9.md) for what to do after
 upgrading and how to keep the old behaviour where possible.
 

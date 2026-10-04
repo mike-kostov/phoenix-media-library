@@ -551,8 +551,8 @@ notes, guides and CHANGELOG updated.
 #### Task 24: Release preparation (P3)
 **Description:** Review the backlog again with Mike, set the version to
 0.9.0, date the CHANGELOG section, check the package. Tag and push only
-when asked; 0.9.0 is not published to Hex (Mike, 2026-10-04), work
-continues on 0.10.0.
+when asked. (Mike, 2026-10-04: tagged and pushed; published to Hex
+before 0.10.0 so its deprecation notices reach users.)
 **Acceptance criteria:**
 - [x] `mix precommit` green; `mix hex.build --unpack` has no `docs/` or
       `.agents/`.
@@ -565,7 +565,8 @@ continues on 0.10.0.
 ### Checkpoint: Complete
 - [x] Every acceptance criterion in spec 01 is met. (Index changes moved
       to 0.10.0 by Mike; the `formats:` list too.)
-- [ ] Ready for Mike to tag and push (no Hex publish, per Mike).
+- [x] Ready for Mike to tag and push. (Tagged and pushed 2026-10-04; Mike
+      publishes to Hex.)
 
 ## Risks and Mitigations
 
