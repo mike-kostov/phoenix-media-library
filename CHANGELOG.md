@@ -18,6 +18,10 @@ What apps must change when upgrading:
   `content_type:` and `size:` are read from S3 and may be dropped.
 
 ### Security
+- Requires `req ~> 0.7.4` (was `~> 0.5`). Req before 0.6.1 has two HIGH
+  advisories, CVE-2026-49755 (decompression bomb) and CVE-2026-49756
+  (multipart header injection). The library's own requests weren't
+  affected, but the old requirement kept apps on vulnerable versions.
 - **Direct uploads to S3 enforce their limits** (behaviour change).
   `presigned_upload_url/3` returns a presigned POST whose signed policy
   makes S3 reject a different key, a size over the limit (`:max_size`, by

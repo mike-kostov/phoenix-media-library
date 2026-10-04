@@ -41,7 +41,7 @@ defmodule PhxMediaLibrary.MixProject do
     [
       # === Required ===
       {:ecto_sql, "~> 3.12"},
-      {:req, "~> 0.5"},
+      {:req, "~> 0.7.4"},
       {:mime, "~> 2.0"},
       {:telemetry, "~> 1.0"},
 

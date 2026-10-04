@@ -149,10 +149,15 @@ ADR-025)
 - Verified against the test emulator (P4) for the operations the library
   uses; provider-specific rules come from `docs/ideas/s3-providers.md`.
 
-**S5. Req without known advisories.**
+**S5. Dependencies without known advisories.**
 - The `req` requirement allows the latest stable release (0.7.4 at the time
   of writing), which fixes CVE-2026-49755 and CVE-2026-49756; the library's
   requests keep working, shown by the test suite.
+- The lock file used for development and tests has no package with an
+  advisory (`mix hex.audit`). Found while doing S5: `decimal`, `phoenix`,
+  `phoenix_live_view` and `postgrex` were locked at affected versions; the
+  library's requirements already allow the fixed ones, so apps are not
+  held back.
 
 ### Bugs
 

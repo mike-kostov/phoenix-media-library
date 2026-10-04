@@ -131,9 +131,11 @@ callback contract); `mix precommit`.
 **Description:** Allow the latest stable `req` (0.7.4) and adapt the
 library's calls if its API changed.
 **Acceptance criteria:**
-- [ ] `mix.lock` resolves `req` 0.7.4; `mix hex.audit` reports no advisory.
-- [ ] Downloader, URL downloads and existing tests pass unchanged in
-      behaviour.
+- [x] `mix.lock` resolves `req` 0.7.4; `mix hex.audit` reports no advisory
+      (also refreshed: ecto 3.14, decimal 3.1, phoenix 1.8.15,
+      phoenix_live_view 1.2.12, postgrex 0.22.4).
+- [x] Downloader, URL downloads and existing tests pass unchanged in
+      behaviour (and a real HTTPS download through the pinned connection).
 **Verification:** `mix hex.audit`; full suite; `mix precommit`.
 **Dependencies:** Task 1
 **Files:** `mix.exs`, `mix.lock`, possibly `downloader.ex`
