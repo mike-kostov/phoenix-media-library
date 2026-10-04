@@ -331,6 +331,39 @@ mix phx_media_library.drop_originals --model MyApp.Catalog.Product   # last: the
 mix phx_media_library.clean --files-only                              # then --force to delete stale variants
 ```
 
+## AVIF
+
+AVIF files are smaller than WebP at the same quality. Turn it on per
+collection, or globally with `config :phx_media_library, avif: true`:
+
+```elixir
+media_collections do
+  collection :photos, webp: true, avif: true, responsive: true
+  collection :hero,   avif: [quality: 60]
+end
+```
+
+- The AVIF is stored beside the original, at the served file's size (inside
+  WebP's `max_dimension`, when set). Without `quality:`, libvips uses its
+  default.
+- Conversions in the collection are AVIF, and responsive variants come in
+  AVIF only: no size is stored twice.
+- `<.picture>` and `<.responsive_img>` offer AVIF first, then WebP, then
+  the `<img>`, so browsers without AVIF still get an image:
+
+```html
+<picture>
+  <source type="image/avif" srcset="…_160w.avif 160w, …_320w.avif 320w, ….avif 1200w">
+  <source type="image/webp" srcset="….webp">
+  <img src="….webp" width="1200" height="800" alt="…">
+</picture>
+```
+
+AVIF needs a libvips built with AVIF support (through libheif); without it,
+uploads go on without AVIF and a warning is logged once.
+`mix phx_media_library.doctor` reports media missing their AVIF;
+`--regenerate` creates it.
+
 ## Responsive images
 
 Generate multiple sizes so browsers download an appropriately-sized image via

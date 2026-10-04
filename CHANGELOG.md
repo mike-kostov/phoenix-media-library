@@ -75,7 +75,9 @@ What apps must change when upgrading:
   collection stores an AVIF beside the original, at the served file's size
   (`custom_properties["avif"]`). Conversions in such a collection are AVIF
   too, over WebP. Without AVIF support in libvips, uploads go on without
-  it and a warning is logged once. The AVIF is deleted, cleaned and renamed
+  it and a warning is logged once. Responsive variants are then AVIF only
+  (ADR-024), and `<.picture>` and `<.responsive_img>` offer AVIF first,
+  then WebP, then the `<img>`. The AVIF is deleted, cleaned and renamed
   with its media; `mix phx_media_library.doctor` reports a missing AVIF,
   `--regenerate` creates it and `--rebuild --only avif` rebuilds it.
 - Optional `supports_format?/1` image processor callback, so the library
@@ -176,6 +178,9 @@ What apps must change when upgrading:
   removed in 0.10.0.
 
 ### Changed
+- `<.picture>` offers the media's WebP as a typed `<source>` (and its
+  AVIF before it), instead of putting the WebP `srcset` on the `<img>`.
+  Browsers pick the same files.
 - **Conversions follow the served format** (ADR-024). In a collection with
   `webp:` on, conversions without their own `format:` are saved as WebP
   (`photo_thumb.webp`), as they are what pages show most. A conversion's

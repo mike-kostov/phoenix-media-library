@@ -318,8 +318,10 @@ the doctor reports missing AVIF and rebuilds it (`--rebuild --only avif`).
 original); the full-size `srcset` entry points at the best served file;
 `<picture>` emits an AVIF source, then WebP, then the `img`.
 **Acceptance criteria:**
-- [ ] With AVIF and WebP on, every variant is AVIF; no WebP variants exist.
-- [ ] `<picture>` renders sources in AVIF, WebP order with the right types.
+- [x] With AVIF and WebP on, every variant is AVIF; no WebP variants exist.
+- [x] `<picture>` renders sources in AVIF, WebP order with the right types.
+      (`<.responsive_img>` becomes a `<picture>` when the media has an
+      AVIF; decided with Mike 2026-10-04.)
 **Verification:** responsive and component tests; `mix precommit`.
 **Dependencies:** Task 12
 **Files:** `responsive_images.ex`, `view_helpers.ex`, tests

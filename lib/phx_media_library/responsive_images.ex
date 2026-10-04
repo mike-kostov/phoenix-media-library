@@ -245,8 +245,11 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     Path.join(base_path, filename)
   end
 
-  # Variants follow the served format: .webp when the media carries a WebP
-  # derivative (custom_properties["webp"]), otherwise the original extension.
+  # Variants come in one format only, the best the media has (ADR-024):
+  # .avif, else .webp, else the original's extension.
+  defp variant_ext(%Media{custom_properties: %{"avif" => avif}}) when is_binary(avif),
+    do: ".avif"
+
   defp variant_ext(%Media{custom_properties: %{"webp" => webp}}) when is_binary(webp),
     do: ".webp"
 
@@ -289,12 +292,12 @@ defmodule PhxMediaLibrary.ResponsiveImages do
          image,
          processor
        ) do
-    # Full-size srcset descriptor. For WebP-served media the full-size WebP
-    # sibling already exists (custom_properties["webp"]) — point the largest
-    # descriptor at it so the whole srcset is WebP, at no extra cost. Only the
-    # unconverted original carries that sibling; named conversions fall back.
+    # Full-size srcset descriptor, in the variants' format: the AVIF or WebP
+    # sibling of the original when it has one, so the whole srcset is one
+    # format at no extra cost. Conversions are already in that format.
     original_path =
       case {conversion, media.custom_properties} do
+        {nil, %{"avif" => avif}} when is_binary(avif) -> avif
         {nil, %{"webp" => webp}} when is_binary(webp) -> webp
         _ -> PathGenerator.relative_path(media, conversion)
       end
