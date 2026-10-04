@@ -86,7 +86,8 @@ A change is done when all of these hold. "Seems right" is not one of them.
   old code before it passes on the new code.
 - Behaviour that apps see by default is tested without the library's own
   `config/config.exs`, which turns on settings apps don't have.
-- `mix precommit` passes. With no CI, it is the only gate.
+- `mix precommit` passes. With no CI, it is the only gate. It checks
+  formatting rather than fixing it, so run `mix format` first.
 - Each commit compiles and passes the tests on its own.
 - Every public module and function has `@moduledoc`/`@doc` with an example,
   and every public function has a `@spec`.
