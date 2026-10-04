@@ -230,9 +230,10 @@ S3 public URLs; signed URLs still verify.
 **Description:** Success stays `{:ok, media}`; when some entries fail it
 returns `{:error, {:partial, saved, failed}}`, and `:notify` reports both.
 **Acceptance criteria:**
-- [ ] With one failing entry of three, the two saved media are returned and
+- [x] With one failing entry of three, the two saved media are returned and
       the failure carries its reason.
-- [ ] All-success behaviour unchanged.
+- [x] All-success behaviour unchanged. (Tested through a real upload in
+      `consume_media_test.exs`, with a test endpoint and LiveView.)
 **Verification:** `live_upload_test.exs`; `mix precommit`.
 **Dependencies:** Task 1
 **Files:** `live_upload.ex`, `live_upload_test.exs`

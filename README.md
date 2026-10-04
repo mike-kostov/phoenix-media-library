@@ -78,8 +78,16 @@ defmodule MyAppWeb.PostLive.Edit do
   end
 
   def handle_event("save_media", _params, socket) do
-    {:ok, media_items} = consume_media(socket, :images, socket.assigns.post, :images)
-    {:noreply, stream_media_items(socket, :media, media_items)}
+    case consume_media(socket, :images, socket.assigns.post, :images) do
+      {:ok, saved} ->
+        {:noreply, stream_media_items(socket, :media, saved)}
+
+      {:error, {:partial, saved, failed}} ->
+        {:noreply,
+         socket
+         |> stream_media_items(:media, saved)
+         |> put_flash(:error, "#{length(failed)} file(s) could not be uploaded")}
+    end
   end
 end
 ```

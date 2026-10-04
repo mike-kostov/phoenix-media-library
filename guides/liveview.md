@@ -310,8 +310,12 @@ defmodule MyAppWeb.PostLive.Edit do
          |> stream_media_items(:media, media_items)
          |> put_flash(:info, "Uploaded #{length(media_items)} file(s)")}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Upload failed: #{inspect(reason)}")}
+      # Some files failed (e.g. too large); the others were saved.
+      {:error, {:partial, saved, failed}} ->
+        {:noreply,
+         socket
+         |> stream_media_items(:media, saved)
+         |> put_flash(:error, "#{length(failed)} file(s) could not be uploaded")}
     end
   end
 
@@ -506,8 +510,9 @@ allow_upload(socket, :images,
 Both `consume_media/5` and `delete_media_by_id/2` accept a `:notify` option.
 Set it to a pid (e.g. `self()`) and they send lifecycle messages to that process:
 
-- `{:media_added, [Media.t()]}`, after a successful upload
-- `{:media_error, reason}`, when an upload fails
+- `{:media_added, [Media.t()]}`, when uploaded files were saved
+- `{:media_error, {:partial, saved, failed}}`, when any upload failed:
+  `failed` holds an `{entry, reason}` tuple per failed file
 - `{:media_removed, Media.t()}`, after a successful deletion
 
 Handle them in your LiveView via `handle_info/2`:
@@ -517,8 +522,9 @@ def handle_info({:media_added, media_items}, socket) do
   {:noreply, put_flash(socket, :info, "#{length(media_items)} file(s) uploaded")}
 end
 
-def handle_info({:media_error, reason}, socket) do
-  {:noreply, put_flash(socket, :error, "Upload failed: #{inspect(reason)}")}
+def handle_info({:media_error, {:partial, _saved, failed}}, socket) do
+  names = Enum.map_join(failed, ", ", fn {entry, _reason} -> entry.client_name end)
+  {:noreply, put_flash(socket, :error, "Upload failed: #{names}")}
 end
 
 def handle_info({:media_removed, media}, socket) do

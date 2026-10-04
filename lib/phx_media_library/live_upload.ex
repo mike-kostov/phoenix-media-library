@@ -33,8 +33,12 @@ defmodule PhxMediaLibrary.LiveUpload do
                |> stream_media_items(:media, media_items)
                |> put_flash(:info, "Uploaded \#{length(media_items)} file(s)")}
 
-            {:error, reason} ->
-              {:noreply, put_flash(socket, :error, "Upload failed: \#{inspect(reason)}")}
+            # Some files failed (e.g. too large); the others were saved.
+            {:error, {:partial, saved, failed}} ->
+              {:noreply,
+               socket
+               |> stream_media_items(:media, saved)
+               |> put_flash(:error, "\#{length(failed)} file(s) could not be uploaded")}
           end
         end
 
@@ -103,8 +107,8 @@ defmodule PhxMediaLibrary.LiveUpload do
   option. When set to a pid (e.g. `self()`), lifecycle messages are sent
   to that process:
 
-  - `{:media_added, [Media.t()]}` — after successful upload consumption
-  - `{:media_error, reason}` — when upload consumption fails
+  - `{:media_added, [Media.t()]}` — when uploaded files were saved
+  - `{:media_error, {:partial, saved, failed}}` — when any upload failed
   - `{:media_removed, Media.t()}` — after successful media deletion
 
   This allows parent LiveViews (or any process) to react to media
@@ -222,9 +226,10 @@ defmodule PhxMediaLibrary.LiveUpload do
   entry, it calls `PhxMediaLibrary.add/2 |> PhxMediaLibrary.to_collection/2`
   to store the file and create the database record.
 
-  Returns `{:ok, [Media.t()]}` with all successfully created media items,
-  or `{:error, reason}` if any entry fails (already-consumed entries are
-  still persisted — the error is for the first failure encountered).
+  Returns `{:ok, [Media.t()]}` when every entry is saved. When any entry
+  fails, returns `{:error, {:partial, saved, failed}}`: the media that were
+  saved, and a `{entry, reason}` tuple for each failed
+  `Phoenix.LiveView.UploadEntry`. Every entry is consumed either way.
 
   ## Options
 
@@ -234,8 +239,8 @@ defmodule PhxMediaLibrary.LiveUpload do
   - `:responsive` — whether to generate responsive images. Defaults to
     `false`.
   - `:notify` — a pid to send lifecycle messages to. When set, sends
-    `{:media_added, media_items}` on success or `{:media_error, reason}`
-    on failure.
+    `{:media_added, media_items}` when any entry was saved, and
+    `{:media_error, {:partial, saved, failed}}` when any failed.
 
   ## Examples
 
@@ -254,7 +259,9 @@ defmodule PhxMediaLibrary.LiveUpload do
           Ecto.Schema.t(),
           atom(),
           keyword()
-        ) :: {:ok, [Media.t()]} | {:error, term()}
+        ) ::
+          {:ok, [Media.t()]}
+          | {:error, {:partial, [Media.t()], [{Phoenix.LiveView.UploadEntry.t(), term()}]}}
   def consume_media(socket, upload_name, model, collection_name, opts \\ []) do
     disk = Keyword.get(opts, :disk)
     custom_properties = Keyword.get(opts, :custom_properties, %{})
@@ -273,25 +280,27 @@ defmodule PhxMediaLibrary.LiveUpload do
 
         case result do
           {:ok, media} -> {:ok, media}
-          {:error, reason} -> {:ok, {:error, reason}}
+          {:error, reason} -> {:ok, {:failed, entry, reason}}
         end
       end)
 
-    {successes, failures} =
+    {saved, failed} =
       Enum.split_with(results, fn
-        {:error, _} -> false
-        %Media{} -> true
-        _ -> true
+        {:failed, _entry, _reason} -> false
+        _media -> true
       end)
 
-    case failures do
-      [] ->
-        maybe_notify(notify_pid, {:media_added, successes})
-        {:ok, successes}
+    failed = Enum.map(failed, fn {:failed, entry, reason} -> {entry, reason} end)
 
-      [{:error, reason} | _] ->
-        maybe_notify(notify_pid, {:media_error, reason})
-        {:error, reason}
+    if saved != [], do: maybe_notify(notify_pid, {:media_added, saved})
+
+    case failed do
+      [] ->
+        {:ok, saved}
+
+      failed ->
+        maybe_notify(notify_pid, {:media_error, {:partial, saved, failed}})
+        {:error, {:partial, saved, failed}}
     end
   end
 

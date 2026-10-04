@@ -61,6 +61,7 @@ defmodule PhxMediaLibrary.MixProject do
 
       # === Dev/Test ===
       {:postgrex, ">= 0.0.0", only: [:dev, :test]},
+      {:lazy_html, ">= 0.1.0", only: :test},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}

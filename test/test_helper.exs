@@ -18,6 +18,17 @@ Application.put_env(:phx_media_library, :disks,
   ]
 )
 
+# An endpoint for LiveView tests (live_isolated/3)
+Application.put_env(:phx_media_library, PhxMediaLibrary.TestEndpoint,
+  secret_key_base: String.duplicate("t", 64),
+  live_view: [signing_salt: "phx_media_library_test"],
+  pubsub_server: PhxMediaLibrary.TestPubSub,
+  server: false
+)
+
+{:ok, _} = Phoenix.PubSub.Supervisor.start_link(name: PhxMediaLibrary.TestPubSub)
+{:ok, _} = PhxMediaLibrary.TestEndpoint.start_link()
+
 # Start the Memory storage agent for tests that need it
 {:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
 

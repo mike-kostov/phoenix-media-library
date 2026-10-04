@@ -22,6 +22,16 @@ What apps must change when upgrading:
   `filename:`; `content_type:` and `size:` are read from S3 and may be
   dropped.
 
+- **`LiveUpload.consume_media/5` reports partial results.** When some
+  entries fail, it returns `{:error, {:partial, saved, failed}}` instead of
+  only the first error: the media that were saved (before, they were saved
+  but not returned, so the page never showed them) and an `{entry, reason}`
+  tuple per failed entry. `:notify` sends `{:media_added, saved}` when
+  anything was saved and `{:media_error, {:partial, saved, failed}}` when
+  anything failed. Success is unchanged. Code that matches `{:error, _}`
+  keeps working; code that matched a specific reason must match the
+  `:partial` tuple.
+
 ### Security
 - Requires `req ~> 0.7.4` (was `~> 0.5`). Req before 0.6.1 has two HIGH
   advisories, CVE-2026-49755 (decompression bomb) and CVE-2026-49756
