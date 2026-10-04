@@ -51,6 +51,8 @@ defmodule PhxMediaLibrary.Storage.Disk do
 
   @behaviour PhxMediaLibrary.Storage
 
+  alias PhxMediaLibrary.Storage
+
   @impl true
   def put(path, content, opts) do
     with {:ok, full_path} <- inside_root(path, opts) do
@@ -126,7 +128,7 @@ defmodule PhxMediaLibrary.Storage.Disk do
         generate_download_url(path, opts)
 
       true ->
-        Path.join(base_url, path)
+        Path.join(base_url, Storage.url_path(path))
     end
   end
 
@@ -205,7 +207,7 @@ defmodule PhxMediaLibrary.Storage.Disk do
     query_params =
       if include_disposition, do: Map.put(query_params, "dl", "1"), else: query_params
 
-    "#{download_base}/#{path}?#{URI.encode_query(query_params)}"
+    "#{download_base}/#{Storage.url_path(path)}?#{URI.encode_query(query_params)}"
   end
 
   # Generates a plain (unsigned) download URL routed through
@@ -224,6 +226,6 @@ defmodule PhxMediaLibrary.Storage.Disk do
               disks: [local: [..., download_base_url: "/media"]]
         """
 
-    "#{download_base}/#{path}?dl=1"
+    "#{download_base}/#{Storage.url_path(path)}?dl=1"
   end
 end

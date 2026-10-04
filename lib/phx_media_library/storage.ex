@@ -130,4 +130,26 @@ defmodule PhxMediaLibrary.Storage do
               {:ok, %{size: non_neg_integer(), header: binary()}} | {:error, term()}
 
   @optional_callbacks [path: 2, presigned_upload: 3, presigned_upload_url: 3, stat: 3]
+
+  @doc """
+  Percent-encode each segment of a storage path for use in a URL.
+
+  Media stored before 0.9 kept the uploaded name, which can contain spaces,
+  `#`, `?` or non-ASCII letters. Adapters build their URLs with this.
+
+  ## Examples
+
+      iex> PhxMediaLibrary.Storage.url_path("posts/1/Report #3.pdf")
+      "posts/1/Report%20%233.pdf"
+
+      iex> PhxMediaLibrary.Storage.url_path("posts/1/рокля.jpg")
+      "posts/1/%D1%80%D0%BE%D0%BA%D0%BB%D1%8F.jpg"
+
+  """
+  @spec url_path(path()) :: String.t()
+  def url_path(path) do
+    path
+    |> String.split("/")
+    |> Enum.map_join("/", &URI.encode(&1, fn char -> URI.char_unreserved?(char) end))
+  end
 end

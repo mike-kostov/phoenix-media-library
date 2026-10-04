@@ -105,7 +105,10 @@ if Code.ensure_loaded?(Plug.Conn) do
       # Reconstruct the relative path from the path segments that come *after*
       # the router's forward prefix.  Plug.Router strips the matched prefix and
       # stores what remains in `conn.path_info`.
-      relative_path = Enum.join(conn.path_info, "/")
+      # The segments arrive percent-encoded (URLs encode them, see
+      # `PhxMediaLibrary.Storage.url_path/1`); the signature and the file
+      # use the stored path.
+      relative_path = Enum.map_join(conn.path_info, "/", &URI.decode/1)
 
       query = conn.query_string |> URI.decode_query()
 

@@ -266,7 +266,10 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     # Private functions
 
+    # Public URLs are encoded here; ExAws encodes the keys it signs.
     defp public_url(bucket, path, opts) do
+      path = PhxMediaLibrary.Storage.url_path(path)
+
       case {Keyword.get(opts, :base_url), opts[:provider], Keyword.get(opts, :endpoint)} do
         {nil, :r2, _endpoint} ->
           raise ArgumentError,

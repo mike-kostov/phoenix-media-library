@@ -165,6 +165,12 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- URLs of files whose stored name has spaces, `#`, `?` or non-ASCII letters
+  (media stored before 0.9 kept the uploaded name) didn't load: a `#` cut
+  the URL short. Disk and S3 public URLs, and download URLs, now
+  percent-encode each path segment, and `Plug.MediaDownload` decodes them,
+  so signed URLs still verify. New: `PhxMediaLibrary.Storage.url_path/1`
+  for custom adapters.
 - S3 uploads no longer send `acl: "private"` unless the disk sets `acl:`.
   Per AWS's documentation, buckets with default settings (ACLs disabled)
   reject uploads with that ACL, and R2 doesn't support ACL headers. Without an ACL, the bucket's own

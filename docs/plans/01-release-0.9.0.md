@@ -206,10 +206,11 @@ CHANGELOG's breaking-changes entry is rewritten to match.
 **Scope:** M (5 files)
 
 ### Checkpoint: S3 providers
-- [ ] Full suite and `mix precommit` green; the second test run reuses the
+- [x] Full suite and `mix precommit` green; the second test run reuses the
       container.
-- [ ] Review with Mike: R2 configuration example and the uploader in the
-      guide.
+- [x] Review with Mike: R2 configuration example and the uploader in the
+      guide. (Approved to continue 2026-10-04; neither has run against a
+      real R2 bucket or in a browser.)
 
 ### Phase 2: Bugs
 
@@ -217,9 +218,9 @@ CHANGELOG's breaking-changes entry is rewritten to match.
 **Description:** URL helpers percent-encode each path segment for Disk and
 S3 public URLs; signed URLs still verify.
 **Acceptance criteria:**
-- [ ] A media stored as `Report #3.pdf` gets a URL that `Plug.Static`
+- [x] A media stored as `Report #3.pdf` gets a URL that `Plug.Static`
       serves.
-- [ ] A signed download URL for that media verifies in `Plug.MediaDownload`.
+- [x] A signed download URL for that media verifies in `Plug.MediaDownload`.
 **Verification:** URL and plug tests; `mix precommit`.
 **Dependencies:** Task 1
 **Files:** `storage/disk.ex`, `storage/s3.ex`, `url_generator.ex`, `plug/media_download.ex`, tests
