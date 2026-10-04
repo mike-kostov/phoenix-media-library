@@ -1,7 +1,7 @@
 # ADR-025: S3 behaviour per provider, set per disk
 
 ## Status
-Proposed (2026-10-04), accepted with spec 01's update.
+Accepted (Mike, 2026-10-04)
 
 ## Date
 2026-10-04

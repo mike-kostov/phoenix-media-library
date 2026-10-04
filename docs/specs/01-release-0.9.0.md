@@ -1,7 +1,8 @@
 # Spec 01: Release 0.9.0
 
 Status: approved (Mike, 2026-10-04). Update of 2026-10-04 (S1 revised;
-S4, S5, B7 and P4 added after the security checkpoint) awaits approval.
+S4, S5, B7 and P4 added after the security checkpoint) approved the same
+day.
 Source: `docs/backlog.md` (0.9.0 section), `docs/ideas/placeholders.md`.
 
 ## Objective

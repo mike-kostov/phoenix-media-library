@@ -1,7 +1,7 @@
 # ADR-026: Real S3 in tests through Testcontainers and Ministack
 
 ## Status
-Proposed (2026-10-04), accepted with spec 01's update.
+Accepted (Mike, 2026-10-04)
 
 ## Date
 2026-10-04
