@@ -253,6 +253,45 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  Width and height in pixels of the file served for the original
+  (`conversion` nil) or a conversion, or `nil` when unknown.
+
+  For the original this is the served WebP's size when it was capped
+  (`webp: [max_dimension: ...]`), otherwise the extracted metadata. For a
+  conversion it comes from its responsive variants, when generated.
+
+  Image components use it for the `width`/`height` attributes, so the
+  browser reserves the right space before the image loads.
+
+  ## Examples
+
+      Media.dimensions(media)
+      #=> {1200, 800}
+
+  """
+  @spec dimensions(t(), atom() | String.t() | nil) :: {pos_integer(), pos_integer()} | nil
+  def dimensions(media, conversion \\ nil)
+
+  def dimensions(%__MODULE__{custom_properties: %{"webp_width" => w, "webp_height" => h}}, nil)
+      when is_integer(w) and is_integer(h),
+      do: {w, h}
+
+  def dimensions(%__MODULE__{metadata: %{"width" => w, "height" => h}}, nil)
+      when is_integer(w) and is_integer(h),
+      do: {w, h}
+
+  def dimensions(%__MODULE__{}, nil), do: nil
+
+  def dimensions(%__MODULE__{responsive_images: responsive}, conversion) do
+    variants = get_in(responsive || %{}, [to_string(conversion), "variants"]) || []
+
+    case Enum.max_by(variants, &(&1["width"] || 0), fn -> nil end) do
+      %{"width" => w, "height" => h} when is_integer(w) and is_integer(h) -> {w, h}
+      _ -> nil
+    end
+  end
+
+  @doc """
   Alt text for an image: `custom_properties["alt"]` when set, otherwise the
   uploaded file's name made readable ("red-summer_dress.jpg" →
   "red summer dress"). Never a library-chosen stored name such as

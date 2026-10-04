@@ -46,19 +46,20 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:media, Media, required: true)
   attr(:conversion, :atom, default: nil)
   attr(:alt, :string, default: nil)
+  attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
+  attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
   attr(:class, :string, default: nil)
   attr(:rest, :global)
 
   def media_img(assigns) do
-    alt =
-      assigns.alt || Media.alt_text(assigns.media)
-
-    assigns = assign(assigns, :alt, alt)
+    assigns = with_image_defaults(assigns)
 
     ~H"""
     <img
       src={PhxMediaLibrary.url(@media, @conversion)}
       alt={@alt}
+      width={@width}
+      height={@height}
       class={@class}
       {@rest}
     />
@@ -101,14 +102,15 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:conversion, :atom, default: nil)
   attr(:sizes, :string, default: "100vw")
   attr(:alt, :string, default: nil)
+  attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
+  attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
   attr(:class, :string, default: nil)
   attr(:loading, :string, default: "lazy")
   attr(:placeholder, :boolean, default: true)
   attr(:rest, :global)
 
   def responsive_img(assigns) do
-    alt =
-      assigns.alt || Media.alt_text(assigns.media)
+    assigns = with_image_defaults(assigns)
 
     srcset = PhxMediaLibrary.srcset(assigns.media, assigns.conversion)
     src = PhxMediaLibrary.url(assigns.media, assigns.conversion)
@@ -116,7 +118,6 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
     assigns =
       assigns
-      |> assign(:alt, alt)
       |> assign(:srcset, srcset)
       |> assign(:src, src)
       |> assign(:placeholder_uri, placeholder)
@@ -127,6 +128,8 @@ defmodule PhxMediaLibrary.ViewHelpers do
       srcset={@srcset}
       sizes={@sizes}
       alt={@alt}
+      width={@width}
+      height={@height}
       class={@class}
       loading={@loading}
       style={if @placeholder && @placeholder_uri, do: placeholder_style(@placeholder_uri)}
@@ -162,15 +165,14 @@ defmodule PhxMediaLibrary.ViewHelpers do
   attr(:media, Media, required: true)
   attr(:conversion, :atom, default: nil)
   attr(:alt, :string, default: nil)
+  attr(:width, :integer, default: nil, doc: "defaults to the served file's width")
+  attr(:height, :integer, default: nil, doc: "defaults to the served file's height")
   attr(:class, :string, default: nil)
   attr(:sources, :list, default: [])
   attr(:rest, :global)
 
   def picture(assigns) do
-    alt =
-      assigns.alt || Media.alt_text(assigns.media)
-
-    assigns = assign(assigns, :alt, alt)
+    assigns = with_image_defaults(assigns)
 
     ~H"""
     <picture>
@@ -184,6 +186,8 @@ defmodule PhxMediaLibrary.ViewHelpers do
         src={PhxMediaLibrary.url(@media, @conversion)}
         srcset={PhxMediaLibrary.srcset(@media, @conversion)}
         alt={@alt}
+      width={@width}
+      height={@height}
         class={@class}
         {@rest}
       />
@@ -192,6 +196,17 @@ defmodule PhxMediaLibrary.ViewHelpers do
   end
 
   # Private helpers
+
+  # Alt text and intrinsic size, unless given. width/height let the browser
+  # reserve the image's space before it loads (no layout shift).
+  defp with_image_defaults(assigns) do
+    dimensions = Media.dimensions(assigns.media, assigns.conversion)
+
+    assigns
+    |> assign(:alt, assigns.alt || Media.alt_text(assigns.media))
+    |> assign(:width, assigns.width || (dimensions && elem(dimensions, 0)))
+    |> assign(:height, assigns.height || (dimensions && elem(dimensions, 1)))
+  end
 
   defp placeholder_style(data_uri) do
     """

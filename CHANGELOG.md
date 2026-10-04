@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `media_img`, `responsive_img` and `picture` output `width` and `height`
+  (the served file's size, from `Media.dimensions/2`), so the browser
+  reserves the space before the image loads and the page doesn't jump
+  (layout shift counts against search ranking). Pass `width`/`height` to
+  override. Relies on CSS `height: auto` for scaled images (Tailwind's
+  default).
 - `get_media/2`, `get_first_media/2` and `get_first_media_url/3` use media
   preloaded through `has_media` associations (`Repo.preload(products,
   :images)`) instead of querying, so a page of 40 products no longer runs
