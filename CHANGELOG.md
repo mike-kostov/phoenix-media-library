@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-04
+
+Tagged, not published to Hex: 0.10.0 follows directly and is the next
+published release.
+
 See [Upgrading to 0.9](guides/upgrading-to-0.9.md) for what to do after
 upgrading and how to keep the old behaviour where possible.
 
@@ -1036,8 +1041,17 @@ explicitly before upgrading to 0.8.
   - `mix phx_media_library.clean` finds and removes orphaned files
   - `mix phx_media_library.gen.migration` generates custom migrations
 
-[Unreleased]: https://github.com/mike-kostov/phx_media_library/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/mike-kostov/phx_media_library/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.1...v0.2.0
-[0.1.1]: https://github.com/mike-kostov/phx_media_library/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/mike-kostov/phx_media_library/releases/tag/v0.1.0
+[Unreleased]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.4...v0.9.0
+[0.8.4]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.3...v0.8.4
+[0.8.3]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/mike-kostov/phoenix-media-library/releases/tag/v0.2.0

@@ -512,7 +512,8 @@ README to HexDocs where it helps.
 Googlebot and AI tools read AVIF; record it in `docs/ideas/`. Bring any
 finding that changes ADR-024 (conversions in AVIF) to Mike first.
 **Acceptance criteria:**
-- [ ] An idea doc with a sourced support table and a recommendation.
+- [x] An idea doc with a sourced support table and a recommendation.
+      (`docs/ideas/avif-compatibility.md`; led to Task 24e.)
 **Verification:** review with Mike.
 **Dependencies:** none
 **Scope:** S
@@ -522,7 +523,7 @@ finding that changes ADR-024 (conversions in AVIF) to Mike first.
 media each; run the library's queries (`get_media`, ordering, the doctor's
 loads, preloads) with `EXPLAIN ANALYZE`; record the plans and timings.
 **Acceptance criteria:**
-- [ ] An idea doc with the plans and a recommendation (keep, add or drop
+- [x] An idea doc with the plans and a recommendation (keep, add or drop
       indexes); a migration only with Mike's agreement.
 **Verification:** review with Mike.
 **Dependencies:** none
@@ -553,17 +554,18 @@ notes, guides and CHANGELOG updated.
 when asked; 0.9.0 is not published to Hex (Mike, 2026-10-04), work
 continues on 0.10.0.
 **Acceptance criteria:**
-- [ ] `mix precommit` green; `mix hex.build --unpack` has no `docs/` or
+- [x] `mix precommit` green; `mix hex.build --unpack` has no `docs/` or
       `.agents/`.
-- [ ] Version and CHANGELOG say 0.9.0 with the release date.
+- [x] Version and CHANGELOG say 0.9.0 with the release date.
 **Verification:** commands above; Mike's go-ahead.
 **Dependencies:** Tasks 23, 24a to 24e
 **Files:** `mix.exs`, `CHANGELOG.md`, `docs/backlog.md`
 **Scope:** S
 
 ### Checkpoint: Complete
-- [ ] Every acceptance criterion in spec 01 is met.
-- [ ] Ready for Mike to tag and publish.
+- [x] Every acceptance criterion in spec 01 is met. (Index changes moved
+      to 0.10.0 by Mike; the `formats:` list too.)
+- [ ] Ready for Mike to tag and push (no Hex publish, per Mike).
 
 ## Risks and Mitigations
 
