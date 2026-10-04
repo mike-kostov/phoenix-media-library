@@ -36,13 +36,13 @@ defmodule PhxMediaLibrary.HasMedia.DSL.CollectionAccumulator do
   @doc false
   defmacro collection(name, opts_or_do) do
     # `collection :photos do ... end` is parsed as
-    # `collection(:photos, [do: block])` — a keyword list with a `:do` key.
+    # `collection(:photos, [do: block])`, a keyword list with a `:do` key.
     #
     # `collection :photos, accepts: ~w(image/jpeg)` is also a keyword list
     # but without a `:do` key.
     case Keyword.pop(opts_or_do, :do) do
       {nil, opts} ->
-        # No do block — plain collection with options
+        # No do block, so a plain collection with options
         quote do
           @__phx_media_collections__ PhxMediaLibrary.Collection.new(
                                        unquote(name),
@@ -51,11 +51,11 @@ defmodule PhxMediaLibrary.HasMedia.DSL.CollectionAccumulator do
         end
 
       {block, []} ->
-        # `collection :name do ... end` — block only, no extra opts
+        # `collection :name do ... end`: block only, no extra opts
         build_collection_with_block(name, [], block)
 
       {block, opts} ->
-        # `collection :name, opt: val do ... end` — opts + block
+        # `collection :name, opt: val do ... end`: opts + block
         build_collection_with_block(name, opts, block)
     end
   end

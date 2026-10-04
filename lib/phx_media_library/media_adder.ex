@@ -338,7 +338,7 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   # Verify that file content matches the declared MIME type, if the
   # collection has `verify_content_type: true` (the default).
-  # `header` is the first @mime_header_size bytes — enough for magic-byte
+  # `header` is the first @mime_header_size bytes, enough for magic-byte
   # matching without needing the full file in memory.
   defp verify_content_type(model, collection_name, file_info, header) do
     case Model.collection(model, collection_name) do
@@ -589,7 +589,7 @@ defmodule PhxMediaLibrary.MediaAdder do
         end
 
       {:error, _} ->
-        # Blurhash generation failed (e.g. unsupported format) — don't
+        # Blurhash generation failed (e.g. unsupported format). Don't
         # fail the upload, just skip the placeholder.
         media
     end

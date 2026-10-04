@@ -148,7 +148,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
   end
 
   defp report_orphaned_files(orphaned, root, force?) do
-    # `map_size/1` on a MapSet counts struct fields, never 0 — compare the set size.
+    # `map_size/1` on a MapSet counts struct fields, never 0. Compare the set size.
     if MapSet.size(orphaned) == 0 do
       Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
     else
@@ -170,7 +170,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
     Mix.shell().info("    #{path}")
   end
 
-  # S3 cleanup requires ExAws.S3.list_objects_v2 — planned for Milestone 3.
+  # S3 cleanup requires ExAws.S3.list_objects_v2. It is planned for Milestone 3.
   defp clean_s3_disk(_disk_name, _config, _repo, _force?) do
     Mix.shell().info("  S3 cleanup not yet implemented")
   end

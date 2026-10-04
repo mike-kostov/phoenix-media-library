@@ -334,7 +334,7 @@ defmodule PhxMediaLibrary.LiveUpload do
   failure.
 
   The ID usually comes from the browser. Pass `:model` (and `:collection`)
-  so only media attached to that record can be deleted — otherwise any media
+  so only media attached to that record can be deleted. Otherwise any media
   ID is accepted and checking permission is up to you.
 
   ## Options
@@ -551,7 +551,7 @@ defmodule PhxMediaLibrary.LiveUpload do
   def translate_upload_error(:too_large), do: "File is too large"
   def translate_upload_error(:too_many_files), do: "Too many files selected"
   def translate_upload_error(:not_accepted), do: "File type is not accepted"
-  def translate_upload_error(:external_client_failure), do: "Upload failed — please try again"
+  def translate_upload_error(:external_client_failure), do: "Upload failed, please try again"
 
   def translate_upload_error({:too_large, _}), do: "File is too large"
   def translate_upload_error({:not_accepted, _}), do: "File type is not accepted"

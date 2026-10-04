@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.Health do
   Health checks for stored media, and the repair for each problem.
 
   `check/2` inspects one media item and returns its issues; `repair/2` fixes
-  one issue by running the matching `PhxMediaLibrary.Pipeline` step — the
+  one issue by running the matching `PhxMediaLibrary.Pipeline` step, the
   same code uploads use. `mix phx_media_library.doctor` is built on this
   module; you can also call it from your own code (a scheduled job, an admin
   page):
@@ -17,7 +17,7 @@ defmodule PhxMediaLibrary.Health do
   | Issue                          | Severity   | Repair                        |
   |--------------------------------|------------|-------------------------------|
   | `:no_files`                    | error      | delete the record (`--fix`)   |
-  | `:checksum_mismatch`           | error      | none — restore from backup    |
+  | `:checksum_mismatch`           | error      | none, restore from backup     |
   | `{:missing_conversions, names}`| repairable | `Pipeline.conversions/2`      |
   | `:missing_webp`                | repairable | `Pipeline.webp/2`             |
   | `:missing_avif`                | repairable | `Pipeline.avif/2`             |

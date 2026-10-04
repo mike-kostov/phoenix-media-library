@@ -12,7 +12,7 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
 
   When the `:image` library is not installed, gracefully falls back to
   extracting only basic format information from the MIME type and file
-  extension — no error is raised.
+  extension. No error is raised.
 
   ## Extracted Fields
 
@@ -146,11 +146,11 @@ defmodule PhxMediaLibrary.MetadataExtractor.Default do
 
     # Provide fallback dimensions from the file content if Image is not
     # available. We try to parse PNG and JPEG headers directly.
-    # This is a best-effort fallback — not as reliable as libvips.
+    # This is a best-effort fallback, not as reliable as libvips.
   end
 
   # ---------------------------------------------------------------------------
-  # Video extraction — delegates to the configured VideoProcessor
+  # Video extraction. Delegates to the configured VideoProcessor
   # (PhxMediaLibrary.VideoProcessor.FFmpeg when ffprobe/ffmpeg are on $PATH,
   # PhxMediaLibrary.VideoProcessor.Null otherwise).
 

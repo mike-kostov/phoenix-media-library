@@ -213,7 +213,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   defp responsive_variant_path(media, conversion, width) do
     # Derive the variant directory from the configured path generator so
-    # variants live beside the original — this respects custom/tenant/date
+    # variants live beside the original. This respects custom/tenant/date
     # generators and stringifies a non-binary mediable_id, instead of assuming
     # the default `{type}/{id}/{uuid}` layout.
     base_path =
@@ -222,7 +222,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       |> Path.dirname()
       |> Path.join("responsive")
 
-    # When the media serves a WebP derivative, emit .webp variants — the image
+    # When the media serves a WebP derivative, emit .webp variants. The image
     # processor picks its encoder from the destination path extension, so a
     # .webp path yields a WebP-encoded variant (smaller than the source format).
     ext = variant_ext(media)

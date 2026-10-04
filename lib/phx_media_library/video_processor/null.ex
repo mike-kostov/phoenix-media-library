@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.VideoProcessor.Null do
   No-op video processor used when FFmpeg is not available.
 
   All operations return error tuples rather than raising. Uploads still
-  succeed and files are stored and served — metadata extraction and poster
+  succeed and files are stored and served. Metadata extraction and poster
   frame generation are simply skipped.
 
   To enable video processing, install FFmpeg:
@@ -21,7 +21,7 @@ defmodule PhxMediaLibrary.VideoProcessor.Null do
   @behaviour PhxMediaLibrary.VideoProcessor
 
   @impl true
-  @doc "Always returns `false` — FFmpeg is not available."
+  @doc "Always returns `false`. FFmpeg is not available."
   @spec available?() :: boolean()
   def available?, do: false
 

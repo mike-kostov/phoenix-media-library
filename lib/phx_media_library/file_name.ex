@@ -6,8 +6,8 @@ defmodule PhxMediaLibrary.FileName do
   ## Stored names
 
   The name a file is stored under is chosen by the library, never by the
-  uploader. It is ASCII only — lowercase `a-z`, `0-9`, `-` and `_`, plus a
-  lowercase extension — which avoids a whole class of bugs (Unicode
+  uploader. It is ASCII only: lowercase `a-z`, `0-9`, `-` and `_`, plus a
+  lowercase extension. This avoids a whole class of bugs (Unicode
   normalization differences between macOS and Linux, case-insensitive
   filesystems, URL encoding of spaces, `#` and `?`) and of tricks
   (right-to-left override characters, look-alike letters, zero-width
@@ -18,7 +18,7 @@ defmodule PhxMediaLibrary.FileName do
   Three strategies, set globally with `config :phx_media_library,
   file_naming: ...` and per collection with `file_naming:`:
 
-    * `:semantic` (default) — `{mediable_type}_{mediable_id}_{collection}_{uuid}.{ext}`,
+    * `:semantic` (default): `{mediable_type}_{mediable_id}_{collection}_{uuid}.{ext}`,
       e.g. `posts_42_images_3f2a9c1e-….jpg`. Readable, sorts by record, and
       carries everything needed to rebuild a lost database row. Exposes
       record IDs in URLs (as the default directory layout already does).
@@ -38,8 +38,8 @@ defmodule PhxMediaLibrary.FileName do
   Upload filenames (`Plug.Upload.filename`, LiveView `client_name`, the
   `Content-Disposition` of a remote download) are chosen by whoever sends the
   file. `safe/1` reduces them to one path segment before they are used
-  anywhere, keeping them readable — only path separators, control characters
-  and leading dots are removed — so `"Summer Photo.JPG"` stays as it is.
+  anywhere, keeping them readable. Only path separators, control characters
+  and leading dots are removed, so `"Summer Photo.JPG"` stays as it is.
   """
 
   @max_bytes 255

@@ -65,7 +65,7 @@ defmodule PhxMediaLibrary.VideoProcessor do
     * `"bit_rate"`: overall bit rate in bits/s (integer, optional)
 
   Returns `{:error, reason}` when extraction fails. Extraction failures are
-  **non-fatal** — the upload proceeds with whatever metadata was already
+  **non-fatal**. The upload proceeds with whatever metadata was already
   collected.
   """
   @callback extract_metadata(file_path :: String.t()) :: {:ok, map()} | {:error, term()}

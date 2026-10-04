@@ -4,8 +4,8 @@ defmodule PhxMediaLibrary.MediaLive do
 
   `MediaLive` eliminates all upload boilerplate. Drop it into any LiveView
   and get drag-and-drop uploads, live previews, progress bars, a media
-  gallery with delete support, and automatic persistence via PhxMediaLibrary
-  — all in a single line of template code.
+  gallery with delete support, and automatic persistence via PhxMediaLibrary,
+  all in a single line of template code.
 
   ## Quick Start
 
@@ -474,7 +474,7 @@ defmodule PhxMediaLibrary.MediaLive do
           </span>
         </div>
 
-        <%!-- Progress bar — always visible so users see feedback even on fast local uploads --%>
+        <%!-- Progress bar. Always visible so users see feedback even on fast local uploads --%>
         <div :if={@entry.progress < 100} class="mt-1.5">
           <div class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
             <div
@@ -635,7 +635,7 @@ defmodule PhxMediaLibrary.MediaLive do
     """
   end
 
-  # Minimal icon component — renders hero icon via the standard Phoenix/Tailwind pattern
+  # Minimal icon component. Renders hero icon via the standard Phoenix/Tailwind pattern.
   attr(:name, :string, required: true)
   attr(:class, :string, default: "w-5 h-5")
 

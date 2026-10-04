@@ -7,12 +7,12 @@ defmodule PhxMediaLibrary.HasMedia do
   There are two styles for defining collections and conversions: the
   **declarative DSL** (recommended) and the **function-based** approach.
 
-  ### Declarative DSL — nested style (recommended)
+  ### Declarative DSL, nested style (recommended)
 
   Nest `convert` calls inside `collection ... do ... end` blocks so it's
   immediately clear which conversions apply to which collections.
   Collections without image content (like `:documents`) omit the `do`
-  block — no conversions will run for those uploads.
+  block. No conversions will run for those uploads.
 
       defmodule MyApp.Post do
         use Ecto.Schema
@@ -39,10 +39,10 @@ defmodule PhxMediaLibrary.HasMedia do
         end
       end
 
-  ### Declarative DSL — flat style
+  ### Declarative DSL, flat style
 
   Define collections and conversions in separate blocks. Always use the
-  `:collections` option to scope conversions explicitly — without it, a
+  `:collections` option to scope conversions explicitly. Without it, a
   conversion runs for **every** collection (including non-image ones like
   documents, which will cause processing errors):
 
@@ -160,7 +160,7 @@ defmodule PhxMediaLibrary.HasMedia do
   alias PhxMediaLibrary.{Collection, Conversion}
 
   # -------------------------------------------------------------------------
-  # __using__ — sets up the caller module
+  # __using__: sets up the caller module
   # -------------------------------------------------------------------------
 
   defmacro __using__(opts) do
@@ -203,7 +203,7 @@ defmodule PhxMediaLibrary.HasMedia do
       Module.put_attribute(__MODULE__, :__phx_media_conversions_dsl__, false)
 
       # Default implementations that can be overridden by the user.
-      # The DSL approach works differently — see __before_compile__.
+      # The DSL approach works differently. See __before_compile__.
       def media_collections, do: []
       def media_conversions, do: []
 
@@ -212,7 +212,7 @@ defmodule PhxMediaLibrary.HasMedia do
   end
 
   # -------------------------------------------------------------------------
-  # __before_compile__ — injects __media_type__/0, DSL results, and helpers
+  # __before_compile__: injects __media_type__/0, DSL results, and helpers
   # -------------------------------------------------------------------------
 
   defmacro __before_compile__(env) do
@@ -354,7 +354,7 @@ defmodule PhxMediaLibrary.HasMedia do
   defp build_dsl_conversions_def(_, _conversions), do: []
 
   # -------------------------------------------------------------------------
-  # has_media() macro — injects has_many inside the schema block
+  # has_media() macro: injects has_many inside the schema block
   # -------------------------------------------------------------------------
 
   @doc """
@@ -502,7 +502,7 @@ defmodule PhxMediaLibrary.HasMedia do
 
   Can be used in two ways:
 
-  1. Inside a `media_collections do ... end` block (DSL style — the
+  1. Inside a `media_collections do ... end` block (DSL style, the
      collection is automatically registered):
 
          media_collections do
@@ -510,7 +510,7 @@ defmodule PhxMediaLibrary.HasMedia do
            collection :avatar, single_file: true
          end
 
-  2. Inside a `media_collections/0` function (function style — return a
+  2. Inside a `media_collections/0` function (function style, return a
      list of collections):
 
          def media_collections do
@@ -572,7 +572,7 @@ defmodule PhxMediaLibrary.HasMedia do
         convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
       end
 
-  This is an alias for `conversion/2` — both produce identical
+  This is an alias for `conversion/2`. Both produce identical
   `PhxMediaLibrary.Conversion` structs. The `convert` name reads more
   naturally in the declarative DSL context.
 

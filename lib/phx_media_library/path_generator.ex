@@ -57,8 +57,8 @@ defmodule PhxMediaLibrary.PathGenerator do
 
   ## The `path_context` escape hatch
 
-  The optional `path_context` map lets you thread arbitrary data — such as
-  `tenant_id`, `user_id`, or `space_id` — into a custom path generator without
+  The optional `path_context` map lets you thread arbitrary data, such as
+  `tenant_id`, `user_id`, or `space_id`, into a custom path generator without
   coupling to `custom_properties` or the media schema itself.
 
   The built-in generators ignore `path_context`; custom generators may use it
@@ -110,7 +110,7 @@ defmodule PhxMediaLibrary.PathGenerator do
   @optional_callbacks [relative_path: 3, for_new_media: 2]
 
   # ---------------------------------------------------------------------------
-  # Delegating functions — route to the configured implementation
+  # Delegating functions. They route to the configured implementation.
   # ---------------------------------------------------------------------------
 
   @doc """

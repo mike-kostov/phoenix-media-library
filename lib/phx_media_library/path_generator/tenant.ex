@@ -17,7 +17,7 @@ defmodule PhxMediaLibrary.PathGenerator.Tenant do
       # Atom key
       PhxMediaLibrary.PathGenerator.relative_path(media, :thumb, %{tenant_id: "acme"})
 
-      # String key — useful when context comes from decoded JSON or params
+      # String key, useful when context comes from decoded JSON or params
       PhxMediaLibrary.PathGenerator.relative_path(media, :thumb, %{"tenant_id" => "acme"})
 
   When no `tenant_id` is present in `path_context`, the generator falls back

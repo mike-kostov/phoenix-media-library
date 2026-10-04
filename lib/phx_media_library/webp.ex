@@ -33,12 +33,12 @@ defmodule PhxMediaLibrary.Webp do
   recorded in `custom_properties["webp_width"]` / `["webp_height"]` so
   responsive generation knows the served size.
 
-  The source file is always kept here — for `keep_original: false` the original
+  The source file is always kept here. For `keep_original: false` the original
   is removed later by the add flow, **after** conversions run (so conversions
   still derive from the original and nothing is deleted before them).
 
   Returns the updated media, or the media unchanged on any processor/storage
-  error (graceful degradation — the original is still served). Use
+  error (graceful degradation, the original is still served). Use
   `encode/5` to tell the two apart.
   """
   @spec generate(map(), String.t(), keyword(), term(), String.t()) :: map()

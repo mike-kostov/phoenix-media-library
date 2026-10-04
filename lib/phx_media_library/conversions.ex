@@ -36,13 +36,13 @@ defmodule PhxMediaLibrary.Conversions do
   @spec process(Media.t(), [Conversion.t()]) :: :ok | {:error, term()}
   def process(%Media{} = media, conversions) do
     # Re-read fresh: between enqueue and processing the media may have been
-    # deleted or updated (a real race — and common with async tasks in tests).
+    # deleted or updated (a real race, and common with async tasks in tests).
     # Working from the current row avoids Ecto.StaleEntryError on the conversion
     # and responsive updates below.
     case Config.repo().get(Media, media.id) do
       nil ->
         Logger.debug(
-          "[PhxMediaLibrary] media #{inspect(media.id)} no longer exists — skipping conversions"
+          "[PhxMediaLibrary] media #{inspect(media.id)} no longer exists, skipping conversions"
         )
 
         :ok

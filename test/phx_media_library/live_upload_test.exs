@@ -23,7 +23,7 @@ defmodule PhxMediaLibrary.LiveUploadTest do
 
     test "translates :external_client_failure" do
       assert LiveUpload.translate_upload_error(:external_client_failure) ==
-               "Upload failed — please try again"
+               "Upload failed, please try again"
     end
 
     test "translates tuple errors {:too_large, _}" do

@@ -153,7 +153,7 @@ defmodule PhxMediaLibrary.SignedUrl do
   # when every XOR is zero (i.e. both binaries are identical).
   #
   # We guard on equal length first because different lengths trivially leak
-  # information regardless of comparison strategy — length is not secret.
+  # information regardless of comparison strategy. Length is not secret.
   defp constant_time_equal(a, b)
        when is_binary(a) and is_binary(b) and byte_size(a) == byte_size(b) do
     a_bytes = :binary.bin_to_list(a)

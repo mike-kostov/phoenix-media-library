@@ -10,16 +10,16 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
 
   ## What it checks
 
-    * **Files** — media with no files left (error); missing conversions,
+    * **Files.** Media with no files left (error); missing conversions,
       WebP, AVIF, responsive variants or placeholders (repairable).
-    * **Metadata** — images without dimensions, e.g. from the EXIF-date bug
+    * **Metadata.** Images without dimensions, e.g. from the EXIF-date bug
       before 0.8.4 (repairable).
-    * **Names** — files not stored under their collection's `file_naming`,
+    * **Names.** Files not stored under their collection's `file_naming`,
       e.g. uploaded before 0.9 (repairable).
-    * **Originals** — originals still present where the collection says
+    * **Originals.** Originals still present where the collection says
       WebP `keep_original: false` (repairable).
-    * **Integrity** — checksum mismatches, with `--deep` (error).
-    * **Records** — media whose parent record no longer exists, and the
+    * **Integrity.** Checksum mismatches, with `--deep` (error).
+    * **Records.** Media whose parent record no longer exists, and the
       soft-delete backlog.
 
   The checks find what is missing or outdated, not what was made with
@@ -453,7 +453,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   defp step_label({:rebuild, what, _}), do: "Rebuild #{what}"
   defp step_label(issue), do: "Repair: #{@labels[kind(issue)]}"
 
-  defp detail({:missing_conversions, names}), do: " — #{Enum.join(names, ", ")}"
+  defp detail({:missing_conversions, names}), do: ": #{Enum.join(names, ", ")}"
   defp detail(_issue), do: ""
 
   defp describe(media) do

@@ -1,6 +1,6 @@
 defmodule PhxMediaLibrary.AsyncProcessor.Inline do
   @moduledoc """
-  Synchronous conversion processor — runs conversions inline, in the calling
+  Synchronous conversion processor. Runs conversions inline, in the calling
   process, instead of spawning a task.
 
   Use this when you want conversions completed before `to_collection/3` returns

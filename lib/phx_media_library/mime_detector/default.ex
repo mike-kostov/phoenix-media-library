@@ -190,7 +190,7 @@ defmodule PhxMediaLibrary.MimeDetector.Default do
   defp detect_from_magic_bytes(<<0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00, _rest::binary>>),
     do: {:ok, "application/x-xz"}
 
-  # TAR: ustar at offset 257 — we check for shorter content too
+  # TAR: ustar at offset 257. We check for shorter content too.
   defp detect_from_magic_bytes(content) when byte_size(content) >= 262 do
     case binary_part(content, 257, 5) do
       "ustar" -> {:ok, "application/x-tar"}
@@ -289,7 +289,7 @@ defmodule PhxMediaLibrary.MimeDetector.Default do
   defp detect_ftyp_brand("3gp" <> _), do: {:ok, "video/3gpp"}
   defp detect_ftyp_brand("3g2" <> _), do: {:ok, "video/3gpp2"}
   defp detect_ftyp_brand("dash"), do: {:ok, "video/mp4"}
-  # Generic fallback for unknown ftyp brands — likely video/mp4
+  # Generic fallback for unknown ftyp brands, likely video/mp4
   defp detect_ftyp_brand(_), do: {:ok, "video/mp4"}
 
   # Check if XML content contains SVG elements (simple heuristic)

@@ -70,8 +70,8 @@ defmodule PhxMediaLibrary.Components do
 
   ## Attributes
 
-  - `upload` (required) — the upload config from `@uploads.name`
-  - `id` (required) — unique DOM id for the component
+  - `upload` (required): the upload config from `@uploads.name`
+  - `id` (required): unique DOM id for the component
   - `label`: text label above the drop zone
   - `sublabel`: secondary text below the icon (e.g. accepted formats)
   - `class`: additional CSS classes on the outer wrapper
@@ -200,8 +200,8 @@ defmodule PhxMediaLibrary.Components do
 
   ## Attributes
 
-  - `media` (required) — the stream from `@streams.media`
-  - `id` (required) — unique DOM id for the gallery container
+  - `media` (required): the stream from `@streams.media`
+  - `id` (required): unique DOM id for the gallery container
   - `class`: additional CSS classes
   - `conversion`: the conversion to display for image thumbnails (default: nil = original)
   - `delete_event`: the phx-click event name for deleting (default: "delete_media")
@@ -258,7 +258,7 @@ defmodule PhxMediaLibrary.Components do
 
   attr(:columns, :integer, default: 4, doc: "grid columns (2-6)")
 
-  slot(:item, doc: "override item rendering — receives {dom_id, media}")
+  slot(:item, doc: "override item rendering, receives {dom_id, media}")
   slot(:empty, doc: "content when gallery is empty")
 
   def media_gallery(assigns) do
@@ -316,7 +316,7 @@ defmodule PhxMediaLibrary.Components do
   end
 
   # ---------------------------------------------------------------------------
-  # media_upload_area — a minimal upload-only variant (no gallery)
+  # media_upload_area: a minimal upload-only variant (no gallery)
   # ---------------------------------------------------------------------------
 
   @doc """
@@ -327,8 +327,8 @@ defmodule PhxMediaLibrary.Components do
 
   ## Attributes
 
-  - `upload` (required) — the upload config from `@uploads.name`
-  - `id` (required) — unique DOM id
+  - `upload` (required): the upload config from `@uploads.name`
+  - `id` (required): unique DOM id
   - `label`: button label text (default: "Choose file")
   - `class`: additional CSS classes on the wrapper
   - `icon`: hero icon name (default: "hero-arrow-up-tray")
@@ -1004,7 +1004,7 @@ defmodule PhxMediaLibrary.Components do
     ~H"""
     <script :type={Phoenix.LiveView.ColocatedHook} name=".Blurhash">
       // -----------------------------------------------------------------------
-      // BlurHash decoder — pure JS, no npm dependency required.
+      // BlurHash decoder in pure JS, no npm dependency required.
       // Reference: https://github.com/woltapp/blurhash
       // -----------------------------------------------------------------------
 
@@ -1120,7 +1120,7 @@ defmodule PhxMediaLibrary.Components do
             imageData.data.set(pixels)
             ctx.putImageData(imageData, 0, 0)
           } catch (_err) {
-            // Invalid hash — silently no-op; the real image will load anyway.
+            // Invalid hash. Silently no-op; the real image will load anyway.
           }
         }
       }

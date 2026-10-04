@@ -26,7 +26,7 @@ defmodule PhxMediaLibrary.HasMedia.DSL.NestedConversionAccumulator do
   @doc false
   defmacro convert(name, opts) do
     if Keyword.has_key?(opts, :collections) do
-      # Developer explicitly scoped — respect their choice
+      # Developer explicitly scoped, so respect their choice
       quote do
         @__phx_media_conversions__ PhxMediaLibrary.Conversion.new(
                                      unquote(name),
@@ -50,7 +50,7 @@ defmodule PhxMediaLibrary.HasMedia.DSL.NestedConversionAccumulator do
   @doc false
   defmacro conversion(name, opts) do
     if Keyword.has_key?(opts, :collections) do
-      # Developer explicitly scoped — respect their choice
+      # Developer explicitly scoped, so respect their choice
       quote do
         @__phx_media_conversions__ PhxMediaLibrary.Conversion.new(
                                      unquote(name),

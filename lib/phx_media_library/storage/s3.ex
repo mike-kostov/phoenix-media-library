@@ -6,7 +6,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
     Requires `ex_aws` and `ex_aws_s3` dependencies. This module is only
     compiled when `:ex_aws_s3` is available. If it is not installed,
-    the module simply does not exist — configuring an S3 disk without the
+    the module simply does not exist. Configuring an S3 disk without the
     dependency will produce a clear "module is not available" error.
 
     ## Configuration
@@ -150,7 +150,7 @@ if Code.ensure_loaded?(ExAws.S3) do
             # individual multipart part and uploads them concurrently.  It does
             # NOT rechunk the input.  Our MediaAdder streams files in 64 KiB
             # chunks (for checksum computation), so without rechunking every
-            # part would be 64 KiB — well below the 5 MiB minimum that both
+            # part would be 64 KiB, well below the 5 MiB minimum that both
             # real AWS and LocalStack enforce.
             #
             # We rechunk the stream into @multipart_part_size binary parts

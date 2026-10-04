@@ -46,7 +46,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.DropOriginals do
     dry_run? = opts[:dry_run] || false
     repo = Config.repo()
 
-    Mix.shell().info("\n#{IO.ANSI.cyan()}PhxMediaLibrary — Drop originals#{IO.ANSI.reset()}")
+    Mix.shell().info("\n#{IO.ANSI.cyan()}PhxMediaLibrary: Drop originals#{IO.ANSI.reset()}")
     if dry_run?, do: Mix.shell().info("#{IO.ANSI.yellow()}DRY RUN#{IO.ANSI.reset()}")
 
     media = repo.all(build_query(opts))

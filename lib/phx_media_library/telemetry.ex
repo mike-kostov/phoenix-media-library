@@ -268,7 +268,7 @@ defmodule PhxMediaLibrary.Telemetry do
   defp format_metadata(metadata) when map_size(metadata) == 0, do: ""
 
   defp format_metadata(metadata) do
-    # Only include simple, loggable values — skip structs and large maps
+    # Only include simple, loggable values. Skip structs and large maps.
     metadata
     |> Enum.filter(fn {_k, v} -> loggable?(v) end)
     |> Enum.map_join(", ", fn {k, v} -> "#{k}=#{inspect(v)}" end)

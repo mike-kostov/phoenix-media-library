@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.Model do
   @moduledoc """
-  Reads media settings from a model — an Ecto schema that `use`s
-  `PhxMediaLibrary.HasMedia` — and keeps its collections within their limits.
+  Reads media settings from a model and keeps its collections within their
+  limits. A model is an Ecto schema that `use`s `PhxMediaLibrary.HasMedia`.
 
   This is the one place that answers "what are the settings for this
   media?": mediable type, collection and conversion definitions, default
@@ -224,8 +224,8 @@ defmodule PhxMediaLibrary.Model do
   supplies defaults such as widths but doesn't opt every collection in.
 
   `requested?` (from `with_responsive_images/1`) asks for them for one
-  upload; only an explicit "off" — the collection's `responsive: false` or a
-  global `responsive_images: [enabled: false]` — still blocks it. Both paths
+  upload; only an explicit "off", the collection's `responsive: false` or a
+  global `responsive_images: [enabled: false]`, still blocks it. Both paths
   need the `:image` library.
 
   ## Examples
@@ -343,8 +343,9 @@ defmodule PhxMediaLibrary.Model do
   so callers can skip the database. Uses the collection's own association
   (`has_media(:images)`) when loaded, else the general `has_media()` one.
 
-  Returns `{:ok, media}` — filtered to the collection, without trashed
-  media, ordered like `PhxMediaLibrary.get_media/2` — or `:not_loaded`.
+  Returns `{:ok, media}` or `:not_loaded`. The media is filtered to the
+  collection, without trashed media, and ordered like
+  `PhxMediaLibrary.get_media/2`.
 
   ## Examples
 

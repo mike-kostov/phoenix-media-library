@@ -2,7 +2,7 @@ defmodule PhxMediaLibrary.ModelRegistry do
   @moduledoc """
   Discovers and caches the Ecto schema module for a given `mediable_type` string.
 
-  This is the inverse of `HasMedia.__media_type__/0` — given a string like
+  This is the inverse of `HasMedia.__media_type__/0`. Given a string like
   `"posts"`, it finds the module (e.g. `MyApp.Post`) that declared
   `use PhxMediaLibrary.HasMedia` and whose `__media_type__/0` returns that
   string.

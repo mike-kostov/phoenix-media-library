@@ -29,7 +29,7 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   @impl true
   @doc """
-  Returns an error — no image processor is installed.
+  Returns an error. No image processor is installed.
   """
   @spec open(String.t()) :: {:error, {:no_image_processor, String.t()}}
   def open(_path) do
@@ -38,7 +38,7 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   @impl true
   @doc """
-  Returns an error — no image processor is installed.
+  Returns an error. No image processor is installed.
   """
   @spec apply_conversion(any(), PhxMediaLibrary.Conversion.t()) ::
           {:error, {:no_image_processor, String.t()}}
@@ -48,7 +48,7 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   @impl true
   @doc """
-  Returns an error — no image processor is installed.
+  Returns an error. No image processor is installed.
   """
   @spec save(any(), String.t(), keyword()) :: {:error, {:no_image_processor, String.t()}}
   def save(_image, _path, _opts \\ []) do
@@ -57,7 +57,7 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   @impl true
   @doc """
-  Returns an error — no image processor is installed.
+  Returns an error. No image processor is installed.
   """
   @spec dimensions(any()) :: {:error, {:no_image_processor, String.t()}}
   def dimensions(_image) do
@@ -66,7 +66,7 @@ defmodule PhxMediaLibrary.ImageProcessor.Null do
 
   @impl true
   @doc """
-  Returns an error — no image processor is installed.
+  Returns an error. No image processor is installed.
   """
   @spec tiny_placeholder(any()) :: {:error, {:no_image_processor, String.t()}}
   def tiny_placeholder(_image) do

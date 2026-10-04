@@ -51,7 +51,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.RegenerateWebp do
     repo = Config.repo()
     module = opts[:model] && Module.concat([opts[:model]])
 
-    Mix.shell().info("\n#{IO.ANSI.cyan()}PhxMediaLibrary — Regenerate WebP#{IO.ANSI.reset()}")
+    Mix.shell().info("\n#{IO.ANSI.cyan()}PhxMediaLibrary: Regenerate WebP#{IO.ANSI.reset()}")
     if dry_run?, do: Mix.shell().info("#{IO.ANSI.yellow()}DRY RUN#{IO.ANSI.reset()}")
 
     # image media that have a non-WebP original to convert from

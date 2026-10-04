@@ -82,7 +82,7 @@ defmodule PhxMediaLibrary.MetadataExtractor do
   Receives the file path, MIME type, and optional keyword options.
   Returns `{:ok, metadata_map}` or `{:error, reason}`.
 
-  Extraction failures are **non-fatal** — the upload will still proceed
+  Extraction failures are **non-fatal**. The upload will still proceed
   with an empty metadata map. This ensures that missing system libraries
   (e.g. libvips not installed) don't break file uploads.
   """

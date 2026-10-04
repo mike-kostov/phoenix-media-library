@@ -243,7 +243,7 @@ defmodule PhxMediaLibrary.Config do
   Merges the per-collection `webp:` override (a `boolean`, `keyword`, or `nil`)
   over the global `:webp` config over the library defaults. A keyword override
   implies `enabled: true` unless it says otherwise. Returns a keyword with
-  `:enabled`, `:quality`, `:keep_original`, `:max_dimension`. WebP requires the `:image` library —
+  `:enabled`, `:quality`, `:keep_original`, `:max_dimension`. WebP requires the `:image` library.
   `:enabled` is forced `false` when it is not loaded.
   """
   def resolve_webp(override) do
@@ -394,7 +394,7 @@ defmodule PhxMediaLibrary.Config do
   Maximum image size in pixels (width × height) accepted on upload.
 
   Decoding takes about 4 bytes per pixel, and a tiny compressed PNG can
-  declare 40000 × 40000 pixels — gigabytes once decoded. Larger images are
+  declare 40000 × 40000 pixels, which is gigabytes once decoded. Larger images are
   rejected before anything decodes them. Defaults to 100 megapixels; a
   collection's `max_pixels:` overrides it. `:infinity` disables the check.
 

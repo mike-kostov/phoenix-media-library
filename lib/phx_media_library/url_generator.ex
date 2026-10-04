@@ -7,27 +7,27 @@ defmodule PhxMediaLibrary.UrlGenerator do
   All URL-generating functions accept the following options in addition to
   any adapter-specific options:
 
-  - `:cache_bust`: `boolean` — when `true` and the media item has a stored
+  - `:cache_bust`: `boolean`. When `true` and the media item has a stored
     checksum, appends a `?vsn={checksum[0..7]}` query parameter so that CDN
     edges serve a fresh object whenever the file changes. Defaults to `false`.
 
-  - `:signed`: `boolean` — when `true`, generates a signed/expiring URL.
+  - `:signed`: `boolean`. When `true`, generates a signed/expiring URL.
     For S3 this is an AWS Signature V4 presigned GET URL. For local disk
     this is an HMAC-signed URL that can be verified by
     `PhxMediaLibrary.Plug.MediaDownload`. Requires `:expires_in` (see below).
     Defaults to `false`.
 
-  - `:expires_in`: `integer` — expiry window in seconds for signed URLs
+  - `:expires_in`: `integer`. The expiry window in seconds for signed URLs
     (default: `3600`). Has no effect unless `:signed` is `true`.
 
-  - `:download`: `boolean` — when `true`, generates a URL suitable for
+  - `:download`: `boolean`. When `true`, generates a URL suitable for
     file downloads. For S3, this attaches a `Content-Disposition: attachment`
     response header to the presigned URL. For local disk, the URL routes
     through `PhxMediaLibrary.Plug.MediaDownload` which sets the header.
     Implies `:signed` for S3 (a presigned URL is required). Defaults to
     `false`.
 
-  - `:filename`: `String.t()` — override the filename used in the
+  - `:filename`: `String.t()`. Overrides the filename used in the
     `Content-Disposition` header when `:download` is `true`. Defaults to the
     uploaded file's name (`metadata["original_file_name"]`), else
     `file_name`. Unsigned disk download URLs always use the stored name.

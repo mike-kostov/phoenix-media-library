@@ -5,7 +5,7 @@ defmodule PhxMediaLibrary.Downloader do
   The URL usually comes from a user, so the download is guarded:
 
     * **Private networks are refused.** The host is resolved first and every
-      address must be public — loopback, private (RFC 1918), link-local
+      address must be public. Loopback, private (RFC 1918), link-local
       (including cloud metadata at `169.254.169.254`), CGNAT, multicast and
       their IPv6 equivalents are rejected. The connection is then pinned to
       the checked address, so a DNS answer that changes between the check and

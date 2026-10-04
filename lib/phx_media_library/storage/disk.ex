@@ -217,7 +217,7 @@ defmodule PhxMediaLibrary.Storage.Disk do
   end
 
   # Generates a plain (unsigned) download URL routed through
-  # PhxMediaLibrary.Plug.MediaDownload. No signing — use your Phoenix auth
+  # PhxMediaLibrary.Plug.MediaDownload. No signing. Use your Phoenix auth
   # pipeline to restrict access.
   defp generate_download_url(path, opts) do
     download_base =

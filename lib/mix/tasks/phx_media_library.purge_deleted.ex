@@ -81,8 +81,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
 
       Mix.shell().info("""
 
-      #{IO.ANSI.cyan()}PhxMediaLibrary — Purge Deleted Media#{IO.ANSI.reset()}
-      ======================================
+      #{IO.ANSI.cyan()}PhxMediaLibrary: Purge Deleted Media#{IO.ANSI.reset()}
+      ====================================
 
       Found #{IO.ANSI.yellow()}#{count}#{IO.ANSI.reset()} soft-deleted media item(s) #{label}.
       """)
@@ -90,9 +90,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
       if dry_run? do
         print_items(repo, query)
 
-        Mix.shell().info(
-          "\n#{IO.ANSI.yellow()}Dry run — no items were deleted.#{IO.ANSI.reset()}"
-        )
+        Mix.shell().info("\n#{IO.ANSI.yellow()}Dry run, no items were deleted.#{IO.ANSI.reset()}")
 
         :ok
       else

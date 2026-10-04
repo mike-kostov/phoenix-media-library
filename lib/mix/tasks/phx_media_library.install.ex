@@ -14,7 +14,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
 
       --no-migration        Skip migration generation
       --id-type TYPE        Type for the mediable_id column: binary_id (default), integer, string
-      --binary-id BOOL      Deprecated — use --id-type instead (false maps to --id-type integer)
+      --binary-id BOOL      Deprecated, use --id-type instead (false maps to --id-type integer)
       --table NAME          Custom table name (default: "media")
 
   ## Examples

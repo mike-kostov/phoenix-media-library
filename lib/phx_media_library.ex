@@ -93,7 +93,7 @@ defmodule PhxMediaLibrary do
 
   The file is streamed to a temporary file before processing. Only `http`
   and `https` URLs are accepted, and hosts on private or loopback networks
-  are refused (including after redirects) — see `PhxMediaLibrary.Downloader`.
+  are refused (including after redirects). See `PhxMediaLibrary.Downloader`.
 
   ## Options
 
@@ -216,7 +216,7 @@ defmodule PhxMediaLibrary do
   Returns an `Ecto.Query` for all media belonging to a model, optionally
   filtered by collection.
 
-  This is useful for composing queries with Ecto — you can add further
+  This is useful for composing queries with Ecto. You can add further
   filters, selects, limits, or use it with `Repo.all/1`, `Repo.one/1`, etc.
 
   ## Examples
@@ -504,7 +504,7 @@ defmodule PhxMediaLibrary do
   @doc """
   Get all soft-deleted media for a model, optionally filtered by collection.
 
-  This is the inverse of `get_media/2` — it returns only trashed items.
+  This is the inverse of `get_media/2`. It returns only trashed items.
 
   ## Examples
 
@@ -819,7 +819,7 @@ defmodule PhxMediaLibrary do
 
     ordered_ids = Enum.map(reordered, & &1.id)
 
-    # Reuse reorder logic — we need the model info from the media record
+    # Reuse reorder logic. We need the model info from the media record.
     Config.repo().transaction(fn ->
       ordered_ids
       |> Enum.with_index(1)

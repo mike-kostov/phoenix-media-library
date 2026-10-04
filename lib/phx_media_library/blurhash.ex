@@ -62,7 +62,7 @@ defmodule PhxMediaLibrary.Blurhash do
   @base83 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~"
 
   # ---------------------------------------------------------------------------
-  # Public API — conditionally compiled when :image is available
+  # Public API, compiled only when :image is available
   # ---------------------------------------------------------------------------
 
   if Code.ensure_loaded?(Image) do
@@ -187,7 +187,7 @@ defmodule PhxMediaLibrary.Blurhash do
     end
   else
     @doc """
-    Returns `false` — the `:image` library is not available.
+    Returns `false`. The `:image` library is not available.
     """
     @spec available?() :: boolean()
     def available?, do: false
@@ -328,7 +328,7 @@ defmodule PhxMediaLibrary.Blurhash do
     r_q * 19 * 19 + g_q * 19 + b_q
   end
 
-  # sign(x) * |x|^p  — preserves sign while applying a power curve
+  # sign(x) * |x|^p. Preserves sign while applying a power curve.
   defp sign_pow(x, p) when x >= 0.0, do: :math.pow(x, p)
   defp sign_pow(x, p), do: -:math.pow(-x, p)
 

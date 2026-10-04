@@ -423,10 +423,10 @@ defmodule PhxMediaLibrary.Pipeline do
   gives (see `PhxMediaLibrary.FileName`), for media stored before file
   naming or under another strategy.
 
-  Every file the media owns — original, conversions, WebP, responsive
-  variants — is copied to its new path, the record is updated, and only
-  then are the old files deleted, so an interrupted run can simply be
-  repeated. Files already missing are skipped. Media without
+  Every file the media owns is copied to its new path: the original,
+  conversions, WebP and responsive variants. Then the record is updated,
+  and only after that are the old files deleted, so an interrupted run can
+  simply be repeated. Files already missing are skipped. Media without
   `metadata["original_file_name"]` gets it from its current name, so alt
   text keeps working.
 

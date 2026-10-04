@@ -98,7 +98,7 @@ defmodule PhxMediaLibrary.MimeDetector do
 
   Compatible types are not a mismatch:
 
-    * the same family — `image/*`, `audio/*`, `video/*` (a PNG saved as
+    * the same family: `image/*`, `audio/*`, `video/*` (a PNG saved as
       `.jpg`, `audio/wav` vs `audio/x-wav`). SVG is the exception: it can
       carry scripts, so it only matches SVG.
     * ZIP content declared as a ZIP-based format (`.docx`, `.xlsx`, `.odt`,
@@ -107,7 +107,7 @@ defmodule PhxMediaLibrary.MimeDetector do
     * an unknown declared type (`application/octet-stream`)
 
   A file whose bytes are an image but whose extension says `.html` is still
-  rejected — that is the case that matters, since the extension decides how
+  rejected. That is the case that matters, since the extension decides how
   the file is served.
 
   ## Parameters
@@ -147,7 +147,7 @@ defmodule PhxMediaLibrary.MimeDetector do
         end
 
       {:error, :unrecognized} ->
-        # Can't detect from content — trust the declared type
+        # Can't detect from content, so trust the declared type
         :ok
     end
   end
@@ -155,7 +155,7 @@ defmodule PhxMediaLibrary.MimeDetector do
   @doc """
   Detect the MIME type from content, falling back to extension-based detection.
 
-  Unlike `detect/2`, this always returns a MIME type string — it falls back
+  Unlike `detect/2`, this always returns a MIME type string. It falls back
   to `MIME.from_path/1` when magic bytes don't match.
 
   ## Examples
@@ -194,7 +194,7 @@ defmodule PhxMediaLibrary.MimeDetector do
   @media_families ["image", "audio", "video"]
   @svg "image/svg+xml"
 
-  # Check if two MIME types are compatible — see verify/3 for the rules.
+  # Check if two MIME types are compatible. See verify/3 for the rules.
   defp mime_types_match?(detected, declared) do
     detected = normalize_mime(detected)
     declared = normalize_mime(declared)

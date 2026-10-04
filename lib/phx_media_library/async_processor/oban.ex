@@ -50,7 +50,7 @@ if Code.ensure_loaded?(Oban) do
     `Conversion` definitions (with dimensions, quality, fit mode, etc.).
 
     This avoids the pitfall of serializing only conversion names and losing all
-    configuration — the previous implementation created empty `Conversion` structs
+    configuration. The previous implementation created empty `Conversion` structs
     with only a `:name` field.
     """
 
@@ -216,7 +216,7 @@ if Code.ensure_loaded?(Oban) do
     end
 
     # -------------------------------------------------------------------------
-    # Model Module Discovery — delegates to ModelRegistry
+    # Model Module Discovery. Delegates to ModelRegistry.
     # -------------------------------------------------------------------------
 
     @doc """

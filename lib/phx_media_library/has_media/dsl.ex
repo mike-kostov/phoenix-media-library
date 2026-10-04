@@ -36,8 +36,8 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
   ### Nested style (conversions inside collections)
 
   You can nest `convert` calls inside a `collection ... do ... end` block.
-  Each conversion is automatically scoped to the enclosing collection —
-  no need to pass `:collections` manually:
+  Each conversion is automatically scoped to the enclosing collection, so
+  there is no need to pass `:collections` manually:
 
       defmodule MyApp.Post do
         use Ecto.Schema
@@ -66,7 +66,7 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
 
   The nested style makes it immediately clear which conversions apply to
   which collections. Collections without image content (like `:documents`)
-  simply omit the `do` block — no conversions will run for those uploads.
+  simply omit the `do` block. No conversions will run for those uploads.
 
   You can also mix both styles: use nested conversions for some collections
   and a separate `media_conversions do ... end` block for shared conversions.
@@ -160,7 +160,7 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
 
   > **Important:** Always use the `:collections` option to scope conversions
   > to the collections they apply to. Without it, the conversion runs for
-  > **every** collection — including non-image collections like documents,
+  > **every** collection, including non-image collections like documents,
   > which will cause processing errors. If you prefer to scope conversions
   > visually, use the nested `collection ... do convert ... end` syntax
   > in `media_collections` instead.
@@ -168,7 +168,7 @@ defmodule PhxMediaLibrary.HasMedia.DSL do
   ## Examples
 
       media_conversions do
-        # Scoped to specific collections — recommended
+        # Scoped to specific collections, as recommended
         convert :thumb, width: 150, height: 150, fit: :cover, collections: [:images, :avatar]
         convert :preview, width: 800, quality: 85, collections: [:images]
         convert :banner, width: 1200, height: 400, fit: :crop, collections: [:images]
