@@ -1,6 +1,7 @@
 # Spec 01: Release 0.9.0
 
-Status: approved (Mike, 2026-10-04).
+Status: approved (Mike, 2026-10-04). Update of 2026-10-04 (S1 revised;
+S4, S5, B7 and P4 added after the security checkpoint) awaits approval.
 Source: `docs/backlog.md` (0.9.0 section), `docs/ideas/placeholders.md`.
 
 ## Objective
@@ -106,17 +107,25 @@ covered by tests (or, for docs, by review) and its slice is committed.
 
 ### Security
 
-**S1. Direct-to-S3 uploads are enforced.** (behaviour change)
-- `presigned_upload_url/3` returns a presigned POST (URL and form fields).
-  S3 rejects an upload over the size limit (`:max_size`, else the
-  collection's `max_size`) or with a different content type than given.
+**S1. Direct-to-S3 uploads are enforced, per provider.** (behaviour change,
+ADR-025)
+- A disk's `direct_upload:` (`:post` or `:put`, defaulting from its
+  provider preset: `:post` on AWS, `:put` elsewhere) decides the method.
+- POST: a presigned POST whose policy makes the provider reject another
+  key, a size over the limit (`:max_size`, else the collection's) or
+  another content type. Done in task 4 for AWS.
+- PUT: a presigned PUT whose signature covers the Content-Type; the server
+  refuses to sign when the declared size is over the limit.
+- `PhxMediaLibrary.presigned_upload/3` returns the method, URL, form fields
+  or headers, and key; `presigned_upload_url/3` becomes a deprecated
+  wrapper (removed in 0.10.0).
 - `complete_external_upload/4` checks the object exists (HEAD), takes its
-  size and content type from S3 instead of the client, and validates them
-  against the collection's `accepts` and `max_size`. An invalid object is
-  deleted and the call returns `{:error, reason}`.
-- The media UUID is read correctly for every path generator (Default, Flat,
-  DateBased, Tenant).
-- The storage guide shows the client side of a POST upload.
+  size and content type from storage instead of the client, and validates
+  them against the collection's `accepts` and `max_size`. An invalid object
+  is deleted and the call returns `{:error, reason}`. Done in task 5.
+- The media UUID is read correctly for every path generator. Done in
+  task 5.
+- The storage guide shows one client uploader for both methods.
 
 **S2. SVG files can't run scripts.**
 - The library provides a headers function for `Plug.Static`'s `:headers`
@@ -129,6 +138,20 @@ covered by tests (or, for docs, by review) and its slice is committed.
 **S3. No atoms from file extensions.**
 - The image processor maps known extensions to formats and falls back to a
   default; uploading files with many unique extensions creates no atoms.
+
+**S4. S3 adapter works with any S3-compatible provider.** (ADR-025)
+- `provider: :aws | :r2 | :generic` on an S3 disk selects preset defaults;
+  `endpoint:`, addressing, `base_url:`, `direct_upload:` and `acl:` override
+  them, so unknown providers work as `:generic` plus settings.
+- Requests and public URLs follow the endpoint; `:r2` builds it from
+  `account_id:`.
+- Verified against the test emulator (P4) for the operations the library
+  uses; provider-specific rules come from `docs/ideas/s3-providers.md`.
+
+**S5. Req without known advisories.**
+- The `req` requirement allows the latest stable release (0.7.4 at the time
+  of writing), which fixes CVE-2026-49755 and CVE-2026-49756; the library's
+  requests keep working, shown by the test suite.
 
 ### Bugs
 
@@ -155,6 +178,11 @@ planning)
   AVIF collection) is stored under its own format's extension, not the
   original's. Today `format: :webp` writes WebP bytes to `photo_thumb.jpg`.
 - Media recorded before the fix keeps resolving to its old paths.
+
+**B7. Uploads send no ACL by default.** (ADR-025)
+- The S3 adapter sends an ACL header only when the disk sets `acl:`. Per
+  AWS's documentation, uploads with `acl: private` fail on buckets with
+  default settings, and R2 doesn't support ACL headers.
 
 **B5. Placeholders without metadata.** Covered by F5; the tiny image no
 longer carries EXIF or color profiles.
@@ -233,6 +261,12 @@ and the unformatted `path_generator/tenant.ex` are fixed (ADR-022).
   and how to keep the old behaviour where possible.
 - The CHANGELOG announces the planned unification of responsive rules
   (ADR-017).
+
+**P4. Real S3 in tests.** (ADR-026)
+- S3 tests run against a reused Ministack container through Testcontainers
+  in the normal `mix test`; `FakeS3Client` is gone.
+- A project `.testcontainers.properties` makes it work with podman and
+  Docker without per-machine settings.
 
 **P3. Release.**
 - The backlog is reviewed again; anything moved in is specced here first.

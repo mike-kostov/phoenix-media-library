@@ -120,9 +120,92 @@ callback contract); `mix precommit`.
 **Scope:** M (5 files)
 
 ### Checkpoint: Security
-- [ ] Full suite and `mix precommit` green.
-- [ ] Review with Mike: the S3 client-side change is acceptable as written
-      in the guide.
+- [x] Full suite and `mix precommit` green.
+- [x] Review with Mike (2026-10-04): accepted; R2 has no presigned POST, so
+      the S3 approach became per provider (ADR-025) and real S3 tests were
+      added (ADR-026). Phase 1b below.
+
+### Phase 1b: S3 providers (spec update of 2026-10-04)
+
+#### Task 5a: Req without advisories (S5)
+**Description:** Allow the latest stable `req` (0.7.4) and adapt the
+library's calls if its API changed.
+**Acceptance criteria:**
+- [ ] `mix.lock` resolves `req` 0.7.4; `mix hex.audit` reports no advisory.
+- [ ] Downloader, URL downloads and existing tests pass unchanged in
+      behaviour.
+**Verification:** `mix hex.audit`; full suite; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `mix.exs`, `mix.lock`, possibly `downloader.ex`
+**Scope:** S
+
+#### Task 5b: Real S3 in tests, reached through `endpoint:` (P4, part of S4)
+**Description:** Add `testcontainers` (test only) and a project
+`.testcontainers.properties` (reuse, privileged Ryuk). The S3 adapter takes
+an `endpoint:` (scheme, host, port) and path-style addressing so it can
+reach the container. Presign and `stat` tests move to a reused Ministack
+container; `FakeS3Client` is removed.
+**Acceptance criteria:**
+- [ ] S3 tests run in the normal `mix test` against Ministack; a second run
+      reuses the container.
+- [ ] Put, get, delete, exists, `stat`, presigned POST (policy enforced) and
+      presigned PUT work against the container through the adapter.
+- [ ] No `FakeS3Client` remains.
+**Verification:** full suite twice (timing of the second run); `mix precommit`.
+**Dependencies:** Task 5a
+**Files:** `mix.exs`, `.testcontainers.properties`, `storage/s3.ex`, S3 tests, `test/test_helper.exs`
+**Scope:** M
+
+#### Task 5c: Provider presets and public URLs (S4)
+**Description:** `provider: :aws | :r2 | :generic` sets defaults for
+endpoint, addressing, public URL base, `direct_upload` and `acl`; disk
+options override them. Public URLs follow the endpoint; `:r2` builds the
+endpoint from `account_id:`.
+**Acceptance criteria:**
+- [ ] Each preset resolves to the documented defaults; every option
+      overrides its preset value.
+- [ ] Public URLs for `:r2` and `:generic` use their endpoint or `base_url:`,
+      never `amazonaws.com`.
+**Verification:** S3 config tests; container tests still pass; `mix precommit`.
+**Dependencies:** Task 5b
+**Files:** `storage/s3.ex`, `guides/storage.md`, tests
+**Scope:** M
+
+#### Task 5d: No ACL by default (B7)
+**Description:** Upload requests carry an ACL header only when the disk sets
+`acl:`.
+**Acceptance criteria:**
+- [ ] Without `acl:`, put and multipart upload send no `x-amz-acl`
+      (asserted on the request); with `acl:`, they send it.
+**Verification:** S3 tests; `mix precommit`.
+**Dependencies:** Task 5c
+**Files:** `storage/s3.ex`, tests
+**Scope:** S
+
+#### Task 5e: Direct upload method per disk (S1 revision)
+**Description:** `direct_upload: :post | :put` per disk (preset default).
+New `PhxMediaLibrary.presigned_upload/3` returns `%{method, url, fields,
+headers, key}`; PUT signs the Content-Type and is refused when the declared
+size is over the limit. `presigned_upload_url/3` becomes a deprecated
+wrapper. The storage guide shows one uploader for both methods; the
+CHANGELOG's breaking-changes entry is rewritten to match.
+**Acceptance criteria:**
+- [ ] A `:post` disk returns a policy as today; a `:put` disk returns a
+      presigned PUT whose signed headers include `content-type`.
+- [ ] Declaring a size over the limit returns `{:error, {:file_too_large,
+      size, max}}` without signing.
+- [ ] Both methods upload to the container end to end; completion accepts
+      the object.
+**Verification:** container tests for both methods; `mix precommit`.
+**Dependencies:** Task 5d
+**Files:** `storage/s3.ex`, `storage.ex`, `phx_media_library.ex`, `guides/storage.md`, `CHANGELOG.md`
+**Scope:** M (5 files)
+
+### Checkpoint: S3 providers
+- [ ] Full suite and `mix precommit` green; the second test run reuses the
+      container.
+- [ ] Review with Mike: R2 configuration example and the uploader in the
+      guide.
 
 ### Phase 2: Bugs
 
