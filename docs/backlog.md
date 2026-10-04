@@ -51,6 +51,14 @@ publishing, the whole backlog is reviewed again.
   short examples.
 - Release 0.9.0.
 
+## 0.10.0 (agreed, not yet specced)
+- Media table indexes, per `docs/ideas/media-indexes.md` (Mike, 2026-10-04):
+  drop the redundant (mediable_type, mediable_id) index, make
+  (deleted_at) a partial index, consider dropping (collection_name); in
+  the installer template, plus an optional migration and an upgrade note
+  for existing apps. Decide first whether the unused checksum index stays
+  (apps may use it to find duplicates).
+
 ## After 0.9.0
 - Copy or move media between records.
 - Add media from a binary, base64 or a stream (`{:stream, enumerable}`).
