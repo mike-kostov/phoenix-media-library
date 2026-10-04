@@ -169,6 +169,44 @@ defmodule Mix.Tasks.PhxMediaLibrary.DoctorTest do
     refute content == "stale"
   end
 
+  test "--regenerate creates a missing AVIF", %{png: png} do
+    media = add(png, :avif_photos)
+    avif = media.custom_properties["avif"]
+    StorageWrapper.delete(Config.storage_adapter(:local), avif)
+    assert :missing_avif in Health.check(media)
+
+    doctor(["--regenerate", "--yes"])
+
+    assert exists?(media, avif)
+    refute :missing_avif in Health.check(Repo.reload!(media))
+  end
+
+  test "--rebuild --only avif regenerates AVIF that is present", %{png: png} do
+    media = add(png, :avif_photos)
+    avif = media.custom_properties["avif"]
+    StorageWrapper.put(Config.storage_adapter(:local), avif, "stale")
+
+    doctor(["--rebuild", "--only", "avif", "--yes"])
+
+    {:ok, content} = StorageWrapper.get(Config.storage_adapter(:local), avif)
+    refute content == "stale"
+  end
+
+  test "--rename moves the AVIF", %{png: png} do
+    Application.put_env(:phx_media_library, :file_naming, :slug)
+    media = add(png, :avif_photos)
+    old_avif = media.custom_properties["avif"]
+    Application.put_env(:phx_media_library, :file_naming, :semantic)
+
+    doctor(["--rename", "--yes"])
+
+    renamed = Repo.reload!(media)
+    assert renamed.custom_properties["avif"] =~ ~r/posts_.*\.avif$/
+    assert exists?(renamed, renamed.custom_properties["avif"])
+    refute exists?(renamed, old_avif)
+    assert Health.check(renamed) == []
+  end
+
   test "--strict exits with status 1 when errors are found" do
     create_media(disk: "local")
     assert catch_exit(doctor(["--strict"])) == {:shutdown, 1}

@@ -375,7 +375,7 @@ defmodule PhxMediaLibrary.Media do
 
   @doc """
   Every storage path this media record owns: the original, named conversions,
-  the served WebP sibling, responsive variants and the video poster. Used by
+  the served WebP and AVIF siblings, responsive variants and the video poster. Used by
   `delete_files/1` and `mix phx_media_library.clean`.
   """
   @spec owned_paths(t()) :: [String.t()]
@@ -387,18 +387,19 @@ defmodule PhxMediaLibrary.Media do
       |> Map.keys()
       |> Enum.map(&PathGenerator.relative_path(media, &1))
 
-    webp =
-      case media.custom_properties do
-        %{"webp" => path} when is_binary(path) -> [path]
-        _ -> []
-      end
+    # The served WebP and the AVIF beside the original.
+    siblings =
+      for key <- ["webp", "avif"],
+          path = (media.custom_properties || %{})[key],
+          is_binary(path),
+          do: path
 
     responsive =
       (media.responsive_images || %{})
       |> Map.values()
       |> Enum.flat_map(&paths_in/1)
 
-    Enum.uniq([original | conversions ++ webp ++ responsive])
+    Enum.uniq([original | conversions ++ siblings ++ responsive])
   end
 
   @doc """

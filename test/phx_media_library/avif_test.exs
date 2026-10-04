@@ -51,6 +51,14 @@ defmodule PhxMediaLibrary.AvifTest do
     assert <<_::binary-size(4), "ftypavif", _::binary>> = File.read!(avif_file(media))
   end
 
+  test "the AVIF is owned: deleting the media removes it", %{jpeg: jpeg} do
+    media = add(jpeg, :avif_photos)
+    assert media.custom_properties["avif"] in Media.owned_paths(media)
+
+    Media.delete_files(media)
+    refute File.exists?(avif_file(media))
+  end
+
   test "the AVIF has the served WebP's size", %{jpeg: jpeg} do
     media = add(jpeg, :avif_webp)
 

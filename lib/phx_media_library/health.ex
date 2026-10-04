@@ -16,6 +16,7 @@ defmodule PhxMediaLibrary.Health do
   | `:checksum_mismatch`           | error      | none — restore from backup    |
   | `{:missing_conversions, names}`| repairable | `Pipeline.conversions/2`      |
   | `:missing_webp`                | repairable | `Pipeline.webp/2`             |
+  | `:missing_avif`                | repairable | `Pipeline.avif/2`             |
   | `:missing_responsive`          | repairable | `Pipeline.responsive/2`       |
   | `:missing_metadata`            | repairable | `Pipeline.metadata/2`         |
   | `:needs_rename`                | repairable | `Pipeline.rename/2`           |
@@ -43,6 +44,7 @@ defmodule PhxMediaLibrary.Health do
           | :checksum_mismatch
           | {:missing_conversions, [String.t()]}
           | :missing_webp
+          | :missing_avif
           | :missing_responsive
           | :missing_metadata
           | :needs_rename
@@ -78,6 +80,7 @@ defmodule PhxMediaLibrary.Health do
         checksum_issue(media, opts),
         conversions_issue(media, present, original?),
         webp_issue(media, present, original?),
+        avif_issue(media, present, original?),
         responsive_issue(media, present, original?),
         metadata_issue(media),
         name_issue(media),
@@ -117,6 +120,7 @@ defmodule PhxMediaLibrary.Health do
     do: Pipeline.conversions(media, only: names)
 
   def repair(media, :missing_webp), do: Pipeline.webp(media)
+  def repair(media, :missing_avif), do: Pipeline.avif(media)
 
   def repair(media, :missing_responsive),
     do: Pipeline.responsive(media, of: [nil | Map.keys(media.generated_conversions || %{})])
@@ -219,6 +223,19 @@ defmodule PhxMediaLibrary.Health do
   end
 
   defp webp_issue(_media, _present, false), do: nil
+
+  defp avif_issue(media, present, true = _original?) do
+    settings = Model.avif_settings(media, media.collection_name)
+
+    expected? =
+      Keyword.get(settings, :enabled, false) and
+        PhxMediaLibrary.Avif.convertible?(media.mime_type) and PhxMediaLibrary.Avif.supported?()
+
+    avif = (media.custom_properties || %{})["avif"]
+    if expected? and avif not in present, do: :missing_avif
+  end
+
+  defp avif_issue(_media, _present, false), do: nil
 
   defp responsive_issue(media, present, true = _original?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do

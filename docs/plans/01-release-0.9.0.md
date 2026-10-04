@@ -306,8 +306,8 @@ line when libvips lacks AVIF; conversions use AVIF over WebP (F7).
 **Description:** AVIF files are owned paths (deleted, cleaned, renamed);
 the doctor reports missing AVIF and rebuilds it (`--rebuild --only avif`).
 **Acceptance criteria:**
-- [ ] Deleting, cleaning and renaming handle the AVIF file.
-- [ ] `Health.check/2` reports `:missing_avif`; the doctor repairs it.
+- [x] Deleting, cleaning and renaming handle the AVIF file.
+- [x] `Health.check/2` reports `:missing_avif`; the doctor repairs it.
 **Verification:** media, doctor and health tests; `mix precommit`.
 **Dependencies:** Task 11
 **Files:** `media.ex`, `pipeline.ex`, `health.ex`, `doctor.ex`, tests

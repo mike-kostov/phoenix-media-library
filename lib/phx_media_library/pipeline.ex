@@ -349,7 +349,8 @@ defmodule PhxMediaLibrary.Pipeline do
       |> Map.new(
         &{PathGenerator.relative_path(media, &1), PathGenerator.relative_path(renamed, &1)}
       )
-      |> put_webp_move(media, renamed)
+      |> put_sibling_move(media, renamed, "webp")
+      |> put_sibling_move(media, renamed, "avif")
 
     old_name = Path.rootname(media.file_name)
     new_name = Path.rootname(renamed.file_name)
@@ -362,13 +363,17 @@ defmodule PhxMediaLibrary.Pipeline do
     |> Map.reject(fn {old, new} -> old == new end)
   end
 
-  defp put_webp_move(moves, %Media{custom_properties: %{"webp" => webp}}, renamed)
-       when is_binary(webp) do
-    new_webp = Path.rootname(PathGenerator.relative_path(renamed, nil)) <> ".webp"
-    Map.put(moves, webp, new_webp)
-  end
+  # The WebP or AVIF beside the original moves with it.
+  defp put_sibling_move(moves, media, renamed, format) do
+    case (media.custom_properties || %{})[format] do
+      path when is_binary(path) ->
+        new_path = Path.rootname(PathGenerator.relative_path(renamed, nil)) <> "." <> format
+        Map.put(moves, path, new_path)
 
-  defp put_webp_move(moves, _media, _renamed), do: moves
+      _ ->
+        moves
+    end
+  end
 
   defp rename_variant(path, old_name, new_name) do
     base = Path.basename(path)
@@ -396,7 +401,7 @@ defmodule PhxMediaLibrary.Pipeline do
   # Replace stored paths ("path" entries and the WebP) after a move.
   defp rewrite_paths(map, moves) when is_map(map) do
     Map.new(map, fn
-      {key, path} when key in ["path", "webp"] and is_binary(path) ->
+      {key, path} when key in ["path", "webp", "avif"] and is_binary(path) ->
         {key, Map.get(moves, path, path)}
 
       {key, value} ->

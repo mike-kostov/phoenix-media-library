@@ -48,7 +48,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
       --fix             Permanently delete media with no files left
       --rebuild         Regenerate derivatives even when present (after
                         changing conversion, WebP or responsive settings)
-        --only          With --rebuild: conversions, webp and/or responsive
+        --only          With --rebuild: conversions, webp, avif and/or responsive
                         (comma-separated; default all)
         --conversion    With --rebuild: only this conversion (repeatable)
 
@@ -101,7 +101,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   @repairs [
     reextract: [:missing_metadata],
     rename: [:needs_rename],
-    regenerate: [:missing_webp, :missing_conversions, :missing_responsive],
+    regenerate: [:missing_webp, :missing_avif, :missing_conversions, :missing_responsive],
     drop_originals: [:original_not_dropped],
     fix: [:no_files]
   ]
@@ -111,6 +111,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     checksum_mismatch: "Checksum mismatch",
     missing_conversions: "Missing conversions",
     missing_webp: "Missing WebP",
+    missing_avif: "Missing AVIF",
     missing_responsive: "Missing responsive variants",
     missing_metadata: "Missing metadata",
     needs_rename: "Not named by file_naming",
@@ -122,6 +123,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     checksum_mismatch: "restore these files from a backup",
     missing_conversions: "--regenerate",
     missing_webp: "--regenerate",
+    missing_avif: "--regenerate",
     missing_responsive: "--regenerate",
     missing_metadata: "--reextract",
     needs_rename: "--rename",
@@ -322,17 +324,18 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
 
   defp rebuild_targets(opts) do
     case opts[:only] do
-      nil -> [:webp, :conversions, :responsive]
+      nil -> [:webp, :avif, :conversions, :responsive]
       only -> only |> String.split(",", trim: true) |> Enum.map(&rebuild_target/1)
     end
   end
 
   defp rebuild_target("conversions"), do: :conversions
   defp rebuild_target("webp"), do: :webp
+  defp rebuild_target("avif"), do: :avif
   defp rebuild_target("responsive"), do: :responsive
 
   defp rebuild_target(other),
-    do: Mix.raise("--only accepts conversions, webp, responsive; got #{inspect(other)}")
+    do: Mix.raise("--only accepts conversions, webp, avif, responsive; got #{inspect(other)}")
 
   defp sort_by_kind(issues, order),
     do: Enum.sort_by(issues, &Enum.find_index(order, fn kind -> kind == kind(&1) end))
@@ -382,6 +385,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     do: continue(media, Pipeline.conversions(media, only: only))
 
   defp run_step(media, {:rebuild, :webp, _}), do: continue(media, Pipeline.webp(media))
+  defp run_step(media, {:rebuild, :avif, _}), do: continue(media, Pipeline.avif(media))
 
   defp run_step(media, {:rebuild, :responsive, _}) do
     of = [nil | Map.keys(media.generated_conversions || %{})]
