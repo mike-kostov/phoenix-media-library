@@ -343,7 +343,7 @@ the original's variants up to the conversion's width, plus the conversion.
 **Scope:** M
 
 ### Checkpoint: Image formats
-- [ ] Full suite and `mix precommit` green.
+- [x] Full suite and `mix precommit` green.
 - [ ] Rerun the probe upload from the spec discussion and show Mike the
       file list for a WebP + AVIF + responsive collection.
 
