@@ -1,0 +1,413 @@
+# Implementation Plan: Release 0.9.0
+
+Spec: `docs/specs/01-release-0.9.0.md` (approved 2026-10-04)
+Decisions: ADR-014 to ADR-024
+
+## Overview
+
+Make the gate work first, then the security items (highest risk, fail
+fast), then the bugs, then image formats (one variant format, conversions
+in the served format, AVIF), then placeholders and the smaller features,
+and finally docs and the release. Every task is one vertical slice and one
+commit, verified by its own tests and `mix precommit`. A checkpoint with a
+review closes each phase.
+
+## Architecture Decisions
+
+- **The gate comes first.** With no CI (ADR-022), every later commit relies
+  on `mix precommit` passing, so the 17 credo findings and the unformatted
+  file are fixed before anything else.
+- **Conversion paths follow the conversion's format** (found while
+  planning, a bug). A conversion with `format: :webp` today writes WebP
+  bytes to `photo_thumb.jpg`, which browsers then reject as a JPEG under
+  `nosniff`. `generated_conversions` records each conversion's extension,
+  and `PathGenerator.relative_path/2` swaps the extension centrally, so
+  custom path generators keep working. Legacy `true` values keep the
+  original's extension. F7 depends on this.
+- **Direct uploads are checked against real content.** Completion reads the
+  object's size and first bytes from storage (a new optional storage
+  callback; HEAD plus a ranged GET on S3) and runs the same validation as
+  regular uploads.
+- **Placeholders ride the existing background job.** When placeholders are
+  on, the upload always enqueues background processing, even with no
+  conversions; the job runs the placeholder step. No new job type.
+- **AVIF reuses the WebP machinery.** The WebP encoder is generalised to a
+  target format instead of a second, parallel module.
+
+## Task List
+
+### Phase 0: Gate
+
+#### Task 1: Make `mix precommit` pass
+**Description:** Fix the 17 `credo --strict` findings (nested module
+aliases, nesting depth, complexity in `drop_originals`, `media_download`,
+`s3`, `url_generator`, `ffmpeg`, `webp`, `blurhash`, `config`, and 3 test
+files) and format `path_generator/tenant.ex`. Remove the dead
+`Process.delete` in `MediaAdder.stream_and_checksum/3` (B4). No behaviour
+change.
+**Acceptance criteria:**
+- [ ] `mix precommit` exits 0 on a clean checkout.
+- [ ] No test changes besides the 3 alias fixes.
+**Verification:** `mix precommit`; full suite count unchanged.
+**Dependencies:** None
+**Files:** the 11 flagged files, `media_adder.ex`
+**Scope:** M (many files, mechanical)
+
+### Checkpoint: Gate
+- [ ] `mix precommit` green; from here on it runs before every commit.
+
+### Phase 1: Security
+
+#### Task 2: No atoms from file extensions (S3)
+**Description:** `ImageProcessor.Image` maps known extensions to formats
+explicitly and falls back to a default.
+**Acceptance criteria:**
+- [ ] Saving with 100 unique unknown extensions creates no new atoms.
+- [ ] Known formats (jpg, png, webp, avif, gif, tiff) still save correctly.
+**Verification:** `mix test test/phx_media_library/image_processor_test.exs` (new); `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `image_processor/image.ex`, new test
+**Scope:** S
+
+#### Task 3: Safe headers for SVG (S2)
+**Description:** A headers function for `Plug.Static`'s `:headers` option
+sets a sandboxing CSP and `nosniff` on `.svg`; `Plug.MediaDownload` sends
+the same; the install task's endpoint snippet and the storage guide use it.
+**Acceptance criteria:**
+- [ ] `Plug.Static` with the function serves `.svg` with
+      `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`
+      and `X-Content-Type-Options: nosniff`; a `.jpg` gets neither CSP nor change.
+- [ ] `Plug.MediaDownload` sends the same headers for SVG.
+- [ ] Install task output and storage guide show the setup.
+**Verification:** new plug tests; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** new `plug/static_headers.ex`, `plug/media_download.ex`, `mix/tasks/phx_media_library.install.ex`, `guides/storage.md`, tests
+**Scope:** M
+
+#### Task 4: Presigned POST for direct uploads (S1, part 1)
+**Description:** `Storage.S3.presigned_upload_url/3` creates a presigned
+POST with conditions: exact key, `content-length-range` up to `:max_size`
+(else the collection's `max_size`), and `Content-Type` when given.
+`PhxMediaLibrary.presigned_upload_url/3` passes the collection limits.
+**Acceptance criteria:**
+- [ ] The returned fields carry the policy with those conditions (decoded
+      and asserted in tests).
+- [ ] `max_size` defaults to the collection's.
+**Verification:** S3 adapter tests with a fixed `ExAws` config; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `storage/s3.ex`, `storage.ex` (docs), `phx_media_library.ex`, tests
+**Scope:** M
+
+#### Task 5: Completion verifies the stored object (S1, part 2)
+**Description:** A new optional storage callback returns an object's size
+and first bytes (S3: HEAD plus ranged GET; Disk and Memory: local).
+`complete_external_upload/4` uses it: missing object is
+`{:error, :not_found}`; size and detected type come from storage and are
+validated against `accepts`, `max_size` and the type check; invalid objects
+are deleted. The UUID is read as the file's parent folder, which holds for
+all four path generators.
+**Acceptance criteria:**
+- [ ] A missing object, an oversized object and a wrong-type object each
+      return an error, and the latter two are deleted.
+- [ ] Size and MIME type stored on the media are the real ones, not the
+      client's.
+- [ ] Completion works under Default, Flat, DateBased and Tenant paths.
+**Verification:** tests with the Memory adapter (and a test adapter for the
+callback contract); `mix precommit`.
+**Dependencies:** Task 4
+**Files:** `storage.ex`, `storage/s3.ex`, `storage/memory.ex`, `storage/disk.ex`, `phx_media_library.ex`, `milestone_3c_test.exs`
+**Scope:** M (5 files)
+
+### Checkpoint: Security
+- [ ] Full suite and `mix precommit` green.
+- [ ] Review with Mike: the S3 client-side change is acceptable as written
+      in the guide.
+
+### Phase 2: Bugs
+
+#### Task 6: Percent-encoded URL paths (B1)
+**Description:** URL helpers percent-encode each path segment for Disk and
+S3 public URLs; signed URLs still verify.
+**Acceptance criteria:**
+- [ ] A media stored as `Report #3.pdf` gets a URL that `Plug.Static`
+      serves.
+- [ ] A signed download URL for that media verifies in `Plug.MediaDownload`.
+**Verification:** URL and plug tests; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `storage/disk.ex`, `storage/s3.ex`, `url_generator.ex`, `plug/media_download.ex`, tests
+**Scope:** M
+
+#### Task 7: `consume_media/5` reports partial results (B2)
+**Description:** Success stays `{:ok, media}`; when some entries fail it
+returns `{:error, {:partial, saved, failed}}`, and `:notify` reports both.
+**Acceptance criteria:**
+- [ ] With one failing entry of three, the two saved media are returned and
+      the failure carries its reason.
+- [ ] All-success behaviour unchanged.
+**Verification:** `live_upload_test.exs`; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `live_upload.ex`, `live_upload_test.exs`
+**Scope:** S
+
+#### Task 8: Streamed downloads (B3)
+**Description:** `Plug.MediaDownload` serves files with `send_file` instead
+of reading them into memory.
+**Acceptance criteria:**
+- [ ] Download responses come from `send_file` (asserted via the conn);
+      headers unchanged.
+**Verification:** plug tests; `mix precommit`.
+**Dependencies:** Task 3
+**Files:** `plug/media_download.ex`, test
+**Scope:** S
+
+#### Task 9: Conversion files carry their format's extension (bug found in planning)
+**Description:** `generated_conversions` records each conversion's
+extension; `PathGenerator.relative_path/2` swaps the extension for
+conversions that have one recorded; `true` (legacy) keeps the original's.
+`owned_paths/1`, rename and the doctor follow automatically.
+**Acceptance criteria:**
+- [ ] A conversion with `format: :webp` on a JPEG is stored as `…_thumb.webp`
+      with WebP bytes, and its URL ends in `.webp`.
+- [ ] Media with `"thumb" => true` keeps resolving to `…_thumb.jpg`.
+- [ ] Delete, clean, rename and the doctor handle both.
+**Verification:** conversion, path and doctor tests (fail first on the old
+code); `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `conversions.ex`, `path_generator.ex`, `media.ex`, tests
+**Scope:** M
+
+### Checkpoint: Bugs
+- [ ] Full suite and `mix precommit` green.
+
+### Phase 3: Image formats
+
+#### Task 10: Conversions in the served format (F7)
+**Description:** Without an explicit `format:`, a conversion in a WebP
+collection is saved as WebP (AVIF hook added in Task 11).
+**Acceptance criteria:**
+- [ ] In `:webp_photos`, `:thumb` and `:preview` are WebP files.
+- [ ] An explicit `format: :png` still wins.
+- [ ] `doctor --rebuild --only conversions` converts existing JPEG
+      conversions.
+**Verification:** pipeline and doctor tests; `mix precommit`.
+**Dependencies:** Task 9
+**Files:** `conversions.ex`, `model.ex`, tests
+**Scope:** S
+
+#### Task 11: AVIF generation (F3, part 1)
+**Description:** `avif: true | [quality: …]` globally and per collection,
+resolved by `Model`; the WebP encoder becomes format-generic; a `Pipeline`
+step generates the AVIF of the served file on upload; skipped with a log
+line when libvips lacks AVIF; conversions use AVIF over WebP (F7).
+**Acceptance criteria:**
+- [ ] A collection with `avif: true` stores `custom_properties["avif"]`
+      pointing at an AVIF file.
+- [ ] Off by default; collection setting overrides global.
+- [ ] Without AVIF support the upload succeeds and logs once.
+**Verification:** pipeline tests; `mix precommit`.
+**Dependencies:** Task 10
+**Files:** `config.ex`, `collection.ex`, `model.ex`, `webp.ex`, `pipeline.ex`, `media_adder.ex`
+**Scope:** L (6 files; split if it grows)
+
+#### Task 12: AVIF through the media lifecycle (F3, part 2)
+**Description:** AVIF files are owned paths (deleted, cleaned, renamed);
+the doctor reports missing AVIF and rebuilds it (`--rebuild --only avif`).
+**Acceptance criteria:**
+- [ ] Deleting, cleaning and renaming handle the AVIF file.
+- [ ] `Health.check/2` reports `:missing_avif`; the doctor repairs it.
+**Verification:** media, doctor and health tests; `mix precommit`.
+**Dependencies:** Task 11
+**Files:** `media.ex`, `pipeline.ex`, `health.ex`, `doctor.ex`, tests
+**Scope:** M
+
+#### Task 13: Variants in one format, `<picture>` fallback (F6)
+**Description:** Responsive variants use the best format on (AVIF, WebP,
+original); the full-size `srcset` entry points at the best served file;
+`<picture>` emits an AVIF source, then WebP, then the `img`.
+**Acceptance criteria:**
+- [ ] With AVIF and WebP on, every variant is AVIF; no WebP variants exist.
+- [ ] `<picture>` renders sources in AVIF, WebP order with the right types.
+**Verification:** responsive and component tests; `mix precommit`.
+**Dependencies:** Task 12
+**Files:** `responsive_images.ex`, `view_helpers.ex`, tests
+**Scope:** M
+
+#### Task 14: Same-shape conversions reuse the original's variants (F8)
+**Description:** Conversions with the original's aspect ratio get no
+variants of their own; their `srcset` (and the `width:` URL option) uses
+the original's variants up to the conversion's width, plus the conversion.
+**Acceptance criteria:**
+- [ ] The 1600x1200 JPEG with `:preview` at 800px produces no
+      `preview_160w`/`preview_320w` files.
+- [ ] `srcset(media, :preview)` lists the original's 160w and 320w and the
+      800w preview.
+- [ ] Crops (`:thumb`, `:banner`) keep their own variants.
+**Verification:** responsive, URL and component tests; `mix precommit`.
+**Dependencies:** Task 13
+**Files:** `responsive_images.ex`, `conversions.ex`, `media.ex`, `url_generator.ex`, tests
+**Scope:** M
+
+### Checkpoint: Image formats
+- [ ] Full suite and `mix precommit` green.
+- [ ] Rerun the probe upload from the spec discussion and show Mike the
+      file list for a WebP + AVIF + responsive collection.
+
+### Phase 4: Placeholders and smaller features
+
+#### Task 15: Placeholder step and settings (F5, part 1)
+**Description:** `placeholder: :blur | :color | false` globally (default
+`:blur`) and per collection, resolved by `Model`. A `Pipeline` step makes
+a 16px WebP without metadata (blur) or the average color, for the original
+and crop conversions, stored in `responsive_images`.
+**Acceptance criteria:**
+- [ ] `:blur` placeholders are under 400 bytes on the sample photos and
+      contain no EXIF or color profile.
+- [ ] `:color` stores a `#rrggbb` average color.
+- [ ] `false` stores nothing.
+**Verification:** pipeline tests with real photos; `mix precommit`.
+**Dependencies:** Task 14
+**Files:** `config.ex`, `collection.ex`, `model.ex`, `pipeline.ex`, tests
+**Scope:** M
+
+#### Task 16: Placeholders in the background (F5, part 2)
+**Description:** With placeholders on, the upload always enqueues
+background processing (Task, Oban or Inline), even without conversions;
+the job runs the placeholder step.
+**Acceptance criteria:**
+- [ ] With the Inline processor, an upload to a collection without
+      conversions ends with a placeholder.
+- [ ] The Oban worker runs the placeholder step for a job with no
+      conversions.
+**Verification:** async processor and Oban worker tests; `mix precommit`.
+**Dependencies:** Task 15
+**Files:** `media_adder.ex`, `conversions.ex`, `async_processor/oban.ex`, tests
+**Scope:** M
+
+#### Task 17: Components use placeholders (F5, part 3; B5)
+**Description:** `media_img`, `responsive_img`, `picture` and the gallery
+render the stored placeholder (background image or color); `tiny_placeholder`
+maps onto the new setting; any remaining tiny-image generation strips
+metadata.
+**Acceptance criteria:**
+- [ ] Each component renders the blur or color placeholder when present
+      and nothing when absent.
+- [ ] `tiny_placeholder: false` turns placeholders off as before.
+**Verification:** component tests; `mix precommit`.
+**Dependencies:** Task 16
+**Files:** `view_helpers.ex`, `components.ex`, `responsive_images.ex`, `config.ex`, tests
+**Scope:** M
+
+#### Task 18: Doctor repairs placeholders (F5, part 4)
+**Description:** `Health.check/2` reports `:missing_placeholder`;
+`--regenerate` creates it.
+**Acceptance criteria:**
+- [ ] Media uploaded before placeholders is reported and repaired.
+**Verification:** health and doctor tests; `mix precommit`.
+**Dependencies:** Task 17
+**Files:** `health.ex`, `doctor.ex`, tests
+**Scope:** S
+
+#### Task 19: `<.media_figure>` (F4)
+**Description:** Figure component with caption from attribute or
+`custom_properties["caption"]`, passing image options through.
+**Acceptance criteria:**
+- [ ] Renders `<figure>`, the image and `<figcaption>`; no caption, no
+      figcaption.
+- [ ] `priority`, `sizes`, `conversion` and `class` reach the image.
+**Verification:** component tests; `mix precommit`.
+**Dependencies:** Task 17
+**Files:** `view_helpers.ex`, tests
+**Scope:** S
+
+#### Task 20: Downloads use the uploaded filename (F1)
+**Description:** `download: true` URLs send `Content-Disposition` with the
+original name (ASCII fallback plus UTF-8 `filename*`); on disk the name is
+part of the signed URL; S3 uses `response-content-disposition`; unsigned
+download URLs keep the stored name.
+**Acceptance criteria:**
+- [ ] A signed download of `Лятна рокля.pdf` sends both filename forms.
+- [ ] Changing the name in a signed URL fails verification.
+- [ ] S3 download URLs carry the original name.
+**Verification:** URL, signed URL and plug tests; `mix precommit`.
+**Dependencies:** Tasks 6 and 8
+**Files:** `signed_url.ex`, `storage/disk.ex`, `storage/s3.ex`, `url_generator.ex`, `plug/media_download.ex`
+**Scope:** M (5 files)
+
+#### Task 21: `doctor --id` (F2)
+**Description:** Limit the doctor to one media item; combines with every
+repair flag.
+**Acceptance criteria:**
+- [ ] `--id` checks and repairs only that media; an unknown ID reports
+      clearly.
+**Verification:** doctor tests; `mix precommit`.
+**Dependencies:** Task 1
+**Files:** `doctor.ex`, `doctor_test.exs`
+**Scope:** S
+
+### Checkpoint: Features
+- [ ] Full suite, `mix precommit` and `mix dialyzer` green.
+- [ ] Review with Mike: components on a product grid and a hero image,
+      checked in a browser (placeholder blur assumption from the idea).
+
+### Phase 5: Docs and release
+
+#### Task 22: README for 0.9.0 (P2)
+**Description:** The README leads with the developer experience and
+features, with short examples: uploads, file naming, the doctor, page speed
+(placeholders, `width`/`height`, `sizes`, `priority`, caching, AVIF).
+**Acceptance criteria:**
+- [ ] Every 0.9.0 feature appears in the feature list with an example or a
+      link to its guide.
+- [ ] Prose passes `unslop`.
+**Verification:** review with Mike.
+**Dependencies:** Tasks 2 to 21
+**Files:** `README.md`
+**Scope:** S
+
+#### Task 23: Guides and migration notes (P2)
+**Description:** Update every guide for 0.9.0; add migration notes listing
+each behaviour change (S1, F1, F5, F7, file naming, loading defaults, cache
+fingerprint, doctor) and how to keep the old behaviour; announce the
+responsive-rule unification (ADR-017) in the CHANGELOG.
+**Acceptance criteria:**
+- [ ] No guide describes 0.8 behaviour as current.
+- [ ] Each behaviour change has a migration note.
+**Verification:** `mix docs` without new warnings; review with Mike.
+**Dependencies:** Task 22
+**Files:** `guides/*.md`, `CHANGELOG.md`
+**Scope:** M
+
+#### Task 24: Release preparation (P3)
+**Description:** Review the backlog again with Mike, set the version to
+0.9.0, date the CHANGELOG section, check the package. Tag and publish only
+when asked.
+**Acceptance criteria:**
+- [ ] `mix precommit` green; `mix hex.build --unpack` has no `docs/` or
+      `.agents/`.
+- [ ] Version and CHANGELOG say 0.9.0 with the release date.
+**Verification:** commands above; Mike's go-ahead.
+**Dependencies:** Task 23
+**Files:** `mix.exs`, `CHANGELOG.md`, `docs/backlog.md`
+**Scope:** S
+
+### Checkpoint: Complete
+- [ ] Every acceptance criterion in spec 01 is met.
+- [ ] Ready for Mike to tag and publish.
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| S1 changes how apps upload to S3 (POST form instead of PUT) | High | Migration note with the client-side code; clear error when an app still PUTs; review at the security checkpoint |
+| Task 9 changes the shape of `generated_conversions` values | Medium | Read `true` as before; tests for both shapes; doctor covers mixed libraries |
+| libvips builds without AVIF | Medium | Detect at runtime, skip with one log line, test both paths |
+| F8 touches `srcset` and the `width:` URL option | Medium | Tests for both before changing; compare output on the probe upload |
+| Placeholder jobs for collections without conversions change Oban job behaviour | Medium | Worker tests for empty conversion lists |
+| Task 11 grows past one session | Low | Split encoder generalisation from settings if it does |
+| Scope keeps growing (bugs found go into 0.9.0) | Medium | New items get a spec section and a task here before work starts |
+
+## Open Questions
+
+- Placeholders for same-shape conversions: reuse the original's placeholder
+  (consistent with F8) instead of generating one per conversion. Proposed:
+  yes, decided in Task 15 unless Mike objects.

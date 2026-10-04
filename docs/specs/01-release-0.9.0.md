@@ -149,6 +149,13 @@ covered by tests (or, for docs, by review) and its slice is committed.
 **B4. Dead code removed** (`Process.delete` in
 `MediaAdder.stream_and_checksum/3`).
 
+**B6. Conversion files carry their format's extension.** (found while
+planning)
+- A conversion with `format:` (and, after F7, any conversion in a WebP or
+  AVIF collection) is stored under its own format's extension, not the
+  original's. Today `format: :webp` writes WebP bytes to `photo_thumb.jpg`.
+- Media recorded before the fix keeps resolving to its old paths.
+
 **B5. Placeholders without metadata.** Covered by F5; the tiny image no
 longer carries EXIF or color profiles.
 
