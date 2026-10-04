@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `cache_control:` option for S3 disks, stored as the `Cache-Control`
+  header of every upload. The storage guide has a new Caching section.
 - `priority` on `media_img`, `responsive_img` and `picture` for the page's
   main image: `loading="eager"` and `fetchpriority="high"`. Other images get
   `decoding="async"`.
@@ -79,12 +81,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   removed in 0.10.0.
 
 ### Changed
+- The `cache_bust: true` fingerprint is now `?vsn=…` (was `?v=…`), which
+  `Plug.Static` answers with a one-year `Cache-Control` out of the box.
 - `responsive_img` defaults `sizes` to `"auto, 100vw"` for lazy images
   (`"100vw"` before), so supporting browsers pick a file for the image's
   real width instead of the full screen; in a 4-column grid that is about a
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- `cache_bust: true` on a signed URL produced a second `?`, breaking the
+  signature query; it now appends with `&`.
 - Maintenance tasks ignored per-collection settings unless given `--model`,
   and some even with it:
   - `regenerate_webp` used the global WebP settings (quality, size cap), and

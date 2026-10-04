@@ -338,7 +338,7 @@ defmodule PhxMediaLibrary do
   @doc """
   Get a CDN-friendly URL with a cache-busting fingerprint query parameter.
 
-  Appends `?v={checksum[0..7]}` when the media item has a stored checksum so
+  Appends `?vsn={checksum[0..7]}` when the media item has a stored checksum so
   CDN edges pick up the new file whenever it is replaced. Falls back to a
   plain URL when no checksum is stored.
 
@@ -347,7 +347,7 @@ defmodule PhxMediaLibrary do
   ## Examples
 
       PhxMediaLibrary.cdn_url(media)
-      #=> "/uploads/images/1/uuid/photo.jpg?v=a1b2c3d4"
+      #=> "/uploads/images/1/uuid/photo.jpg?vsn=a1b2c3d4"
 
   """
   @spec cdn_url(Media.t(), atom() | nil) :: String.t()

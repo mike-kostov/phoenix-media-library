@@ -8,7 +8,7 @@ defmodule PhxMediaLibrary.UrlGenerator do
   any adapter-specific options:
 
   - `:cache_bust` — `boolean` — when `true` and the media item has a stored
-    checksum, appends a `?v={checksum[0..7]}` query parameter so that CDN
+    checksum, appends a `?vsn={checksum[0..7]}` query parameter so that CDN
     edges serve a fresh object whenever the file changes. Defaults to `false`.
 
   - `:signed` — `boolean` — when `true`, generates a signed/expiring URL.
@@ -35,7 +35,14 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
   When assets are served through a CDN you typically want far-future
   `Cache-Control` headers and a content-fingerprint in the URL so the CDN
-  picks up the new asset when you replace a file.
+  picks up the new asset when you replace a file. The fingerprint is a
+  `vsn` parameter, which `Plug.Static` answers with a one-year
+  `Cache-Control` by default (`cache_control_for_vsn_requests`); on S3, set
+  the disk's `cache_control:` option.
+
+  The fingerprint comes from the original's checksum, so files regenerated
+  in place (`mix phx_media_library.doctor --rebuild`) keep their URL: purge
+  your CDN after a rebuild.
 
       # Regular URL
       PhxMediaLibrary.url(media)
@@ -43,11 +50,11 @@ defmodule PhxMediaLibrary.UrlGenerator do
 
       # CDN URL with cache-busting checksum
       PhxMediaLibrary.cdn_url(media)
-      #=> "/uploads/images/42/abc/photo.jpg?v=a1b2c3d4"
+      #=> "/uploads/images/42/abc/photo.jpg?vsn=a1b2c3d4"
 
       # Explicit option form
       PhxMediaLibrary.url(media, nil, cache_bust: true)
-      #=> "/uploads/images/42/abc/photo.jpg?v=a1b2c3d4"
+      #=> "/uploads/images/42/abc/photo.jpg?vsn=a1b2c3d4"
 
   ## Signed / Expiring URLs
 
@@ -178,10 +185,10 @@ defmodule PhxMediaLibrary.UrlGenerator do
   ## Examples
 
       iex> PhxMediaLibrary.UrlGenerator.cdn_url(media)
-      "/uploads/images/1/uuid/photo.jpg?v=a1b2c3d4"
+      "/uploads/images/1/uuid/photo.jpg?vsn=a1b2c3d4"
 
       iex> PhxMediaLibrary.UrlGenerator.cdn_url(media, :thumb)
-      "/uploads/images/1/uuid/photo_thumb.jpg?v=a1b2c3d4"
+      "/uploads/images/1/uuid/photo_thumb.jpg?vsn=a1b2c3d4"
 
   """
   @spec cdn_url(Media.t(), atom() | nil) :: String.t()
@@ -261,11 +268,14 @@ defmodule PhxMediaLibrary.UrlGenerator do
   # Private helpers
   # ---------------------------------------------------------------------------
 
-  # Appends ?v={first-8-chars-of-checksum} when cache_bust is true and the
+  # Appends vsn={first-8-chars-of-checksum} when cache_bust is true and the
   # media item has a non-nil checksum.
   defp maybe_add_cache_bust(url, checksum, true) when is_binary(checksum) do
+    # `vsn` is what Plug.Static's cache_control_for_vsn_requests looks for.
+    # Signed URLs already carry a query string.
     suffix = binary_part(checksum, 0, min(8, byte_size(checksum)))
-    "#{url}?v=#{suffix}"
+    separator = if String.contains?(url, "?"), do: "&", else: "?"
+    "#{url}#{separator}vsn=#{suffix}"
   end
 
   defp maybe_add_cache_bust(url, _checksum, _cache_bust), do: url

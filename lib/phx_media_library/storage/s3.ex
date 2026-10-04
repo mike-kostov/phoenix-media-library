@@ -28,6 +28,9 @@ if Code.ensure_loaded?(ExAws.S3) do
     - `:region` - AWS region (default: from ExAws config)
     - `:base_url` - Custom base URL (for CDN)
     - `:acl` - Default ACL for uploads (default: "private")
+    - `:cache_control` - `Cache-Control` header stored with every upload,
+      e.g. `"public, max-age=31536000, immutable"` for files served through
+      a CDN with `cache_bust: true` URLs (default: none)
 
     """
 
@@ -43,7 +46,11 @@ if Code.ensure_loaded?(ExAws.S3) do
       bucket = Keyword.fetch!(opts, :bucket)
       acl = Keyword.get(opts, :acl, "private")
 
-      upload_opts = [acl: acl]
+      upload_opts =
+        case Keyword.get(opts, :cache_control) do
+          nil -> [acl: acl]
+          cache_control -> [acl: acl, cache_control: cache_control]
+        end
 
       result =
         case content do

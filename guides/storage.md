@@ -87,6 +87,35 @@ Start the memory agent in your `test_helper.exs`:
 {:ok, _} = PhxMediaLibrary.Storage.Memory.start_link()
 ```
 
+## Caching
+
+Media files rarely change, so browsers and CDNs can keep them for a long
+time, as long as the URL changes when the file does. `cache_bust: true` adds
+a fingerprint of the file's checksum:
+
+```elixir
+PhxMediaLibrary.url(media, :thumb, cache_bust: true)
+#=> "/uploads/posts/42/…/posts_42_images_….jpg?vsn=a1b2c3d4"
+```
+
+- **Local disk:** `Plug.Static` already answers `?vsn=` requests with
+  `Cache-Control: public, max-age=31536000` (its
+  `cache_control_for_vsn_requests` option), so nothing else is needed.
+- **S3:** set `cache_control:` on the disk so every upload carries the
+  header:
+
+  ```elixir
+  s3: [
+    adapter: PhxMediaLibrary.Storage.S3,
+    bucket: "my-bucket",
+    cache_control: "public, max-age=31536000, immutable"
+  ]
+  ```
+
+The fingerprint comes from the original's checksum. Files regenerated in
+place (`mix phx_media_library.doctor --rebuild`) keep their URL, so purge
+your CDN after a rebuild.
+
 ## Per-collection disk override
 
 Individual collections can use a different disk than the default:
