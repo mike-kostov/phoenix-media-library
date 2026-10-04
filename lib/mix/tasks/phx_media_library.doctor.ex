@@ -101,7 +101,13 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   @repairs [
     reextract: [:missing_metadata],
     rename: [:needs_rename],
-    regenerate: [:missing_webp, :missing_avif, :missing_conversions, :missing_responsive],
+    regenerate: [
+      :missing_webp,
+      :missing_avif,
+      :missing_conversions,
+      :missing_responsive,
+      :missing_placeholder
+    ],
     drop_originals: [:original_not_dropped],
     fix: [:no_files]
   ]
@@ -112,6 +118,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     missing_conversions: "Missing conversions",
     missing_webp: "Missing WebP",
     missing_avif: "Missing AVIF",
+    missing_placeholder: "Missing placeholder",
     missing_responsive: "Missing responsive variants",
     missing_metadata: "Missing metadata",
     needs_rename: "Not named by file_naming",
@@ -124,6 +131,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     missing_conversions: "--regenerate",
     missing_webp: "--regenerate",
     missing_avif: "--regenerate",
+    missing_placeholder: "--regenerate",
     missing_responsive: "--regenerate",
     missing_metadata: "--reextract",
     needs_rename: "--rename",

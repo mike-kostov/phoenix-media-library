@@ -17,6 +17,7 @@ defmodule PhxMediaLibrary.Health do
   | `{:missing_conversions, names}`| repairable | `Pipeline.conversions/2`      |
   | `:missing_webp`                | repairable | `Pipeline.webp/2`             |
   | `:missing_avif`                | repairable | `Pipeline.avif/2`             |
+  | `:missing_placeholder`         | repairable | `Pipeline.placeholder/2`      |
   | `:missing_responsive`          | repairable | `Pipeline.responsive/2`       |
   | `:missing_metadata`            | repairable | `Pipeline.metadata/2`         |
   | `:needs_rename`                | repairable | `Pipeline.rename/2`           |
@@ -45,6 +46,7 @@ defmodule PhxMediaLibrary.Health do
           | {:missing_conversions, [String.t()]}
           | :missing_webp
           | :missing_avif
+          | :missing_placeholder
           | :missing_responsive
           | :missing_metadata
           | :needs_rename
@@ -81,6 +83,7 @@ defmodule PhxMediaLibrary.Health do
         conversions_issue(media, present, original?),
         webp_issue(media, present, original?),
         avif_issue(media, present, original?),
+        placeholder_issue(media, original?),
         responsive_issue(media, present, original?),
         metadata_issue(media),
         name_issue(media),
@@ -121,6 +124,7 @@ defmodule PhxMediaLibrary.Health do
 
   def repair(media, :missing_webp), do: Pipeline.webp(media)
   def repair(media, :missing_avif), do: Pipeline.avif(media)
+  def repair(media, :missing_placeholder), do: Pipeline.placeholder(media)
 
   def repair(media, :missing_responsive),
     do: Pipeline.responsive(media, of: [nil | Map.keys(media.generated_conversions || %{})])
@@ -236,6 +240,14 @@ defmodule PhxMediaLibrary.Health do
   end
 
   defp avif_issue(_media, _present, false), do: nil
+
+  defp placeholder_issue(media, true = _original?) do
+    if image?(media) and Model.placeholder(media, media.collection_name) != false and
+         is_nil(get_in(media.responsive_images || %{}, ["original", "placeholder"])),
+       do: :missing_placeholder
+  end
+
+  defp placeholder_issue(_media, false), do: nil
 
   defp responsive_issue(media, present, true = _original?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do

@@ -207,6 +207,19 @@ defmodule Mix.Tasks.PhxMediaLibrary.DoctorTest do
     assert Health.check(renamed) == []
   end
 
+  test "--regenerate makes the placeholder of media uploaded before them", %{png: png} do
+    media = add(png, :images)
+    responsive = Map.update!(media.responsive_images, "original", &Map.delete(&1, "placeholder"))
+    {:ok, media} = media |> Ecto.Changeset.change(responsive_images: responsive) |> Repo.update()
+    assert :missing_placeholder in Health.check(media)
+
+    doctor(["--regenerate", "--yes"])
+
+    repaired = Repo.reload!(media)
+    assert %{"data_uri" => _} = repaired.responsive_images["original"]["placeholder"]
+    refute :missing_placeholder in Health.check(repaired)
+  end
+
   test "--strict exits with status 1 when errors are found" do
     create_media(disk: "local")
     assert catch_exit(doctor(["--strict"])) == {:shutdown, 1}

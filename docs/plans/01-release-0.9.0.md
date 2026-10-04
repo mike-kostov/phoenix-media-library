@@ -398,7 +398,7 @@ metadata.
 **Description:** `Health.check/2` reports `:missing_placeholder`;
 `--regenerate` creates it.
 **Acceptance criteria:**
-- [ ] Media uploaded before placeholders is reported and repaired.
+- [x] Media uploaded before placeholders is reported and repaired.
 **Verification:** health and doctor tests; `mix precommit`.
 **Dependencies:** Task 17
 **Files:** `health.ex`, `doctor.ex`, tests
