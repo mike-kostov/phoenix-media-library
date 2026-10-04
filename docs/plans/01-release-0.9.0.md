@@ -442,7 +442,7 @@ repair flag.
 **Scope:** S
 
 ### Checkpoint: Features
-- [ ] Full suite, `mix precommit` and `mix dialyzer` green.
+- [x] Full suite, `mix precommit` and `mix dialyzer` green.
 - [ ] Review with Mike: components on a product grid and a hero image,
       checked in a browser (placeholder blur assumption from the idea).
 
