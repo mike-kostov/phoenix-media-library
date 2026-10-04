@@ -73,6 +73,7 @@ service; `provider:` picks the right defaults for each.
 | `:endpoint` | `:generic` | API URL, e.g. `"https://s3.example.com"` |
 | `:base_url` | R2 | Public URL base: a CDN or custom domain |
 | `:addressing` | no | `:path` (default) or `:virtual_host` |
+| `:direct_upload` | no | `:post` (default on AWS) or `:put` (default elsewhere); see Direct uploads |
 | `:acl` | no | ACL sent with uploads (default: none, the bucket's settings apply) |
 | `:cache_control` | no | `Cache-Control` stored with uploads (see Caching) |
 
@@ -174,33 +175,61 @@ your server. The server signs the upload, the browser sends the file, and
 the server records it afterwards.
 
 ```elixir
-{:ok, url, fields, key} =
-  PhxMediaLibrary.presigned_upload_url(post, :videos,
+{:ok, upload} =
+  PhxMediaLibrary.presigned_upload(post, :videos,
     filename: "launch.mp4",
-    content_type: "video/mp4"
+    content_type: "video/mp4",
+    size: 48_000_000
   )
+
+upload.method   #=> :post or :put
+upload.url      #=> where the browser sends the file
+upload.fields   #=> form fields, for :post
+upload.headers  #=> headers, for :put
+upload.key      #=> pass to complete_external_upload/4
 ```
 
-`fields` carries a signed policy, so S3 itself rejects an upload with a
-different key, a size over the collection's `max_size` (or `:max_size`), or
-another content type. The browser sends a `multipart/form-data` POST to
-`url` with every field and the file last. With LiveView external uploads,
-pass `url` and `fields` as the entry's meta and use an uploader like this
-one in `app.js`:
+The method comes from the disk's `direct_upload:` setting:
+
+- **`:post`** (default on AWS): a `multipart/form-data` form with every
+  entry of `fields` and the file last. The fields carry a signed policy,
+  so S3 itself rejects a different key, a size over the collection's
+  `max_size` (or `:max_size`), or another content type.
+- **`:put`** (default on R2 and `:generic`; R2 and Backblaze B2 have no
+  form uploads): the file as the request body, with every entry of
+  `headers`. The signature covers the key and the content type. A PUT
+  can't limit the size, so a declared `:size` over the limit is refused
+  before signing, and completion checks the real size.
+
+With LiveView external uploads, sign each entry and pass the result as its
+meta:
+
+```elixir
+allow_upload(socket, :videos, accept: ~w(.mp4), external: &presign_entry/2)
+
+defp presign_entry(entry, socket) do
+  case PhxMediaLibrary.presigned_upload(socket.assigns.post, :videos,
+         filename: entry.client_name,
+         content_type: entry.client_type,
+         size: entry.client_size
+       ) do
+    {:ok, upload} -> {:ok, Map.put(upload, :uploader, "S3"), socket}
+    {:error, reason} -> {:error, %{reason: inspect(reason)}, socket}
+  end
+end
+```
+
+This uploader in `app.js` handles both methods:
 
 ```javascript
 let Uploaders = {}
 
 Uploaders.S3 = function (entries, onViewError) {
   entries.forEach(entry => {
-    let formData = new FormData()
-    let {url, fields} = entry.meta
-    Object.entries(fields).forEach(([key, value]) => formData.append(key, value))
-    formData.append("file", entry.file)
-
+    let {method, url, fields, headers} = entry.meta
     let xhr = new XMLHttpRequest()
     onViewError(() => xhr.abort())
-    xhr.onload = () => (xhr.status === 204 ? entry.progress(100) : entry.error())
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? entry.progress(100) : entry.error())
     xhr.onerror = () => entry.error()
     xhr.upload.addEventListener("progress", event => {
       if (event.lengthComputable) {
@@ -209,19 +238,31 @@ Uploaders.S3 = function (entries, onViewError) {
       }
     })
 
-    xhr.open("POST", url, true)
-    xhr.send(formData)
+    xhr.open(method.toUpperCase(), url, true)
+
+    if (method === "post") {
+      let formData = new FormData()
+      Object.entries(fields).forEach(([key, value]) => formData.append(key, value))
+      formData.append("file", entry.file)
+      xhr.send(formData)
+    } else {
+      Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value))
+      xhr.send(entry.file)
+    }
   })
 }
 
 let liveSocket = new LiveSocket("/live", Socket, {uploaders: Uploaders, params: {_csrf_token: csrfToken}})
 ```
 
+The bucket must allow your site's origin in its CORS rules, for the method
+the disk uses.
+
 When the upload has finished, create the media record:
 
 ```elixir
 {:ok, media} =
-  PhxMediaLibrary.complete_external_upload(post, :videos, key, filename: "launch.mp4")
+  PhxMediaLibrary.complete_external_upload(post, :videos, upload.key, filename: "launch.mp4")
 ```
 
 The size and the content type are read from the stored object, never taken
@@ -229,8 +270,10 @@ from the client, and checked against the collection like any upload. An
 object that fails is deleted and the call returns `{:error, reason}`; a
 missing one returns `{:error, :not_found}`.
 
-Before 0.9 the upload was a presigned `PUT`. A client that still sends a
-`PUT` gets an error from S3; switch it to the POST above.
+Before 0.9 the upload was a presigned `PUT` returned by
+`presigned_upload_url/3`, now deprecated. On AWS disks a client that still
+sends a `PUT` gets an error from S3: switch it to the uploader above, or
+set `direct_upload: :put` on the disk and send the signed `content-type`.
 
 ## Per-collection disk override
 
@@ -334,6 +377,10 @@ config :phx_media_library,
 | `delete/2` | `(path, opts)` | `:ok \| {:error, reason}` | Remove a file |
 | `exists?/2` | `(path, opts)` | `boolean()` | Check if a file exists |
 | `url/2` | `(path, opts)` | `String.t()` | Generate a public URL |
+
+Optional callbacks: `path/2` (a local filesystem path), `stat/3` (size and
+first bytes without reading the whole file) and `presigned_upload/3`
+(signed direct uploads). See `PhxMediaLibrary.Storage` for their specs.
 
 The `opts` map contains the disk configuration options (e.g. `:root`,
 `:base_url`, `:bucket`) so your adapter can read them at runtime without

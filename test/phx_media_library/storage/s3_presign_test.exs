@@ -47,7 +47,7 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
     end
   end
 
-  describe "PhxMediaLibrary.presigned_upload_url/3" do
+  describe "PhxMediaLibrary.presigned_upload/3" do
     @describetag :db
 
     setup do
@@ -57,16 +57,76 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
       Application.put_env(
         :phx_media_library,
         :disks,
-        Keyword.put(disks, :s3, [adapter: S3] ++ @s3)
+        disks
+        |> Keyword.put(:s3, [adapter: S3] ++ @s3)
+        |> Keyword.put(:s3_put, [adapter: S3, direct_upload: :put] ++ @s3)
+        |> Keyword.put(:legacy, adapter: PhxMediaLibrary.LegacyPresignAdapter)
       )
     end
 
-    test "limits the size to the collection's max_size by default" do
-      # :small_files has max_size: 1_000
-      assert {:ok, _url, fields, _key} =
-               PhxMediaLibrary.presigned_upload_url(create_test_post(), :small_files,
+    test "a :post disk returns a form POST with its policy" do
+      assert {:ok, upload} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :documents,
                  filename: "notes.txt",
                  content_type: "text/plain",
+                 disk: :s3
+               )
+
+      assert %{method: :post, headers: headers, fields: fields, key: key} = upload
+      assert headers == %{}
+      assert fields["key"] == key
+      assert fields["Content-Type"] == "text/plain"
+      assert ["eq", "$Content-Type", "text/plain"] in policy_conditions(fields)
+    end
+
+    test "a :put disk returns a PUT whose signature covers the content type" do
+      assert {:ok, upload} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :documents,
+                 filename: "notes.txt",
+                 content_type: "text/plain",
+                 disk: :s3_put
+               )
+
+      assert %{method: :put, url: url, fields: fields, headers: headers, key: key} = upload
+      assert fields == %{}
+      assert headers == %{"content-type" => "text/plain"}
+      assert url =~ "/media-bucket/#{key}?"
+
+      signed_headers = url |> URI.parse() |> Map.fetch!(:query) |> URI.decode_query()
+      assert "content-type" in String.split(signed_headers["X-Amz-SignedHeaders"], ";")
+    end
+
+    test "without :content_type, the type comes from the filename" do
+      assert {:ok, %{headers: %{"content-type" => "application/pdf"}}} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :documents,
+                 filename: "Report.pdf",
+                 disk: :s3_put
+               )
+    end
+
+    test "a declared size over the limit is refused" do
+      # :small_files has max_size: 1_000
+      for disk <- [:s3, :s3_put] do
+        assert {:error, {:file_too_large, 2_000, 1_000}} =
+                 PhxMediaLibrary.presigned_upload(create_test_post(), :small_files,
+                   filename: "notes.txt",
+                   size: 2_000,
+                   disk: disk
+                 )
+      end
+
+      assert {:ok, _upload} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :small_files,
+                 filename: "notes.txt",
+                 size: 1_000,
+                 disk: :s3_put
+               )
+    end
+
+    test "limits the POST size to the collection's max_size by default" do
+      assert {:ok, %{fields: fields}} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :small_files,
+                 filename: "notes.txt",
                  disk: :s3
                )
 
@@ -74,14 +134,40 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
     end
 
     test "an explicit :max_size wins" do
-      assert {:ok, _url, fields, _key} =
-               PhxMediaLibrary.presigned_upload_url(create_test_post(), :small_files,
+      assert {:ok, %{fields: fields}} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :small_files,
                  filename: "notes.txt",
                  disk: :s3,
                  max_size: 500
                )
 
       assert ["content-length-range", 0, 500] in policy_conditions(fields)
+    end
+
+    test "an adapter with only the old callback is treated as POST" do
+      assert {:ok, %{method: :post, url: "https://legacy.example.com", fields: fields}} =
+               PhxMediaLibrary.presigned_upload(create_test_post(), :documents,
+                 filename: "notes.txt",
+                 disk: :legacy
+               )
+
+      assert fields == %{"legacy" => "yes"}
+    end
+
+    # Called through apply/3: the function is deprecated.
+    test "presigned_upload_url/3 still returns {:ok, url, fields, key}" do
+      post = create_test_post()
+      args = [post, :documents, [filename: "notes.txt", disk: :s3]]
+
+      assert {:ok, url, %{"key" => key}, key} =
+               apply(PhxMediaLibrary, :presigned_upload_url, args)
+
+      assert url =~ "media-bucket"
+
+      args = [post, :documents, [filename: "notes.txt", disk: :s3_put]]
+      assert {:ok, put_url, fields, key} = apply(PhxMediaLibrary, :presigned_upload_url, args)
+      assert fields == %{}
+      assert put_url =~ "/media-bucket/#{key}?"
     end
   end
 end

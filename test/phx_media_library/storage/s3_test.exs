@@ -148,26 +148,45 @@ defmodule PhxMediaLibrary.Storage.S3Test do
 
     test "uploads with the presigned POST and completes into media", %{s3: s3} do
       post = create_test_post()
+      put_s3_disk(Keyword.put(s3, :direct_upload, :post))
 
-      {:ok, url, fields, key} =
-        PhxMediaLibrary.presigned_upload_url(post, :documents,
+      {:ok, %{method: :post, url: url, fields: fields, key: key}} =
+        PhxMediaLibrary.presigned_upload(post, :documents,
           filename: "notes.txt",
           content_type: "text/plain",
           disk: :s3
         )
 
       assert post_upload(url, fields, "plain notes").status in 200..299
-
-      assert {:ok, media} =
-               PhxMediaLibrary.complete_external_upload(post, :documents, key,
-                 filename: "notes.txt",
-                 disk: :s3
-               )
-
-      assert media.size == byte_size("plain notes")
-      assert media.mime_type == "text/plain"
-      assert S3.exists?(key, s3)
+      assert_completes(post, key, s3)
     end
+
+    # :generic disks, like the container's, upload with PUT by default.
+    test "uploads with the presigned PUT and completes into media", %{s3: s3} do
+      post = create_test_post()
+
+      {:ok, %{method: :put, url: url, headers: headers, key: key}} =
+        PhxMediaLibrary.presigned_upload(post, :documents,
+          filename: "notes.txt",
+          size: byte_size("plain notes"),
+          disk: :s3
+        )
+
+      assert Req.put!(url, body: "plain notes", headers: headers, retry: false).status == 200
+      assert_completes(post, key, s3)
+    end
+  end
+
+  defp assert_completes(post, key, s3) do
+    assert {:ok, media} =
+             PhxMediaLibrary.complete_external_upload(post, :documents, key,
+               filename: "notes.txt",
+               disk: :s3
+             )
+
+    assert media.size == byte_size("plain notes")
+    assert media.mime_type == "text/plain"
+    assert S3.exists?(key, s3)
   end
 
   # The ACL header of each upload request seen so far: a single PUT, or the
@@ -192,6 +211,11 @@ defmodule PhxMediaLibrary.Storage.S3Test do
   defp use_s3_disk(%{s3: s3}) do
     disks = Application.get_env(:phx_media_library, :disks)
     on_exit(fn -> Application.put_env(:phx_media_library, :disks, disks) end)
+    put_s3_disk(s3)
+  end
+
+  defp put_s3_disk(s3) do
+    disks = Application.get_env(:phx_media_library, :disks)
     Application.put_env(:phx_media_library, :disks, Keyword.put(disks, :s3, [adapter: S3] ++ s3))
   end
 

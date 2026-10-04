@@ -194,11 +194,11 @@ size is over the limit. `presigned_upload_url/3` becomes a deprecated
 wrapper. The storage guide shows one uploader for both methods; the
 CHANGELOG's breaking-changes entry is rewritten to match.
 **Acceptance criteria:**
-- [ ] A `:post` disk returns a policy as today; a `:put` disk returns a
+- [x] A `:post` disk returns a policy as today; a `:put` disk returns a
       presigned PUT whose signed headers include `content-type`.
-- [ ] Declaring a size over the limit returns `{:error, {:file_too_large,
+- [x] Declaring a size over the limit returns `{:error, {:file_too_large,
       size, max}}` without signing.
-- [ ] Both methods upload to the container end to end; completion accepts
+- [x] Both methods upload to the container end to end; completion accepts
       the object.
 **Verification:** container tests for both methods; `mix precommit`.
 **Dependencies:** Task 5d

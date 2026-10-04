@@ -109,7 +109,7 @@ end
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits, custom headers, download telemetry |
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO, …), in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
 | **Streaming uploads** | Files streamed to storage in 64 KB chunks, never loaded entirely into memory |
-| **Direct S3 uploads** | `presigned_upload_url/3` + `complete_external_upload/4` for client-to-S3 without proxying |
+| **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4` for client-to-S3 without proxying, as a form POST or a PUT per provider, with limits checked |
 | **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2`, query scoping, and purge Mix task |
 | **Async processing** | Task (default) or Oban adapter with persistence, retries, and `process_sync/2` |
 | **LiveView** | Drop-in `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers |

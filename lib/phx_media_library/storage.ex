@@ -69,15 +69,44 @@ defmodule PhxMediaLibrary.Storage do
   @doc "Get the full filesystem path (local storage only)."
   @callback path(path(), opts()) :: String.t() | nil
 
+  @typedoc """
+  A signed direct upload: the browser sends the file to `url` with
+  `method`. For `:post`, a `multipart/form-data` form with every entry of
+  `fields` and the file last; for `:put`, the file as the body with every
+  entry of `headers`.
+  """
+  @type presigned_upload :: %{
+          method: :post | :put,
+          url: String.t(),
+          fields: %{optional(String.t()) => String.t()},
+          headers: %{optional(String.t()) => String.t()}
+        }
+
   @doc """
-  Generate a presigned URL for direct client-to-storage uploads.
+  Sign a direct client-to-storage upload of `path`.
+
+  The adapter picks the method (for S3, the disk's `:direct_upload`). Only
+  applicable to remote storage backends (e.g. S3). Local storage adapters
+  do not need to implement this callback.
+
+  ## Options
+
+  - `:expires_in` — URL expiration in seconds (default: adapter-specific)
+  - `:content_type` — content type the upload must have
+  - `:content_length_range` — `{min, max}` byte range, where the method
+    can enforce it
+
+  """
+  @callback presigned_upload(path(), presigned_opts(), opts()) ::
+              {:ok, presigned_upload()} | {:error, term()}
+
+  @doc """
+  Deprecated: implement `presigned_upload/3` instead. Adapters that only
+  implement this callback keep working, as a form POST, until 0.10.0.
 
   Returns `{:ok, url, fields}` where `url` is the upload endpoint and
   `fields` is a map of form fields the client sends with the file in a
   `multipart/form-data` POST.
-
-  Only applicable to remote storage backends (e.g. S3). Local storage
-  adapters do not need to implement this callback.
 
   ## Options
 
@@ -100,5 +129,5 @@ defmodule PhxMediaLibrary.Storage do
   @callback stat(path(), header_bytes :: pos_integer(), opts()) ::
               {:ok, %{size: non_neg_integer(), header: binary()}} | {:error, term()}
 
-  @optional_callbacks [path: 2, presigned_upload_url: 3, stat: 3]
+  @optional_callbacks [path: 2, presigned_upload: 3, presigned_upload_url: 3, stat: 3]
 end

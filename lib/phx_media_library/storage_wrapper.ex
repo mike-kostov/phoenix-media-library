@@ -70,6 +70,42 @@ defmodule PhxMediaLibrary.StorageWrapper do
   end
 
   @doc """
+  Sign a direct client-to-storage upload.
+
+  Returns `{:ok, presigned_upload}`, or `{:error, :not_supported}` if the
+  adapter can't sign uploads. Adapters with only the deprecated
+  `presigned_upload_url/3` callback are treated as a form POST.
+  """
+  def presigned_upload(%__MODULE__{adapter: adapter, config: config}, path, presigned_opts) do
+    Code.ensure_loaded(adapter)
+
+    cond do
+      function_exported?(adapter, :presigned_upload, 3) ->
+        span(:presigned_upload, path, adapter, fn ->
+          adapter.presigned_upload(path, presigned_opts, config)
+        end)
+
+      function_exported?(adapter, :presigned_upload_url, 3) ->
+        span(:presigned_upload, path, adapter, fn ->
+          adapter.presigned_upload_url(path, presigned_opts, config) |> as_form_post()
+        end)
+
+      true ->
+        {:error, :not_supported}
+    end
+  end
+
+  defp as_form_post({:ok, url, fields}),
+    do: {:ok, %{method: :post, url: url, fields: fields, headers: %{}}}
+
+  defp as_form_post({:error, _} = error), do: error
+
+  defp span(operation, path, adapter, fun) do
+    metadata = %{operation: operation, path: path, adapter: adapter}
+    Telemetry.span([:phx_media_library, :storage], metadata, fn -> {fun.(), metadata} end)
+  end
+
+  @doc """
   Generate a presigned upload URL for direct client-to-storage uploads.
 
   Returns `{:ok, url, fields}` if the adapter supports presigned URLs,

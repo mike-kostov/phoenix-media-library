@@ -9,26 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 What apps must change when upgrading:
-- **Direct uploads to S3 are a form POST, not a PUT.**
-  `presigned_upload_url/3` still returns `{:ok, url, fields, key}`, but the
-  browser must now send a `multipart/form-data` POST to `url` with every
-  entry of `fields` and the file last. A client that still sends a PUT gets
-  an error from S3. The storage guide ("Direct uploads to S3") has a
-  LiveView uploader. `complete_external_upload/4` needs only `filename:`;
-  `content_type:` and `size:` are read from S3 and may be dropped.
+- **Direct uploads to AWS are a form POST by default, not a PUT.**
+  `presigned_upload_url/3` (now deprecated) still returns
+  `{:ok, url, fields, key}`, but on AWS disks the browser must now send a
+  `multipart/form-data` POST to `url` with every entry of `fields` and the
+  file last; a client that still sends a PUT gets an error from S3. To
+  keep a PUT client, set `direct_upload: :put` on the disk; the PUT must
+  then send the signed `Content-Type` (`:content_type`, or the type of the
+  filename). New code uses `presigned_upload/3`, which returns the method
+  and headers too; the storage guide ("Direct uploads to S3") has a
+  LiveView uploader for both. `complete_external_upload/4` needs only
+  `filename:`; `content_type:` and `size:` are read from S3 and may be
+  dropped.
 
 ### Security
 - Requires `req ~> 0.7.4` (was `~> 0.5`). Req before 0.6.1 has two HIGH
   advisories, CVE-2026-49755 (decompression bomb) and CVE-2026-49756
   (multipart header injection). The library's own requests weren't
   affected, but the old requirement kept apps on vulnerable versions.
-- **Direct uploads to S3 enforce their limits** (behaviour change).
-  `presigned_upload_url/3` returns a presigned POST whose signed policy
-  makes S3 reject a different key, a size over the limit (`:max_size`, by
-  default the collection's `max_size`) or another content type. The old
-  presigned PUT couldn't limit the size at all, and the size option was
-  silently ignored. Clients must send a `multipart/form-data` POST with the
-  returned fields; the storage guide has a LiveView uploader.
+- **Direct uploads to S3 enforce their limits** (behaviour change). On
+  AWS, uploads are a presigned POST whose signed policy makes S3 reject a
+  different key, a size over the limit (`:max_size`, by default the
+  collection's `max_size`) or another content type. The old presigned PUT
+  couldn't limit the size at all, and the size option was silently
+  ignored. A PUT (`direct_upload: :put`) now signs the content type and is
+  refused when the declared `:size` is over the limit; completion checks
+  the real size.
 - `complete_external_upload/4` trusted the client's filename, type and
   size, and never checked the object existed. It now reads the object's
   size and first bytes from storage and validates them against the
@@ -55,6 +61,14 @@ What apps must change when upgrading:
   longer crash the LiveView.
 
 ### Added
+- `PhxMediaLibrary.presigned_upload/3` signs a direct upload and returns
+  `%{method, url, fields, headers, key}`, so one browser uploader handles
+  form POSTs and PUTs. The method comes from the disk's `direct_upload:`
+  (`:post` on AWS, `:put` on R2 and `:generic`, which have no POST
+  uploads). A declared `:size` over the limit returns
+  `{:error, {:file_too_large, size, max}}` without signing.
+- Optional `presigned_upload/3` storage callback, returning the method,
+  URL, fields and headers.
 - Optional `stat/3` storage callback: an object's size and first bytes
   without reading all of it (HEAD plus a ranged GET on S3). Adapters
   without it fall back to `get/2`.
@@ -132,6 +146,10 @@ What apps must change when upgrading:
   `{:error, reason}`.
 
 ### Deprecated
+- `PhxMediaLibrary.presigned_upload_url/3` and the `presigned_upload_url/3`
+  storage callback, replaced by `presigned_upload/3`. Both still work (an
+  adapter with only the old callback is used as a form POST); they will be
+  removed in 0.10.0.
 - `mix phx_media_library.regenerate`, `regenerate_webp`,
   `regenerate_responsive` and `drop_originals`, replaced by
   `mix phx_media_library.doctor --rebuild --only conversions|webp|responsive`

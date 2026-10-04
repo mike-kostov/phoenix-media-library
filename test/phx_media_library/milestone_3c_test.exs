@@ -821,14 +821,14 @@ defmodule PhxMediaLibrary.Milestone3cTest do
   # 3.7 — Direct S3 Upload (Presigned URLs)
   # =========================================================================
 
-  describe "presigned uploads: presigned_upload_url/3" do
+  describe "presigned uploads: presigned_upload/3" do
     setup [:setup_disk_storage]
 
     test "returns :not_supported for local disk adapter" do
       post = create_post!()
 
       result =
-        PhxMediaLibrary.presigned_upload_url(post, :images, filename: "photo.jpg")
+        PhxMediaLibrary.presigned_upload(post, :images, filename: "photo.jpg")
 
       assert {:error, :not_supported} = result
     end
@@ -839,7 +839,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
       post = create_post!()
 
       result =
-        PhxMediaLibrary.presigned_upload_url(post, :images, filename: "photo.jpg")
+        PhxMediaLibrary.presigned_upload(post, :images, filename: "photo.jpg")
 
       assert {:error, :not_supported} = result
     after
@@ -850,7 +850,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
       post = create_post!()
 
       assert_raise KeyError, ~r/key :filename not found/, fn ->
-        PhxMediaLibrary.presigned_upload_url(post, :images, [])
+        PhxMediaLibrary.presigned_upload(post, :images, [])
       end
     end
   end

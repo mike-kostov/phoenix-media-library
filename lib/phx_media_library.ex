@@ -841,92 +841,132 @@ defmodule PhxMediaLibrary do
   # ---------------------------------------------------------------------------
 
   @doc """
-  Generate a presigned URL for direct client-to-storage uploads.
+  Sign a direct upload from the browser to remote storage (e.g. S3).
 
-  This allows the client (browser) to upload files directly to a remote
-  storage backend (e.g. S3) without proxying through the server. The server
-  only generates the signed URL and, after the upload completes, creates the
-  `Media` record via `complete_external_upload/4`.
+  The file goes straight to storage without passing through your server.
+  The server signs the upload here and, after the browser has sent the
+  file, creates the `Media` record with `complete_external_upload/4`.
 
-  Returns `{:ok, url, fields, upload_key}` on success, where:
-  - `url` — the endpoint the browser POSTs the file to
-  - `fields` — form fields to send with the file (S3 checks them against a
-    signed policy: the exact key, the size limit and the content type)
-  - `upload_key` — the storage path to pass back to `complete_external_upload/4`
+  Returns `{:ok, upload}`, a map with:
+  - `:method` — `:post` or `:put`, from the disk's `direct_upload:` setting
+  - `:url` — where the browser sends the file
+  - `:fields` — for `:post`, the form fields to send before the file (S3
+    checks them against a signed policy: the exact key, the size limit and
+    the content type); empty for `:put`
+  - `:headers` — for `:put`, the headers to send (the signed
+    `content-type`); empty for `:post`
+  - `:key` — the storage path to pass to `complete_external_upload/4`
 
-  The browser sends a `multipart/form-data` POST with every field and the
-  file last. See the "Direct uploads to S3" section of the storage guide.
+  See the "Direct uploads to S3" section of the storage guide for a
+  LiveView uploader that handles both methods.
 
-  Returns `{:error, :not_supported}` if the storage adapter doesn't support
-  presigned URLs (e.g. local disk storage).
+  Returns `{:error, {:file_too_large, size, max}}` when the declared
+  `:size` is over the limit, and `{:error, :not_supported}` if the storage
+  adapter can't sign uploads (e.g. local disk storage).
 
   ## Options
 
+  - `:filename` — the name the user uploaded (required)
   - `:disk` — storage disk to use (default: collection or global default)
-  - `:filename` — the filename for the upload (required)
-  - `:content_type` — expected MIME type of the upload
+  - `:content_type` — the upload's MIME type (default: from the filename)
+  - `:size` — the size the browser declares, checked against the limit
+    before signing
   - `:expires_in` — URL expiration in seconds (default: 3600)
   - `:max_size` — maximum upload size in bytes (default: the collection's
-    `max_size`); S3 rejects larger uploads
+    `max_size`); a POST enforces it at upload, a PUT at completion
 
   ## Examples
 
-      {:ok, url, fields, key} =
-        PhxMediaLibrary.presigned_upload_url(post, :images,
-          filename: "photo.jpg",
-          content_type: "image/jpeg",
-          expires_in: 600
-        )
-
-      # Client uploads directly to `url` with `fields`
-      # Then server completes:
-      {:ok, media} =
-        PhxMediaLibrary.complete_external_upload(post, :images, key,
+      {:ok, upload} =
+        PhxMediaLibrary.presigned_upload(post, :images,
           filename: "photo.jpg",
           content_type: "image/jpeg",
           size: 123_456
         )
 
+      # The browser uploads with upload.method, upload.url, upload.fields
+      # and upload.headers. Then the server completes:
+      {:ok, media} =
+        PhxMediaLibrary.complete_external_upload(post, :images, upload.key,
+          filename: "photo.jpg"
+        )
+
   """
+  @spec presigned_upload(Ecto.Schema.t(), atom(), keyword()) ::
+          {:ok,
+           %{
+             method: :post | :put,
+             url: String.t(),
+             fields: map(),
+             headers: map(),
+             key: String.t()
+           }}
+          | {:error, term()}
+  def presigned_upload(model, collection_name, opts \\ []) do
+    filename = opts |> Keyword.fetch!(:filename) |> FileName.safe()
+    max_size = max_upload_size(model, collection_name, opts)
+
+    with :ok <- check_declared_size(Keyword.get(opts, :size), max_size) do
+      disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
+      storage = Config.storage_adapter(disk)
+      content_type = Keyword.get(opts, :content_type) || MIME.from_path(filename)
+
+      uuid = Ecto.UUID.generate()
+      mediable_type = Model.mediable_type(model)
+
+      file_name =
+        FileName.storage_name(Model.file_naming(model, collection_name), %{
+          original: filename,
+          mime_type: content_type,
+          mediable_type: mediable_type,
+          mediable_id: model.id,
+          collection_name: collection_name,
+          uuid: uuid
+        })
+
+      storage_path =
+        PathGenerator.for_new_media(%{
+          mediable_type: mediable_type,
+          mediable_id: model.id,
+          uuid: uuid,
+          file_name: file_name
+        })
+
+      presigned_opts =
+        opts
+        |> Keyword.take([:expires_in])
+        |> Keyword.put(:content_type, content_type)
+        |> maybe_add_size_constraint(max_size)
+
+      case StorageWrapper.presigned_upload(storage, storage_path, presigned_opts) do
+        {:ok, upload} -> {:ok, Map.put(upload, :key, storage_path)}
+        {:error, _} = error -> error
+      end
+    end
+  end
+
+  @doc """
+  Deprecated: use `presigned_upload/3`, which also tells the browser the
+  method and headers to use. Removed in 0.10.0.
+
+  Returns `{:ok, url, fields, key}`: the form fields for a `:post` disk, or
+  an empty map for a `:put` disk (the browser must send the content type
+  that was signed, `:content_type` or the type of the filename). Takes the
+  same options as `presigned_upload/3`.
+
+  ## Examples
+
+      {:ok, url, fields, key} =
+        PhxMediaLibrary.presigned_upload_url(post, :images, filename: "photo.jpg")
+
+  """
+  @deprecated "Use PhxMediaLibrary.presigned_upload/3 instead"
   @spec presigned_upload_url(Ecto.Schema.t(), atom(), keyword()) ::
           {:ok, String.t(), map(), String.t()} | {:error, term()}
   def presigned_upload_url(model, collection_name, opts \\ []) do
-    filename = opts |> Keyword.fetch!(:filename) |> FileName.safe()
-    disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
-    storage = Config.storage_adapter(disk)
-
-    uuid = Ecto.UUID.generate()
-    mediable_type = Model.mediable_type(model)
-
-    file_name =
-      FileName.storage_name(Model.file_naming(model, collection_name), %{
-        original: filename,
-        mime_type: Keyword.get(opts, :content_type) || MIME.from_path(filename),
-        mediable_type: mediable_type,
-        mediable_id: model.id,
-        collection_name: collection_name,
-        uuid: uuid
-      })
-
-    storage_path =
-      PathGenerator.for_new_media(%{
-        mediable_type: mediable_type,
-        mediable_id: model.id,
-        uuid: uuid,
-        file_name: file_name
-      })
-
-    presigned_opts =
-      opts
-      |> Keyword.take([:expires_in, :content_type])
-      |> maybe_add_size_constraint(max_upload_size(model, collection_name, opts))
-
-    case StorageWrapper.presigned_upload_url(storage, storage_path, presigned_opts) do
-      {:ok, url, fields} ->
-        {:ok, url, fields, storage_path}
-
-      {:error, _} = error ->
-        error
+    case presigned_upload(model, collection_name, opts) do
+      {:ok, %{url: url, fields: fields, key: key}} -> {:ok, url, fields, key}
+      {:error, _} = error -> error
     end
   end
 
@@ -946,7 +986,7 @@ defmodule PhxMediaLibrary do
 
   ## Optional options
 
-  - `:disk` — storage disk (must match the one used for `presigned_upload_url/3`)
+  - `:disk` — storage disk (must match the one used for `presigned_upload/3`)
   - `:custom_properties` — user-defined metadata map
   - `:checksum` — pre-computed checksum (e.g. from client-side hashing)
   - `:checksum_algorithm` — algorithm used (default: `"sha256"`)
@@ -1033,7 +1073,7 @@ defmodule PhxMediaLibrary do
       uuid: uuid_from_path(storage_path),
       collection_name: to_string(collection_name),
       name: FileName.slug(file_info.filename),
-      # The name presigned_upload_url/3 stored the file under.
+      # The name presigned_upload/3 stored the file under.
       file_name: Path.basename(storage_path),
       mime_type: file_info.mime_type,
       disk: to_string(disk),
@@ -1082,6 +1122,11 @@ defmodule PhxMediaLibrary do
       end)
     end)
   end
+
+  defp check_declared_size(size, max) when is_integer(size) and is_integer(max) and size > max,
+    do: {:error, {:file_too_large, size, max}}
+
+  defp check_declared_size(_size, _max), do: :ok
 
   defp maybe_add_size_constraint(presigned_opts, nil), do: presigned_opts
 

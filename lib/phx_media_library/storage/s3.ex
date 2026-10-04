@@ -58,7 +58,10 @@ if Code.ensure_loaded?(ExAws.S3) do
       domain). Without it, public URLs follow the endpoint; R2 serves
       public files only from a custom domain or r2.dev URL, so `:r2` disks
       need it
-    - `:direct_upload` - how browsers upload directly: `:post` or `:put`
+    - `:direct_upload` - how browsers upload directly (see
+      `PhxMediaLibrary.presigned_upload/3`): `:post`, a form whose signed
+      policy limits the size, or `:put`, for providers without POST
+      uploads such as R2
     - `:acl` - ACL sent with uploads, e.g. `"public-read"` (default: none,
       so the bucket's settings apply)
     - `:cache_control` - `Cache-Control` header stored with every upload,
@@ -290,12 +293,34 @@ if Code.ensure_loaded?(ExAws.S3) do
     defp endpoint_url(endpoint, bucket, path, :path),
       do: "#{String.trim_trailing(endpoint, "/")}/#{bucket}/#{path}"
 
-    # A presigned POST (not PUT) so S3 itself enforces the policy: the exact
-    # key, the size range and the content type. A presigned PUT can't limit
-    # the size at all.
+    # The disk's :direct_upload picks the method. A POST lets S3 enforce the
+    # policy itself: the exact key, the size range and the content type. A
+    # PUT, which R2 and B2 need, signs the key and the content type; it
+    # can't limit the size, so the upload's completion checks it.
     @impl true
-    def presigned_upload_url(path, presigned_opts, opts) do
+    def presigned_upload(path, presigned_opts, opts) do
       opts = options(opts)
+
+      case opts[:direct_upload] do
+        :post ->
+          {:ok, url, fields} = presigned_post(path, presigned_opts, opts)
+          {:ok, %{method: :post, url: url, fields: fields, headers: %{}}}
+
+        :put ->
+          presigned_put(path, presigned_opts, opts)
+
+        other ->
+          raise ArgumentError,
+                "the S3 disk's :direct_upload must be :post or :put, got: #{inspect(other)}"
+      end
+    end
+
+    # Deprecated callback: always a form POST.
+    @impl true
+    def presigned_upload_url(path, presigned_opts, opts),
+      do: presigned_post(path, presigned_opts, options(opts))
+
+    defp presigned_post(path, presigned_opts, opts) do
       bucket = Keyword.fetch!(opts, :bucket)
       content_type = Keyword.get(presigned_opts, :content_type)
 
@@ -316,6 +341,27 @@ if Code.ensure_loaded?(ExAws.S3) do
       # policy requires.
       fields = if content_type, do: Map.put(fields, "Content-Type", content_type), else: fields
       {:ok, url, fields}
+    end
+
+    defp presigned_put(path, presigned_opts, opts) do
+      headers =
+        case Keyword.get(presigned_opts, :content_type) do
+          nil -> %{}
+          content_type -> %{"content-type" => content_type}
+        end
+
+      case ExAws.S3.presigned_url(
+             ExAws.Config.new(:s3, ex_aws_opts(opts)),
+             :put,
+             Keyword.fetch!(opts, :bucket),
+             path,
+             expires_in: Keyword.get(presigned_opts, :expires_in, 3600),
+             virtual_host: opts[:addressing] == :virtual_host,
+             headers: Map.to_list(headers)
+           ) do
+        {:ok, url} -> {:ok, %{method: :put, url: url, fields: %{}, headers: headers}}
+        {:error, _} = error -> error
+      end
     end
 
     defp put_length_range(post_opts, {min, max}),
