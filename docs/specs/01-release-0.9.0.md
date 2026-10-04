@@ -1,6 +1,6 @@
 # Spec 01: Release 0.9.0
 
-Status: reviewed 2026-10-04; questions resolved, awaiting approval.
+Status: approved (Mike, 2026-10-04).
 Source: `docs/backlog.md` (0.9.0 section), `docs/ideas/placeholders.md`.
 
 ## Objective
