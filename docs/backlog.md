@@ -5,6 +5,9 @@ Planned work that has no spec yet. When work starts, it gets a spec in
 
 ## 0.9.0 (agreed, not yet specced)
 
+Bugs and issues found while working on 0.9.0 go into 0.9.0. Before
+publishing, the whole backlog is reviewed again.
+
 ### Security
 - Direct-to-S3 uploads trust the browser. `presigned_upload_url/3` drops
   the size and type limits (ExAws ignores `content_length_range`), and
@@ -27,6 +30,11 @@ Planned work that has no spec yet. When work starts, it gets a spec in
 - Dead `Process.delete` in `MediaAdder.stream_and_checksum/3`.
 
 ### Features
+- Original filenames on document downloads. Since ADR-015 a downloaded
+  invoice is named after its stored file (`orders_15_invoices_<uuid>.pdf`);
+  the download should carry the uploaded name, signed into the download
+  URL so it can't be tampered with.
+- `doctor --id` to check and repair one media item.
 - AVIF next to WebP, served through `<picture>` with WebP as fallback.
 - `<.media_figure>` component with a caption from
   `custom_properties["caption"]`.
@@ -42,13 +50,10 @@ Planned work that has no spec yet. When work starts, it gets a spec in
 ## After 0.9.0
 - Copy or move media between records.
 - Add media from a binary, base64 or a stream (`{:stream, enumerable}`).
-- `doctor --id` for one media item.
 - PDF thumbnails.
 - Google Cloud Storage adapter.
 - Processing status for conversions (pending, done, failed).
 - Minimum and maximum image dimensions per collection.
-- Original filenames on document downloads (the name must be signed into
-  the download URL).
 - Unify the responsive rules for originals and conversions (ADR-017).
 - Remove the deprecated repair tasks in 0.10.0 (ADR-016).
 
