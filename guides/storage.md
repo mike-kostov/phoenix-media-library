@@ -187,12 +187,13 @@ When the upload has finished, create the media record:
 
 ```elixir
 {:ok, media} =
-  PhxMediaLibrary.complete_external_upload(post, :videos, key,
-    filename: "launch.mp4",
-    content_type: "video/mp4",
-    size: size
-  )
+  PhxMediaLibrary.complete_external_upload(post, :videos, key, filename: "launch.mp4")
 ```
+
+The size and the content type are read from the stored object, never taken
+from the client, and checked against the collection like any upload. An
+object that fails is deleted and the call returns `{:error, reason}`; a
+missing one returns `{:error, :not_found}`.
 
 Before 0.9 the upload was a presigned `PUT`. A client that still sends a
 `PUT` gets an error from S3; switch it to the POST above.

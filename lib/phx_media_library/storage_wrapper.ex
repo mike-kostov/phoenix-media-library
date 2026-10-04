@@ -50,6 +50,21 @@ defmodule PhxMediaLibrary.StorageWrapper do
     )
   end
 
+  # Size and first bytes of a stored object; adapters without stat/3 fall
+  # back to reading the whole object.
+  def stat(%__MODULE__{adapter: adapter, config: config}, path, header_bytes) do
+    Code.ensure_loaded(adapter)
+
+    if function_exported?(adapter, :stat, 3) do
+      adapter.stat(path, header_bytes, config)
+    else
+      with {:ok, content} <- adapter.get(path, config) do
+        size = byte_size(content)
+        {:ok, %{size: size, header: binary_part(content, 0, min(size, header_bytes))}}
+      end
+    end
+  end
+
   def url(%__MODULE__{adapter: adapter, config: config}, path, opts \\ []) do
     adapter.url(path, Keyword.merge(config, opts))
   end

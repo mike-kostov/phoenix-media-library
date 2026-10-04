@@ -61,6 +61,7 @@ defmodule PhxMediaLibrary do
     FileName,
     Media,
     MediaAdder,
+    MimeDetector,
     Model,
     PathGenerator,
     StorageWrapper,
@@ -933,14 +934,15 @@ defmodule PhxMediaLibrary do
   Complete a direct (presigned) upload by creating the `Media` record.
 
   Call this after the client has finished uploading directly to storage.
-  The file is already stored — this function only creates the database
-  record and optionally triggers conversions.
+  The object's size and first bytes are read from storage, never taken from
+  the client, and checked against the collection like any upload (accepted
+  types, `max_size`, content matching the extension). An object that fails
+  is deleted and the call returns `{:error, reason}`; a missing object
+  returns `{:error, :not_found}`.
 
   ## Required options
 
-  - `:filename` — original filename
-  - `:content_type` — MIME type of the uploaded file
-  - `:size` — file size in bytes
+  - `:filename` — the name the user uploaded (kept for display)
 
   ## Optional options
 
@@ -948,14 +950,14 @@ defmodule PhxMediaLibrary do
   - `:custom_properties` — user-defined metadata map
   - `:checksum` — pre-computed checksum (e.g. from client-side hashing)
   - `:checksum_algorithm` — algorithm used (default: `"sha256"`)
+  - `:content_type`, `:size` — accepted for compatibility and ignored; both
+    are read from the stored object
 
   ## Examples
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, upload_key,
-          filename: "photo.jpg",
-          content_type: "image/jpeg",
-          size: 45_000
+          filename: "photo.jpg"
         )
 
   """
@@ -963,45 +965,26 @@ defmodule PhxMediaLibrary do
           {:ok, Media.t()} | {:error, term()}
   def complete_external_upload(model, collection_name, storage_path, opts) do
     filename = opts |> Keyword.fetch!(:filename) |> FileName.safe()
-    content_type = Keyword.fetch!(opts, :content_type)
-    size = Keyword.fetch!(opts, :size)
     disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
-    custom_properties = Keyword.get(opts, :custom_properties, %{})
-    checksum = Keyword.get(opts, :checksum)
-    checksum_algorithm = Keyword.get(opts, :checksum_algorithm, "sha256")
-
-    # Extract UUID from the storage path (3rd segment: type/id/uuid/filename)
-    uuid =
-      storage_path
-      |> Path.split()
-      |> Enum.at(2) || Ecto.UUID.generate()
-
-    mediable_type = Model.mediable_type(model)
-
-    attrs = %{
-      uuid: uuid,
-      collection_name: to_string(collection_name),
-      name: FileName.slug(filename),
-      # The name presigned_upload_url/3 stored the file under.
-      file_name: Path.basename(storage_path),
-      mime_type: content_type,
-      disk: to_string(disk),
-      size: size,
-      custom_properties: custom_properties,
-      metadata: %{"original_file_name" => filename},
-      mediable_type: mediable_type,
-      mediable_id: model.id,
-      order_column: Model.next_order(model, collection_name),
-      checksum: checksum,
-      checksum_algorithm: if(checksum, do: checksum_algorithm, else: nil)
-    }
+    storage = Config.storage_adapter(disk)
 
     Telemetry.span(
       [:phx_media_library, :add],
       %{collection: collection_name, source_type: :external, model: model},
       fn ->
         result =
-          with {:ok, media} <- insert_media(attrs) do
+          with {:ok, file_info, header} <- stored_file(storage, storage_path, filename),
+               :ok <-
+                 validate_or_delete(
+                   model,
+                   collection_name,
+                   file_info,
+                   header,
+                   storage,
+                   storage_path
+                 ),
+               attrs = external_attrs(model, collection_name, storage_path, disk, file_info, opts),
+               {:ok, media} <- insert_media(attrs) do
             Model.enforce_collection_limits(model, collection_name, media)
             maybe_process_conversions(model, media, collection_name)
             {:ok, media}
@@ -1016,6 +999,62 @@ defmodule PhxMediaLibrary do
         {result, stop_metadata}
       end
     )
+  end
+
+  # Same header size MediaAdder reads for MIME detection.
+  @header_bytes 512
+
+  defp stored_file(storage, storage_path, filename) do
+    case StorageWrapper.stat(storage, storage_path, @header_bytes) do
+      {:ok, %{size: size, header: header}} ->
+        mime_type = MimeDetector.detect_with_fallback(header, filename)
+        {:ok, %{filename: filename, mime_type: mime_type, size: size}, header}
+
+      {:error, reason} when reason in [:not_found, :enoent] ->
+        {:error, :not_found}
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp validate_or_delete(model, collection_name, file_info, header, storage, storage_path) do
+    with {:error, _} = error <-
+           MediaAdder.validate_file(model, collection_name, file_info, header) do
+      StorageWrapper.delete(storage, storage_path)
+      error
+    end
+  end
+
+  defp external_attrs(model, collection_name, storage_path, disk, file_info, opts) do
+    checksum = Keyword.get(opts, :checksum)
+
+    %{
+      uuid: uuid_from_path(storage_path),
+      collection_name: to_string(collection_name),
+      name: FileName.slug(file_info.filename),
+      # The name presigned_upload_url/3 stored the file under.
+      file_name: Path.basename(storage_path),
+      mime_type: file_info.mime_type,
+      disk: to_string(disk),
+      size: file_info.size,
+      custom_properties: Keyword.get(opts, :custom_properties, %{}),
+      metadata: %{"original_file_name" => file_info.filename},
+      mediable_type: Model.mediable_type(model),
+      mediable_id: model.id,
+      order_column: Model.next_order(model, collection_name),
+      checksum: checksum,
+      checksum_algorithm: if(checksum, do: Keyword.get(opts, :checksum_algorithm, "sha256"))
+    }
+  end
+
+  # Every path generator puts the media's UUID in the folder that holds the
+  # file (Default, Flat, DateBased, Tenant).
+  defp uuid_from_path(storage_path) do
+    case storage_path |> Path.dirname() |> Path.basename() |> Ecto.UUID.cast() do
+      {:ok, uuid} -> uuid
+      :error -> Ecto.UUID.generate()
+    end
   end
 
   # ---------------------------------------------------------------------------

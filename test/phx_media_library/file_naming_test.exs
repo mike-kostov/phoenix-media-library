@@ -100,11 +100,24 @@ defmodule PhxMediaLibrary.FileNamingTest do
     post = create_test_post()
     storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/posts_x_images_y.jpg"
 
+    :ok =
+      PhxMediaLibrary.StorageWrapper.put(
+        PhxMediaLibrary.Config.storage_adapter(:local),
+        storage_path,
+        "jpeg"
+      )
+
+    on_exit(fn ->
+      PhxMediaLibrary.StorageWrapper.delete(
+        PhxMediaLibrary.Config.storage_adapter(:local),
+        storage_path
+      )
+    end)
+
     {:ok, media} =
       PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
         filename: "Holiday Photo.jpg",
-        content_type: "image/jpeg",
-        size: 100
+        disk: :local
       )
 
     assert media.file_name == "posts_x_images_y.jpg"

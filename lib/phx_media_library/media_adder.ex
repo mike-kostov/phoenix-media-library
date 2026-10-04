@@ -136,13 +136,35 @@ defmodule PhxMediaLibrary.MediaAdder do
     end)
   end
 
+  @doc """
+  Check a file against a collection's rules: its accepted MIME types, its
+  maximum size, and (unless the collection sets `verify_content_type: false`)
+  that the content matches the type the filename's extension claims.
+
+  Uploads and `PhxMediaLibrary.complete_external_upload/4` both use it, so a
+  file is judged the same way however it arrives. `file_info` needs
+  `:filename`, `:mime_type` (the type detected from the content) and `:size`;
+  `header` is the file's first bytes.
+
+  ## Examples
+
+      MediaAdder.validate_file(post, :documents, %{filename: "a.pdf", mime_type: "application/pdf", size: 1_024}, header)
+      #=> :ok
+
+  """
+  @spec validate_file(struct(), atom() | String.t(), map(), binary()) :: :ok | {:error, term()}
+  def validate_file(model, collection_name, file_info, header) do
+    with {:ok, _config} <- validate_collection(model, collection_name, file_info) do
+      verify_content_type(model, collection_name, file_info, header)
+    end
+  end
+
   # Private functions
 
   defp add_file(adder, collection_name, file_info, opts) do
     with {:ok, file_info, header} <- read_and_detect_mime(file_info),
-         {:ok, _validated} <- validate_collection(adder, collection_name, file_info),
+         :ok <- validate_file(adder.model, collection_name, file_info, header),
          :ok <- validate_image_pixels(adder, collection_name, file_info),
-         :ok <- maybe_verify_content_type(adder, collection_name, file_info, header),
          {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
          {:ok, media} <- store_and_persist(adder, collection_name, file_info, metadata, opts) do
       {:ok, process_conversions_and_finalize_webp(adder, media, collection_name)}
@@ -228,7 +250,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  defp validate_collection(%__MODULE__{model: model}, collection_name, file_info) do
+  defp validate_collection(model, collection_name, file_info) do
     case Model.collection(model, collection_name) do
       nil ->
         # No explicit collection config - allow any file
@@ -313,12 +335,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   # collection has `verify_content_type: true` (the default).
   # `header` is the first @mime_header_size bytes — enough for magic-byte
   # matching without needing the full file in memory.
-  defp maybe_verify_content_type(
-         %__MODULE__{model: model},
-         collection_name,
-         file_info,
-         header
-       ) do
+  defp verify_content_type(model, collection_name, file_info, header) do
     case Model.collection(model, collection_name) do
       %Collection{verify_content_type: false} ->
         :ok

@@ -35,6 +35,21 @@ defmodule PhxMediaLibrary.Milestone3cTest do
     path
   end
 
+  # Direct uploads are checked against the stored object, so tests store one
+  # on the :local disk first.
+  defp stored_path!(post, name, content \\ "file content", uuid \\ Ecto.UUID.generate()) do
+    path = "posts/#{post.id}/#{uuid}/#{name}"
+
+    :ok =
+      PhxMediaLibrary.StorageWrapper.put(
+        PhxMediaLibrary.Config.storage_adapter(:local),
+        path,
+        content
+      )
+
+    path
+  end
+
   defp setup_disk_storage(_context) do
     dir = Path.join(System.tmp_dir!(), "phx_media_m3c_#{:erlang.unique_integer([:positive])}")
     File.mkdir_p!(dir)
@@ -848,7 +863,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
       # Simulate a completed external upload — the file is already in storage,
       # we just need to create the DB record.
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/photo.jpg"
+      storage_path = stored_path!(post, "photo.jpg")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -859,14 +874,15 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
       assert media.file_name == "photo.jpg"
       assert media.mime_type == "image/jpeg"
-      assert media.size == 45_000
+      # The real size of the stored object, not the client's 45_000.
+      assert media.size == byte_size("file content")
       assert media.collection_name == "images"
       assert media.mediable_id == post.id
     end
 
     test "stores custom properties" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/doc.pdf"
+      storage_path = stored_path!(post, "doc.pdf")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -881,7 +897,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
     test "stores pre-computed checksum" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/hashed.txt"
+      storage_path = stored_path!(post, "hashed.txt")
       checksum = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 
       {:ok, media} =
@@ -899,7 +915,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
     test "creates record without checksum when not provided" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/nochecksum.txt"
+      storage_path = stored_path!(post, "nochecksum.txt")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -914,7 +930,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
     test "extracts UUID from storage path" do
       post = create_post!()
       uuid = Ecto.UUID.generate()
-      storage_path = "posts/#{post.id}/#{uuid}/photo.jpg"
+      storage_path = stored_path!(post, "photo.jpg", "jpeg", uuid)
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -930,7 +946,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
       post = create_post!()
       _m1 = add_media_to_post!(post, :images, "first.txt", "first")
 
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/second.txt"
+      storage_path = stored_path!(post, "second.txt")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -944,7 +960,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
     test "metadata defaults to empty map" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/test.txt"
+      storage_path = stored_path!(post, "test.txt")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
@@ -957,35 +973,26 @@ defmodule PhxMediaLibrary.Milestone3cTest do
       assert Map.keys(media.metadata) == ["original_file_name"]
     end
 
-    test "raises when required options are missing" do
+    test "requires only :filename; size and type come from storage" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/test.txt"
+      storage_path = stored_path!(post, "test.txt")
 
       assert_raise KeyError, ~r/key :filename not found/, fn ->
-        PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
-          content_type: "text/plain",
-          size: 5
-        )
+        PhxMediaLibrary.complete_external_upload(post, :images, storage_path, [])
       end
 
-      assert_raise KeyError, ~r/key :content_type not found/, fn ->
-        PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
-          filename: "test.txt",
-          size: 5
-        )
-      end
+      assert {:ok, media} =
+               PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
+                 filename: "test.txt"
+               )
 
-      assert_raise KeyError, ~r/key :size not found/, fn ->
-        PhxMediaLibrary.complete_external_upload(post, :images, storage_path,
-          filename: "test.txt",
-          content_type: "text/plain"
-        )
-      end
+      assert media.size == byte_size("file content")
+      assert media.mime_type == "text/plain"
     end
 
     test "emits telemetry events" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/telem.txt"
+      storage_path = stored_path!(post, "telem.txt")
 
       ref = make_ref()
       parent = self()
@@ -1019,7 +1026,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
 
     test "respects soft delete on subsequent operations" do
       post = create_post!()
-      storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/ext.txt"
+      storage_path = stored_path!(post, "ext.txt")
 
       {:ok, media} =
         PhxMediaLibrary.complete_external_upload(post, :images, storage_path,

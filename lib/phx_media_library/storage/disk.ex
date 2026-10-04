@@ -89,6 +89,22 @@ defmodule PhxMediaLibrary.Storage.Disk do
   end
 
   @impl true
+  def stat(path, header_bytes, opts) do
+    with {:ok, full_path} <- inside_root(path, opts),
+         {:ok, %File.Stat{size: size}} <- File.stat(full_path),
+         {:ok, file} <- File.open(full_path, [:read, :binary]) do
+      header =
+        case IO.binread(file, header_bytes) do
+          data when is_binary(data) -> data
+          _eof -> <<>>
+        end
+
+      File.close(file)
+      {:ok, %{size: size, header: header}}
+    end
+  end
+
+  @impl true
   def exists?(path, opts \\ []) do
     case inside_root(path, opts) do
       {:ok, full_path} -> File.exists?(full_path)

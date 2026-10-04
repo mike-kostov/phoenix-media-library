@@ -108,11 +108,11 @@ validated against `accepts`, `max_size` and the type check; invalid objects
 are deleted. The UUID is read as the file's parent folder, which holds for
 all four path generators.
 **Acceptance criteria:**
-- [ ] A missing object, an oversized object and a wrong-type object each
+- [x] A missing object, an oversized object and a wrong-type object each
       return an error, and the latter two are deleted.
-- [ ] Size and MIME type stored on the media are the real ones, not the
+- [x] Size and MIME type stored on the media are the real ones, not the
       client's.
-- [ ] Completion works under Default, Flat, DateBased and Tenant paths.
+- [x] Completion works under Default, Flat, DateBased and Tenant paths.
 **Verification:** tests with the Memory adapter (and a test adapter for the
 callback contract); `mix precommit`.
 **Dependencies:** Task 4

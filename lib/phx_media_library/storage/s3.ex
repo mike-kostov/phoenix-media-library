@@ -103,6 +103,42 @@ if Code.ensure_loaded?(ExAws.S3) do
       end
     end
 
+    # HEAD for the size, then a ranged GET for the first bytes.
+    @impl true
+    def stat(path, header_bytes, opts) do
+      bucket = Keyword.fetch!(opts, :bucket)
+      request_opts = ex_aws_opts(opts)
+
+      with {:ok, %{headers: headers}} <-
+             bucket |> ExAws.S3.head_object(path) |> ExAws.request(request_opts),
+           {size, ""} <- headers |> header_value("content-length") |> Integer.parse(),
+           {:ok, header} <- read_header(bucket, path, size, header_bytes, request_opts) do
+        {:ok, %{size: size, header: header}}
+      else
+        {:error, {:http_error, 404, _}} -> {:error, :not_found}
+        {:error, _} = error -> error
+        _unexpected -> {:error, :invalid_response}
+      end
+    end
+
+    # A ranged GET on an empty object fails (416), and there's nothing to read.
+    defp read_header(_bucket, _path, 0, _header_bytes, _request_opts), do: {:ok, <<>>}
+
+    defp read_header(bucket, path, _size, header_bytes, request_opts) do
+      case bucket
+           |> ExAws.S3.get_object(path, range: "bytes=0-#{header_bytes - 1}")
+           |> ExAws.request(request_opts) do
+        {:ok, %{body: header}} -> {:ok, header}
+        error -> error
+      end
+    end
+
+    defp header_value(headers, name) do
+      Enum.find_value(headers, "", fn {key, value} ->
+        if String.downcase(key) == name, do: value
+      end)
+    end
+
     @impl true
     def exists?(path, opts \\ []) do
       bucket = Keyword.fetch!(opts, :bucket)

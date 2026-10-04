@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   presigned PUT couldn't limit the size at all, and the size option was
   silently ignored. Clients must send a `multipart/form-data` POST with the
   returned fields; the storage guide has a LiveView uploader.
+- `complete_external_upload/4` trusted the client's filename, type and
+  size, and never checked the object existed. It now reads the object's
+  size and first bytes from storage and validates them against the
+  collection like any upload (accepted types, `max_size`, content matching
+  the extension); a failing object is deleted, a missing one returns
+  `{:error, :not_found}`. `:content_type` and `:size` are now optional and
+  ignored. Under the Tenant path generator it read the media UUID from the
+  wrong part of the path.
 - SVG uploads could run JavaScript when someone opened their URL directly.
   `PhxMediaLibrary.Plug.StaticHeaders` serves SVG sandboxed (a restrictive
   `Content-Security-Policy` plus `nosniff`) for the `Plug.Static` that
@@ -33,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- Optional `stat/3` storage callback: an object's size and first bytes
+  without reading all of it (HEAD plus a ranged GET on S3). Adapters
+  without it fall back to `get/2`.
+- `MediaAdder.validate_file/4`: the collection checks uploads and direct
+  uploads share.
 - `PhxMediaLibrary.absolute_url/4`: a full URL (scheme and host) for
   `og:image` tags, image sitemaps, emails and APIs, from your endpoint or a
   URL string such as a CDN host. Already-absolute URLs (S3) pass through.

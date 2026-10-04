@@ -89,5 +89,16 @@ defmodule PhxMediaLibrary.Storage do
   @callback presigned_upload_url(path(), presigned_opts(), opts()) ::
               {:ok, String.t(), map()} | {:error, term()}
 
-  @optional_callbacks [path: 2, presigned_upload_url: 3]
+  @doc """
+  Return a stored object's size and its first bytes (up to `header_bytes`),
+  without reading the whole object.
+
+  Used to check direct uploads against their collection's rules. Adapters
+  that don't implement it fall back to `get/2`, which reads the whole
+  object.
+  """
+  @callback stat(path(), header_bytes :: pos_integer(), opts()) ::
+              {:ok, %{size: non_neg_integer(), header: binary()}} | {:error, term()}
+
+  @optional_callbacks [path: 2, presigned_upload_url: 3, stat: 3]
 end
