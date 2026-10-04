@@ -457,9 +457,9 @@ repair flag.
 features, with short examples: uploads, file naming, the doctor, page speed
 (placeholders, `width`/`height`, `sizes`, `priority`, caching, AVIF).
 **Acceptance criteria:**
-- [ ] Every 0.9.0 feature appears in the feature list with an example or a
+- [x] Every 0.9.0 feature appears in the feature list with an example or a
       link to its guide.
-- [ ] Prose passes `unslop`.
+- [x] Prose passes `unslop`.
 **Verification:** review with Mike.
 **Dependencies:** Tasks 2 to 21
 **Files:** `README.md`

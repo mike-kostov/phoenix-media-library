@@ -4,11 +4,13 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/phx_media_library)
 [![License](https://img.shields.io/hexpm/l/phx_media_library.svg)](https://github.com/mike-kostov/phx_media_library/blob/main/LICENSE)
 
-An Ecto-backed media library for Elixir and Phoenix, inspired by [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
+Attach files to any Ecto schema, inspired by
+[Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
 
-Associate files with any Ecto schema using a fluent, composable API. You get
-collections, image conversions, LiveView components, and several storage
-backends.
+You declare collections and conversions next to your schema, pipe an upload
+into a collection, and render it with a component. The library stores the
+file under a safe name, makes thumbnails, WebP, AVIF and responsive sizes in
+the background, and gives every image a tiny placeholder.
 
 ## Quick look
 
@@ -28,9 +30,8 @@ defmodule MyApp.Post do
   end
 
   media_collections do
-    # webp: true serves WebP (keeps the original); responsive: true adds srcset variants
-    collection :images, max_files: 20, max_size: 10_000_000, webp: true, responsive: true
-    collection :documents, accepts: ~w(application/pdf text/plain)
+    collection :images, max_files: 20, max_size: 10_000_000, webp: true, avif: true, responsive: true
+    collection :documents, accepts: ~w(application/pdf text/plain), file_naming: :random
     collection :avatar, single_file: true, fallback_url: "/images/default.png"
   end
 
@@ -43,19 +44,15 @@ end
 ```
 
 ```elixir
-# Add media with a fluent pipeline
 {:ok, media} =
   post
   |> PhxMediaLibrary.add("/path/to/photo.jpg")
-  |> PhxMediaLibrary.using_filename("hero.jpg")
-  |> PhxMediaLibrary.with_custom_properties(%{"alt" => "Hero image"})
+  |> PhxMediaLibrary.with_custom_properties(%{"alt" => "Red summer dress"})
   |> PhxMediaLibrary.to_collection(:images)
 
-# Retrieve
 PhxMediaLibrary.get_media(post, :images)
 PhxMediaLibrary.get_first_media_url(post, :images, :thumb)
 
-# Delete
 PhxMediaLibrary.delete(media)
 {:ok, count} = PhxMediaLibrary.clear_collection(post, :images)
 ```
@@ -105,40 +102,106 @@ end
 </.media_gallery>
 ```
 
+## Fast pages by default
+
+The image components do the page-speed work for you:
+
+```heex
+<%!-- The hero: loads first, no lazy loading --%>
+<.responsive_img media={@post.cover} priority class="w-full h-auto" />
+
+<%!-- A product grid: lazy, and the browser picks the size for the slot --%>
+<.responsive_img
+  :for={product <- @products}
+  media={product.photo}
+  conversion={:preview}
+  sizes="(max-width: 768px) 50vw, 25vw"
+/>
+```
+
+- **Placeholders.** Every image gets a 32px blurred WebP of about 260
+  bytes, set as its background until it loads. No JavaScript, no layout
+  jump. `placeholder: :color` uses the average color instead.
+- **No layout shift.** `width` and `height` come from the stored file, so
+  the browser reserves the space.
+- **The right size.** With `responsive: true`, `srcset` lists every
+  variant, and lazy images default to `sizes="auto, 100vw"`, so supporting
+  browsers measure the slot instead of assuming the full screen.
+- **Small formats.** `webp: true` serves WebP; `avif: true` adds AVIF,
+  which `<.picture>` and `<.responsive_img>` offer first, with WebP and the
+  original as fallbacks. Conversions and variants come in the best format
+  only, so no size is stored twice.
+- **Priority.** `priority` marks the page's main image `loading="eager"`
+  and `fetchpriority="high"`; other images decode asynchronously.
+- **Caching.** `cdn_url/2` adds a content fingerprint (`?vsn=…`) that
+  `Plug.Static` answers with a one-year cache.
+
+## Files named by the library
+
+Uploaded filenames are never trusted. The library picks the stored name:
+`posts_42_images_<uuid>.jpg` by default, a readable `summer-dress.jpg` with
+`file_naming: :slug` (Cyrillic is transliterated), or a name that reveals
+nothing with `:random`. The uploaded name is kept, and the library uses it
+for alt text and as the name of downloads, `Лятна рокля.pdf` included.
+
+## A doctor for your media
+
+```bash
+$ mix phx_media_library.doctor               # report only
+$ mix phx_media_library.doctor --regenerate  # make missing thumbnails, WebP, AVIF, placeholders
+$ mix phx_media_library.doctor --rename      # move older files to the naming scheme
+$ mix phx_media_library.doctor --id <uuid>   # one media item
+```
+
+It finds media with no files left, missing derivatives, lost metadata,
+checksum mismatches (`--deep`) and records whose parent is gone. Repairs
+show their plan and ask first.
+
+## Uploads straight to S3 or R2
+
+`presigned_upload/3` signs a browser upload to S3, Cloudflare R2 or any
+S3-compatible service, as a form POST or a PUT, whichever the provider
+supports. `complete_external_upload/4` then reads the stored file and checks
+its size and type against the collection before recording it. The
+[storage guide](guides/storage.md#direct-uploads-to-s3) has a LiveView
+uploader.
+
 ## Features
 
 | Category | What you get |
 |----------|-------------|
-| **Schema integration** | Polymorphic `has_media()` macro, declarative DSL for collections & conversions |
-| **Collections** | MIME validation, file limits, size limits, single-file mode, fallback URLs |
-| **Image conversions** | Thumbnails, resizes, format conversion, responsive `srcset`. Optional, works without libvips |
-| **AVIF** | Opt-in `avif: true`: an AVIF beside each image, AVIF conversions and variants, offered first by `<.picture>` and `<.responsive_img>` with WebP and the original as fallbacks |
-| **WebP & HEIC** | Per-collection `webp: true` transcodes raster/HEIC uploads to WebP and serves them (original kept); conversions and responsive variants are WebP too |
-| **Metadata extraction** | Auto-extract dimensions, EXIF, format, type classification; stored in `metadata` JSON field |
-| **Signed & download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded file name, Cyrillic and all |
-| **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits, custom headers, download telemetry |
-| **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO, …), in-memory (tests), or custom adapters via `PhxMediaLibrary.Storage` behaviour |
-| **Streaming uploads** | Files streamed to storage in 64 KB chunks, never loaded entirely into memory |
-| **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4` for client-to-S3 without proxying, as a form POST or a PUT per provider, with limits checked |
-| **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2`, query scoping, and purge Mix task |
-| **Async processing** | Task (default) or Oban adapter with persistence, retries, and `process_sync/2` |
-| **LiveView** | Drop-in `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers |
-| **Security** | Content-based MIME detection (50+ formats via magic bytes), SHA-256 checksums |
+| **Schema integration** | Polymorphic `has_media()` macro, a DSL for collections and conversions |
+| **Collections** | MIME validation, file count and size limits, pixel limits, single-file mode, fallback URLs |
+| **Image conversions** | Resizes and crops in the collection's served format, responsive `srcset`; same-shape conversions share the original's variants. Optional: works without libvips |
+| **Placeholders** | A 32px blurred WebP (or the average color) for every image, made in the background, shown by every image component |
+| **AVIF** | Opt-in `avif: true`: an AVIF beside each image, AVIF conversions and variants, offered first with WebP and the original as fallbacks |
+| **WebP & HEIC** | `webp: true` transcodes raster and HEIC uploads to WebP and serves them; conversions and variants follow |
+| **File naming** | `:semantic` (default), `:slug` or `:random` stored names; the uploaded name kept for alt text and downloads |
+| **Metadata** | Dimensions, EXIF, format and type stored in a `metadata` JSON field |
+| **Signed and download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded name, with a UTF-8 `filename*` |
+| **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits |
+| **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO), in-memory for tests, or your own adapter |
+| **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4`, POST or PUT per provider, limits checked on completion |
+| **Streaming** | Files go to storage in 64 KB chunks, never whole in memory; downloads stream with `send_file` |
+| **Async processing** | Task (default), Oban or inline; conversions and placeholders run in the background |
+| **LiveView** | `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers with partial-failure results |
+| **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>` (image with caption) |
+| **Security** | Content-based MIME detection, SHA-256 checksums, safe stored names, SVGs served sandboxed (`Plug.StaticHeaders`) |
+| **Doctor** | `mix phx_media_library.doctor` checks files, metadata, names and checksums, and repairs what it can |
+| **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2` and a purge task |
 | **Batch ops** | `clear_collection/2`, `clear_media/1`, `reorder/3`, `move_to/2` |
 | **Telemetry** | `:start`/`:stop`/`:exception` spans for add, delete, conversion, storage, batch, download |
-| **Errors** | Tagged tuples + structured exceptions (`Error`, `StorageError`, `ValidationError`) |
-| **Queries** | `media_query/2` returns composable `Ecto.Query` |
-| **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>` (image with caption) components |
-| **Mix tasks** | Install, regenerate conversions / WebP / responsive variants, clean orphans, purge deleted, generate migrations |
+| **Errors** | Tagged tuples and structured exceptions (`Error`, `StorageError`, `ValidationError`) |
+| **Queries** | `media_query/2` returns a composable `Ecto.Query` |
 
 ## Installation
 
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.8"},
+    {:phx_media_library, "~> 0.9"},
 
-    # Optional: Image processing (requires libvips)
+    # Optional: image processing (requires libvips)
     {:image, "~> 0.54"},
 
     # Optional: S3 storage
@@ -146,7 +209,7 @@ def deps do
     {:ex_aws_s3, "~> 2.5"},
     {:sweet_xml, "~> 0.7"},
 
-    # Optional: Async processing with Oban
+    # Optional: async processing with Oban
     {:oban, "~> 2.18"}
   ]
 end
@@ -158,10 +221,10 @@ config :phx_media_library,
   repo: MyApp.Repo,
   default_disk: :local,
 
-  # Choose the column type that matches your models' primary key type.
+  # The column type of your models' primary keys.
   # :binary_id  UUID (default, keeps existing installs working)
-  # :integer    bigint (best for integer PK apps)
-  # :string     varchar (works with any PK type; recommended for new apps)
+  # :integer    bigint (integer primary keys)
+  # :string     varchar (any primary key type; recommended for new apps)
   mediable_id_type: :string,
 
   disks: [
@@ -174,39 +237,36 @@ config :phx_media_library,
 ```
 
 ```bash
-# For integer PK apps, pass --id-type to generate the right migration column:
+# For integer primary keys, pass --id-type to generate the right column:
 mix phx_media_library.install --id-type integer
 mix ecto.migrate
 ```
 
-> **`mediable_id_type`** sets the database column type for the polymorphic
-> foreign key. The default is `:binary_id` (UUID) for backwards compatibility.
-> `:string` works with any primary key type and is the best choice for new apps.
-> Set it explicitly today and you won't need to change anything if the default
-> shifts in a future release.
+`mediable_id_type` sets the column type of the polymorphic foreign key. The
+default stays `:binary_id` (UUID) so existing installs keep working;
+`:string` works with any primary key type. Set it explicitly and a future
+change of default won't affect you.
 
-> **Note:** The `:image` dependency is **optional**. PhxMediaLibrary works for
-> file storage without it. Image conversions require `:image` to be installed.
+The `:image` dependency is optional. Without it the library stores files;
+conversions, WebP, AVIF and placeholders need it.
 
 ## Guides
 
-Detailed documentation is organized into focused guides:
-
 | Guide | Covers |
 |-------|--------|
-| **[Getting Started](guides/getting-started.md)** | Installation, configuration, schema setup, adding & retrieving media |
-| **[Collections & Conversions](guides/collections-and-conversions.md)** | Validation rules, image processing, responsive images, checksums |
-| **[LiveView Integration](guides/liveview.md)** | Upload & gallery components, LiveUpload helpers, event notifications, view helpers |
-| **[Storage](guides/storage.md)** | Local disk, S3, in-memory, custom adapters, path conventions |
+| **[Getting Started](guides/getting-started.md)** | Installation, configuration, schema setup, adding and retrieving media |
+| **[Collections & Conversions](guides/collections-and-conversions.md)** | Validation, image processing, WebP, AVIF, placeholders, responsive images |
+| **[LiveView Integration](guides/liveview.md)** | Upload and gallery components, LiveUpload helpers, events, view helpers |
+| **[Storage](guides/storage.md)** | Local disk, S3 and R2, direct uploads, signed URLs, caching, custom adapters |
 | **[Error Handling](guides/error-handling.md)** | Tagged tuples, custom exceptions, MIME detection |
 | **[Telemetry](guides/telemetry.md)** | Events reference, attaching handlers, metrics examples |
 | **[Advanced Usage](guides/advanced.md)** | Reordering, mix tasks, testing strategies |
 
-Full API documentation is available on [HexDocs](https://hexdocs.pm/phx_media_library).
+Full API documentation is on [HexDocs](https://hexdocs.pm/phx_media_library).
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please open a pull request.
 
 The tests need Postgres on `localhost` (user and password `postgres`), and
 podman or Docker for the S3 tests. Those run against a
@@ -218,12 +278,12 @@ they are skipped. Run `mix precommit` before opening a pull request.
 2. Create your feature branch (`git checkout -b feature/my-feature`)
 3. Commit your changes (`git commit -am 'Add my feature'`)
 4. Push to the branch (`git push origin feature/my-feature`)
-5. Create a Pull Request
+5. Create a pull request
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT. See the [LICENSE](LICENSE) file.
 
 ## Acknowledgments
 
-Inspired by [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary), bringing its excellent developer experience to the Elixir ecosystem.
+Inspired by [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
