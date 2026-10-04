@@ -14,7 +14,7 @@ it loads, on every kind of page, without making the page heavier?
   data URI) as its background, but only for media that has responsive
   variants. Media without `responsive:` gets no placeholder.
 - That tiny image keeps the photo's metadata (EXIF, color profile). Measured
-  on two sharo-shop product photos it is 5,459 and 1,999 bytes; stripped of
+  on two e-commerce product photos it is 5,459 and 1,999 bytes; stripped of
   metadata the same image is about 1,100 bytes. A page of 40 products
   carries 80 to 200 KB of placeholders. This is a bug.
 - `<.blurhash>` draws a blurhash with a LiveView hook. Hooks run only after
@@ -47,9 +47,8 @@ fills them in for existing media.
       a hero: 16px looks a bit blocky, 32px much better. 32px is the
       default, with a size setting.
 - [x] About 150 bytes holds across typical photos, not only the two
-      measured. Measured 2026-10-04 on the 235 photos in
-      `sharo-shop/tmp/rc-photos`, 16px WebP, default quality, metadata
-      stripped: median 122 bytes, 95th percentile 172, max 384; none carry
+      measured. Measured 2026-10-04 on 235 e-commerce product photos,
+      16px WebP, default quality, metadata stripped: median 122 bytes, 95th percentile 172, max 384; none carry
       EXIF or a color profile. At 32px: median 260, p95 444, max 776; 48px:
       median 398; 64px: median 592.
 - [x] Today's `tiny_placeholder` setting can map onto the new option so

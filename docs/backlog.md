@@ -48,7 +48,7 @@ release, so its CHANGELOG and upgrade notes cover 0.8.x to 0.10.0.
 
 Found during 0.9.0 (Mike, 2026-10-04):
 - Try the S3 adapter on a real provider: Cloudflare R2's free tier with
-  sharo-shop's images (presigned PUT and its signed Content-Type, uploads
+  a real project's images (presigned PUT and its signed Content-Type, uploads
   without an ACL, public URLs through `base_url`). Ticks the open
   assumptions in `docs/ideas/s3-providers.md`.
 - Postgres in a reused test container (deferred in ADR-026: the spike's
