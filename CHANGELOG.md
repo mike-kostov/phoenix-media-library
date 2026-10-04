@@ -80,7 +80,8 @@ What apps must change when upgrading:
   `placeholder: :blur | :color | false` globally or per collection
   (default `:blur`). `:blur` is a 16px WebP without metadata (median 122
   bytes on 235 product photos); `:color` is the average color. Crop
-  conversions get their own; same-shape ones use the original's. Stored
+  conversions get their own; same-shape ones use the original's. Images
+  with transparency get none, as it would show through them. Stored
   in `responsive_images` under `"placeholder"`; no migration. Made in the
   background by the async processor (`Task`, Oban or Inline), which an
   image upload now always starts, even in a collection without

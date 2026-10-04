@@ -76,6 +76,9 @@ if Code.ensure_loaded?(Image) do
     end
 
     @impl true
+    def has_alpha?(image), do: Image.has_alpha?(image)
+
+    @impl true
     def average_color(image) do
       # Image.average/1 flattens alpha and returns one value per band.
       case Image.average(image) do

@@ -145,7 +145,9 @@ defmodule PhxMediaLibrary.Pipeline do
   `"placeholder"`, beside any variants.
 
   Conversions with the original's shape get none of their own: the
-  original's fits them.
+  original's fits them. Images with transparency get none either, as it
+  would show through once they load; `%{"none" => "transparent"}` records
+  that.
 
   ## Options
 
@@ -210,8 +212,17 @@ defmodule PhxMediaLibrary.Pipeline do
 
     with {:ok, image} <- processor.open(path),
          :ok <- own_shape(image, media, processor) do
-      tiny_or_color(image, kind, processor)
+      # A placeholder would show through the transparent parts once the
+      # image has loaded. Recorded, so the doctor doesn't ask for one.
+      if alpha?(image, processor),
+        do: {:ok, %{"none" => "transparent"}},
+        else: tiny_or_color(image, kind, processor)
     end
+  end
+
+  defp alpha?(image, processor) do
+    Code.ensure_loaded(processor)
+    function_exported?(processor, :has_alpha?, 1) and processor.has_alpha?(image)
   end
 
   defp own_shape(_image, nil, _processor), do: :ok

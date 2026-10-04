@@ -87,4 +87,30 @@ defmodule PhxMediaLibrary.PlaceholderTest do
     assert {:ok, media} = Pipeline.responsive(media)
     assert %{"data_uri" => _} = placeholder(media)
   end
+
+  describe "images with transparency" do
+    setup do
+      {:ok, image} = Image.new(40, 30, color: [255, 0, 0, 0])
+      path = Path.join(System.tmp_dir!(), "cutout_#{System.unique_integer([:positive])}.png")
+      Image.write!(image, path)
+      on_exit(fn -> File.rm(path) end)
+      %{cutout: path}
+    end
+
+    test "get no placeholder, recorded so it isn't made again", %{cutout: cutout} do
+      media = add(cutout, :images)
+
+      assert placeholder(media) == %{"none" => "transparent"}
+      assert PhxMediaLibrary.ViewHelpers.placeholder_style(media, nil) == nil
+    end
+
+    test "aren't reported by the doctor", %{cutout: cutout} do
+      media = add(cutout, :images)
+      refute :missing_placeholder in PhxMediaLibrary.Health.check(media)
+    end
+
+    test "a :color placeholder is skipped too", %{cutout: cutout} do
+      assert placeholder(add(cutout, :color_placeholder)) == %{"none" => "transparent"}
+    end
+  end
 end

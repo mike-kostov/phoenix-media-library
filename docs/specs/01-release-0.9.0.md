@@ -250,6 +250,9 @@ longer carries EXIF or color profiles.
   use it; images without one render without a placeholder.
 - The doctor reports and repairs missing placeholders.
 - Today's `tiny_placeholder` setting maps onto the new option.
+- Images with transparency get no placeholder, which would show through
+  once they load; the placeholder slot records `%{"none" => "transparent"}`
+  so the doctor doesn't report them. (Amended 2026-10-04, Mike.)
 
 **F6. Variants in one format only.** (ADR-024)
 - Responsive variants are generated only in the best format that is on:

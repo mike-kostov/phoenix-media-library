@@ -41,7 +41,13 @@ defmodule PhxMediaLibrary.ImageProcessor do
   """
   @callback supports_format?(format :: atom()) :: boolean()
 
-  @optional_callbacks [supports_format?: 1, average_color: 1]
+  @doc """
+  Whether the image has an alpha channel. Optional: without it, images are
+  treated as opaque.
+  """
+  @callback has_alpha?(image()) :: boolean()
+
+  @optional_callbacks [supports_format?: 1, average_color: 1, has_alpha?: 1]
 
   @doc """
   Whether `processor` can save images in `format`; `true` for processors
