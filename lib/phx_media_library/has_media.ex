@@ -142,6 +142,7 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:max_files` - Maximum number of files to keep
   - `:max_size` - Maximum file size in bytes (e.g. `10_000_000` for 10 MB)
   - `:max_pixels` - Maximum image size in pixels, or `:infinity` (default: 100 megapixels)
+  - `:file_naming` - `:semantic`, `:slug` or `:random` (default: `:semantic`)
   - `:fallback_url` - URL to use when collection is empty
   - `:verify_content_type` - Verify file content matches declared MIME type (default: true)
 

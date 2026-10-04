@@ -577,7 +577,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
         |> PhxMediaLibrary.add(path)
         |> PhxMediaLibrary.to_collection(:images)
 
-      assert String.ends_with?(media.file_name, "stream_test.txt")
+      assert String.ends_with?(media.metadata["original_file_name"], "stream_test.txt")
       assert media.size == byte_size(content)
     end
 
@@ -797,7 +797,8 @@ defmodule PhxMediaLibrary.Milestone3cTest do
         |> PhxMediaLibrary.without_metadata()
         |> PhxMediaLibrary.to_collection(:images)
 
-      assert media.metadata == %{}
+      # Nothing extracted; only the uploaded name is recorded.
+      assert Map.keys(media.metadata) == ["original_file_name"]
     end
   end
 
@@ -952,7 +953,8 @@ defmodule PhxMediaLibrary.Milestone3cTest do
           size: 5
         )
 
-      assert media.metadata == %{}
+      # Nothing extracted; only the uploaded name is recorded.
+      assert Map.keys(media.metadata) == ["original_file_name"]
     end
 
     test "raises when required options are missing" do

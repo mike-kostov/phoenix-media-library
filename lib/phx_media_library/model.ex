@@ -218,6 +218,21 @@ defmodule PhxMediaLibrary.Model do
     end
   end
 
+  @doc """
+  How stored filenames are chosen for a collection: its `file_naming:`, or
+  the global `:file_naming` (see `PhxMediaLibrary.FileName`).
+
+  ## Examples
+
+      PhxMediaLibrary.Model.file_naming(product, :images)
+      #=> :slug
+
+  """
+  @spec file_naming(target(), atom() | String.t()) :: PhxMediaLibrary.FileName.strategy()
+  def file_naming(target, collection_name) do
+    override(target, collection_name, :file_naming) || Config.file_naming()
+  end
+
   defp override(target, collection_name, key) do
     case collection(target, collection_name) do
       %Collection{} = collection -> Map.fetch!(collection, key)

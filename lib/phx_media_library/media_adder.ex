@@ -362,17 +362,31 @@ defmodule PhxMediaLibrary.MediaAdder do
           adder.custom_properties
       end
 
+    mediable_type = Model.mediable_type(adder.model)
+
+    # The stored name is ours (see FileName); the uploader's name is kept
+    # for display only.
+    file_name =
+      FileName.storage_name(Model.file_naming(adder.model, collection_name), %{
+        original: file_info.filename,
+        mime_type: file_info.mime_type,
+        mediable_type: mediable_type,
+        mediable_id: adder.model.id,
+        collection_name: collection_name,
+        uuid: uuid
+      })
+
     attrs = %{
       uuid: uuid,
       collection_name: to_string(collection_name),
       name: FileName.slug(file_info.filename),
-      file_name: file_info.filename,
+      file_name: file_name,
       mime_type: file_info.mime_type,
       disk: to_string(disk),
       size: file_info.size,
       custom_properties: custom_props,
-      metadata: metadata,
-      mediable_type: Model.mediable_type(adder.model),
+      metadata: Map.put(metadata, "original_file_name", file_info.filename),
+      mediable_type: mediable_type,
       mediable_id: adder.model.id,
       order_column: Model.next_order(adder.model, collection_name)
     }

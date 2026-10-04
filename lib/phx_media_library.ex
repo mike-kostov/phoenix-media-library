@@ -843,12 +843,22 @@ defmodule PhxMediaLibrary do
     uuid = Ecto.UUID.generate()
     mediable_type = Model.mediable_type(model)
 
+    file_name =
+      FileName.storage_name(Model.file_naming(model, collection_name), %{
+        original: filename,
+        mime_type: Keyword.get(opts, :content_type) || MIME.from_path(filename),
+        mediable_type: mediable_type,
+        mediable_id: model.id,
+        collection_name: collection_name,
+        uuid: uuid
+      })
+
     storage_path =
       PathGenerator.for_new_media(%{
         mediable_type: mediable_type,
         mediable_id: model.id,
         uuid: uuid,
-        file_name: filename
+        file_name: file_name
       })
 
     presigned_opts =
@@ -898,7 +908,7 @@ defmodule PhxMediaLibrary do
   @spec complete_external_upload(Ecto.Schema.t(), atom(), String.t(), keyword()) ::
           {:ok, Media.t()} | {:error, term()}
   def complete_external_upload(model, collection_name, storage_path, opts) do
-    filename = Keyword.fetch!(opts, :filename)
+    filename = opts |> Keyword.fetch!(:filename) |> FileName.safe()
     content_type = Keyword.fetch!(opts, :content_type)
     size = Keyword.fetch!(opts, :size)
     disk = Keyword.get(opts, :disk) || Model.default_disk(model, collection_name)
@@ -918,12 +928,13 @@ defmodule PhxMediaLibrary do
       uuid: uuid,
       collection_name: to_string(collection_name),
       name: FileName.slug(filename),
-      file_name: filename,
+      # The name presigned_upload_url/3 stored the file under.
+      file_name: Path.basename(storage_path),
       mime_type: content_type,
       disk: to_string(disk),
       size: size,
       custom_properties: custom_properties,
-      metadata: %{},
+      metadata: %{"original_file_name" => filename},
       mediable_type: mediable_type,
       mediable_id: model.id,
       order_column: Model.next_order(model, collection_name),

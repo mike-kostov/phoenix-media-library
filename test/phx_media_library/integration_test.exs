@@ -118,7 +118,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
       content = "file content here"
       path = create_temp_file(content, "document.txt")
 
-      # 1. Add media (use using_filename so we get a predictable stored name)
+      # 1. Add media (using_filename sets the original name kept in metadata)
       assert {:ok, media} =
                post
                |> PhxMediaLibrary.add(path)
@@ -130,7 +130,8 @@ defmodule PhxMediaLibrary.IntegrationTest do
       assert media.id != nil
       assert media.uuid != nil
       assert media.collection_name == "documents"
-      assert media.file_name == "document.txt"
+      assert media.metadata["original_file_name"] == "document.txt"
+      assert media.file_name == "posts_#{post.id}_documents_#{media.uuid}.txt"
       assert media.mime_type == "text/plain"
       assert media.disk == "local"
       assert media.size == byte_size(content)
@@ -139,7 +140,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
       assert media.order_column == 1
 
       # 3. Verify the file was stored on disk
-      stored_path = Path.join(dir, "posts/#{post.id}/#{media.uuid}/document.txt")
+      stored_path = Path.join(dir, "posts/#{post.id}/#{media.uuid}/#{media.file_name}")
       assert File.exists?(stored_path)
       assert File.read!(stored_path) == content
 
@@ -185,7 +186,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
                |> PhxMediaLibrary.using_filename("renamed.txt")
                |> PhxMediaLibrary.to_collection(:documents, disk: :local)
 
-      assert media.file_name == "renamed.txt"
+      assert media.metadata["original_file_name"] == "renamed.txt"
       assert media.name == "renamed"
     end
 
@@ -459,7 +460,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
         |> PhxMediaLibrary.to_collection(:documents, disk: :local)
 
       # Tamper with the stored file directly on disk
-      stored_path = Path.join(dir, "posts/#{post.id}/#{media.uuid}/tamper.txt")
+      stored_path = Path.join(dir, "posts/#{post.id}/#{media.uuid}/#{media.file_name}")
       assert File.exists?(stored_path), "stored file must exist before tampering"
       File.write!(stored_path, "tampered content!!!")
 
@@ -805,7 +806,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
       post = create_post!()
       path = create_temp_file("url test", "url_test.txt")
 
-      {:ok, _media} =
+      {:ok, media} =
         post
         |> PhxMediaLibrary.add(path)
         |> PhxMediaLibrary.using_filename("url_test.txt")
@@ -813,7 +814,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
       url = PhxMediaLibrary.get_first_media_url(post, :images)
       assert is_binary(url)
-      assert url =~ "url_test"
+      assert String.ends_with?(url, media.file_name)
     end
 
     test "returns fallback when collection is empty" do
@@ -1839,7 +1840,8 @@ defmodule PhxMediaLibrary.IntegrationTest do
                |> PhxMediaLibrary.without_metadata()
                |> PhxMediaLibrary.to_collection(:documents)
 
-      assert media.metadata == %{}
+      # Nothing extracted; only the uploaded name is recorded.
+      assert Map.keys(media.metadata) == ["original_file_name"]
     end
 
     test "metadata defaults to empty map for unknown types" do
@@ -1939,7 +1941,8 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
       # Upload succeeded even though extraction failed
       assert media.id != nil
-      assert media.metadata == %{}
+      # Nothing extracted; only the uploaded name is recorded.
+      assert Map.keys(media.metadata) == ["original_file_name"]
     end
 
     test "globally disabling extraction skips it" do
@@ -1962,7 +1965,8 @@ defmodule PhxMediaLibrary.IntegrationTest do
                |> PhxMediaLibrary.add(path)
                |> PhxMediaLibrary.to_collection(:documents)
 
-      assert media.metadata == %{}
+      # Nothing extracted; only the uploaded name is recorded.
+      assert Map.keys(media.metadata) == ["original_file_name"]
     end
   end
 

@@ -268,6 +268,21 @@ defmodule PhxMediaLibrary.Config do
       Code.ensure_loaded?(Image)
   end
 
+  @doc """
+  How stored filenames are chosen: `:semantic` (default), `:slug` or
+  `:random`. A collection's `file_naming:` overrides it. See
+  `PhxMediaLibrary.FileName` for what each produces.
+
+  ## Configuration
+
+      config :phx_media_library, file_naming: :slug
+
+  """
+  @spec file_naming() :: PhxMediaLibrary.FileName.strategy()
+  def file_naming do
+    Application.get_env(:phx_media_library, :file_naming, :semantic)
+  end
+
   @default_max_image_pixels 100_000_000
 
   @doc """

@@ -253,6 +253,36 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  Alt text for an image: `custom_properties["alt"]` when set, otherwise the
+  uploaded file's name made readable ("red-summer_dress.jpg" →
+  "red summer dress"). Never a library-chosen stored name such as
+  `posts_42_images_<uuid>.jpg`; media uploaded before file naming has no
+  `original_file_name`, but its `file_name` is the uploaded name.
+
+  ## Examples
+
+      Media.alt_text(%Media{custom_properties: %{"alt" => "Red summer dress"}})
+      #=> "Red summer dress"
+
+      Media.alt_text(%Media{metadata: %{"original_file_name" => "red-summer_dress.jpg"}})
+      #=> "red summer dress"
+
+  """
+  @spec alt_text(t()) :: String.t()
+  def alt_text(%__MODULE__{} = media) do
+    case media.custom_properties do
+      %{"alt" => alt} when is_binary(alt) ->
+        alt
+
+      _ ->
+        ((media.metadata || %{})["original_file_name"] || media.file_name || "")
+        |> Path.rootname()
+        |> String.replace(~r/[-_.]+/, " ")
+        |> String.trim()
+    end
+  end
+
+  @doc """
   Every storage path this media record owns: the original, named conversions,
   the served WebP sibling, responsive variants and the video poster. Used by
   `delete_files/1` and `mix phx_media_library.clean`.

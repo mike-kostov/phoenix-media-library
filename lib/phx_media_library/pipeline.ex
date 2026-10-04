@@ -41,7 +41,8 @@ defmodule PhxMediaLibrary.Pipeline do
   @doc """
   Extract metadata (dimensions, EXIF, ...) from the original and store it.
 
-  Existing metadata is kept when nothing can be extracted.
+  Existing metadata is kept when nothing can be extracted, and
+  `"original_file_name"` is always kept.
 
   ## Examples
 
@@ -52,8 +53,12 @@ defmodule PhxMediaLibrary.Pipeline do
   def metadata(%Media{} = media, opts \\ []) do
     with_source(media, opts, fn path ->
       case MetadataExtractor.extract_metadata(path, media.mime_type) do
-        {:ok, metadata} when map_size(metadata) > 0 -> update(media, metadata: metadata)
-        {:ok, _empty} -> {:error, :metadata_unavailable}
+        {:ok, metadata} when map_size(metadata) > 0 ->
+          original = Map.take(media.metadata || %{}, ["original_file_name"])
+          update(media, metadata: Map.merge(metadata, original))
+
+        {:ok, _empty} ->
+          {:error, :metadata_unavailable}
       end
     end)
   end

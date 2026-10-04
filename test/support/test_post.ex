@@ -36,6 +36,8 @@ defmodule PhxMediaLibrary.TestPost do
       collection(:small_files, max_size: 1_000, accepts: ~w(text/plain)),
       collection(:unverified, verify_content_type: false),
       collection(:tiny_images, max_pixels: 100),
+      collection(:seo_images, file_naming: :slug),
+      collection(:private_docs, file_naming: :random),
       collection(:unlimited_images, max_pixels: :infinity),
       collection(:webp_photos, webp: true, accepts: ~w(image/jpeg image/png image/webp)),
       collection(:webp_only,

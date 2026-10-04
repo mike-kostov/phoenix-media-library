@@ -776,7 +776,7 @@ defmodule PhxMediaLibrary.Components do
         <%= if @is_image do %>
           <img
             src={PhxMediaLibrary.url(@media, @conversion)}
-            alt={@media.file_name}
+            alt={PhxMediaLibrary.Media.alt_text(@media)}
             class="w-full h-full object-cover"
             loading="lazy"
           />

@@ -46,10 +46,10 @@ defmodule PhxMediaLibrary.HardeningTest do
                |> PhxMediaLibrary.add(upload)
                |> PhxMediaLibrary.to_collection(:images, disk: :local)
 
-      assert media.file_name == "evil.txt"
+      assert media.metadata["original_file_name"] == "evil.txt"
       stored = PathGenerator.full_path(media, nil)
       assert File.read!(stored) == "hello"
-      assert stored =~ "/#{media.uuid}/evil.txt"
+      assert stored =~ "/#{media.uuid}/#{media.file_name}"
 
       Media.delete_files(media)
       File.rm(path)

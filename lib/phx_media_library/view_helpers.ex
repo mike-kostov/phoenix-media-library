@@ -32,7 +32,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
   - `media` (required) - The media item to render
   - `conversion` - Conversion name to use (default: original)
-  - `alt` - Alt text (falls back to custom_properties["alt"] or filename)
+  - `alt` - Alt text (falls back to `PhxMediaLibrary.Media.alt_text/1`)
   - `class` - CSS classes
   - All other attributes are passed through to the img tag
 
@@ -51,9 +51,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
   def media_img(assigns) do
     alt =
-      assigns.alt ||
-        get_in(assigns.media.custom_properties, ["alt"]) ||
-        assigns.media.file_name
+      assigns.alt || Media.alt_text(assigns.media)
 
     assigns = assign(assigns, :alt, alt)
 
@@ -110,9 +108,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
   def responsive_img(assigns) do
     alt =
-      assigns.alt ||
-        get_in(assigns.media.custom_properties, ["alt"]) ||
-        assigns.media.file_name
+      assigns.alt || Media.alt_text(assigns.media)
 
     srcset = PhxMediaLibrary.srcset(assigns.media, assigns.conversion)
     src = PhxMediaLibrary.url(assigns.media, assigns.conversion)
@@ -172,9 +168,7 @@ defmodule PhxMediaLibrary.ViewHelpers do
 
   def picture(assigns) do
     alt =
-      assigns.alt ||
-        get_in(assigns.media.custom_properties, ["alt"]) ||
-        assigns.media.file_name
+      assigns.alt || Media.alt_text(assigns.media)
 
     assigns = assign(assigns, :alt, alt)
 

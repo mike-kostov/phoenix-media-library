@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- **File naming strategies.** New uploads are stored under a name the
+  library chooses, never the uploader's: ASCII only (`a-z0-9-_`), with the
+  extension taken from the detected content. Set globally with
+  `config :phx_media_library, file_naming: ...`, per collection with
+  `file_naming:`:
+  - `:semantic` (default): `{type}_{id}_{collection}_{uuid}.{ext}`, enough
+    to rebuild a lost record by hand.
+  - `:slug`: `red-summer-dress.jpg`, for SEO. Cyrillic is transliterated
+    (`снимка` → `snimka`, Bulgarian official system) and accents dropped.
+  - `:random`: reveals nothing in the name.
+
+  The uploaded name is kept in `metadata["original_file_name"]`. Existing
+  media keep their stored names. See `PhxMediaLibrary.FileName`.
+- `Media.alt_text/1`: `custom_properties["alt"]`, else the uploaded name made
+  readable. The image components use it as their alt fallback instead of
+  the stored filename.
 - `PhxMediaLibrary.Pipeline`: one function per processing step (metadata,
   WebP, responsive variants, conversions, dropping the original). Uploads
   and repairs run the same steps; `metadata/2` can repair media stored with
