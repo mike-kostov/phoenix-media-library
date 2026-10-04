@@ -3,8 +3,6 @@ defmodule PhxMediaLibrary.DirectUploadTest do
 
   use PhxMediaLibrary.DataCase, async: false
 
-  import PhxMediaLibrary.Fixtures
-
   alias PhxMediaLibrary.{Config, StorageWrapper}
   alias PhxMediaLibrary.TestRepo, as: Repo
 

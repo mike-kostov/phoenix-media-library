@@ -485,8 +485,9 @@ responsive-rule unification (ADR-017) in the CHANGELOG.
 unused import in `direct_upload_test.exs`), docs (old CHANGELOG
 references, the README's `LICENSE` link), credo and dialyzer.
 **Acceptance criteria:**
-- [ ] `mix compile --force`, `mix test`, `mix docs`, `mix credo --strict`
-      and `mix dialyzer` print no warnings.
+- [x] `mix compile --force`, `mix test`, `mix docs`, `mix credo --strict`
+      and `mix dialyzer` print no warnings. (Also `--warnings-as-errors`
+      in dev and test, and `mix hex.build`.)
 **Verification:** the commands above; `mix precommit`.
 **Dependencies:** Task 23
 **Scope:** S

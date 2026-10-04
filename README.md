@@ -2,7 +2,7 @@
 
 [![Hex.pm](https://img.shields.io/hexpm/v/phx_media_library.svg)](https://hex.pm/packages/phx_media_library)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-blue.svg)](https://hexdocs.pm/phx_media_library)
-[![License](https://img.shields.io/hexpm/l/phx_media_library.svg)](https://github.com/mike-kostov/phx_media_library/blob/main/LICENSE)
+[![License](https://img.shields.io/hexpm/l/phx_media_library.svg)](https://github.com/mike-kostov/phoenix-media-library/blob/main/LICENSE)
 
 Attach files to any Ecto schema, inspired by
 [Spatie's Laravel Media Library](https://spatie.be/docs/laravel-medialibrary).
@@ -284,7 +284,7 @@ they are skipped. Run `mix precommit` before opening a pull request.
 
 ## License
 
-MIT. See the [LICENSE](LICENSE) file.
+MIT. See the [LICENSE](https://github.com/mike-kostov/phoenix-media-library/blob/main/LICENSE) file.
 
 ## Acknowledgments
 

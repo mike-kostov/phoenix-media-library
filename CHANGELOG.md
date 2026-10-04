@@ -521,7 +521,7 @@ Small additions that the fixes below needed:
   `PhxMediaLibrary` associate media with models whose primary key is not a
   UUID, while remaining backwards-compatible with existing applications.
 
-- `Config.mediable_id_type/0` returns the resolved compile-time value.
+- `PhxMediaLibrary.Config.mediable_id_type/0` returns the resolved compile-time value.
 
 - **Path generators coerced to string.** `Default`, `DateBased`, and `Tenant`
   path generators now call `to_string/1` on `mediable_id` before passing it to
@@ -556,7 +556,7 @@ explicitly before upgrading to 0.8.
   reference: blurha.sh). Optional. Disabled when `:image` is not
   installed.
 
-- `Config.blurhash_enabled?/0` returns `true` when
+- `PhxMediaLibrary.Config.blurhash_enabled?/0` returns `true` when
   `responsive_images: [blurhash: true]` is configured and the `:image`
   library is available.
 
@@ -623,7 +623,7 @@ explicitly before upgrading to 0.8.
 - `PhxMediaLibrary.SignedUrl` is a new module that implements HMAC-SHA256
   signing and constant-time verification for local-disk URLs.
 
-- `Config.secret_key_base/0` and `Config.download_base_url/0` are
+- `PhxMediaLibrary.Config.secret_key_base/0` and `PhxMediaLibrary.Config.download_base_url/0` are
   new config helpers for the global signing secret and download plug mount
   path.
 
@@ -641,7 +641,7 @@ explicitly before upgrading to 0.8.
   `path_context` through upload flows, cross-model queries, per-tenant
   storage backends, custom generators, and migrating existing files.
 
-- `Config.path_generator/0` doc updated to list `Tenant` alongside
+- `PhxMediaLibrary.Config.path_generator/0` doc updated to list `Tenant` alongside
   `Default`, `Flat`, and `DateBased`.
 
 #### 4.2 Optional FFmpeg Video Processor
@@ -660,7 +660,7 @@ explicitly before upgrading to 0.8.
   FFmpeg is not installed. Uploads still succeed; metadata and poster
   generation are skipped without errors.
 
-- `Config.video_processor/0` returns the active video processor
+- `PhxMediaLibrary.Config.video_processor/0` returns the active video processor
   module; auto-detects FFmpeg at startup; configurable via
   `config :phx_media_library, video_processor: …`
 
@@ -915,16 +915,16 @@ explicitly before upgrading to 0.8.
 
 - **Milestones 1 & 2 complete** (370 tests passing: 297 unit + 17 Oban worker + 56 integration)
 - `PhxMediaLibrary.HasMedia` declarative DSL provides schema-level configuration via `media_collections do ... end` and `media_conversions do ... end` macro blocks as an alternative to the function-based approach. Both styles are supported and can be mixed. `convert/2` alias reads naturally in DSL context. Backed by `CollectionAccumulator` and `ConversionAccumulator` compile-time attribute accumulators, injected via `__before_compile__` with `defoverridable`
-- **`has_media()` macro injects polymorphic `has_many`.** Calling `has_media()` inside a schema block now injects a real `has_many :media` association using `Ecto.Schema.__has_many__/4` directly (bypassing macro-expansion timing constraints). Uses `:where` for `mediable_type` scoping and `:defaults` for auto-populating on `build`. Collection-scoped variants via `has_media(:images)` add scoped associations (e.g. `has_many :images` filtered by both `mediable_type` and `collection_name`). Enables standard `Repo.preload(post, [:media, :images, :documents, :avatar])`
+- **`has_media()` macro injects polymorphic `has_many`.** Calling `has_media()` inside a schema block now injects a real `has_many :media` association using Ecto's internal `has_many` builder directly (bypassing macro-expansion timing constraints). Uses `:where` for `mediable_type` scoping and `:defaults` for auto-populating on `build`. Collection-scoped variants via `has_media(:images)` add scoped associations (e.g. `has_many :images` filtered by both `mediable_type` and `collection_name`). Enables standard `Repo.preload(post, [:media, :images, :documents, :avatar])`
 - `PhxMediaLibrary.media_query/2` is a composable `Ecto.Query` builder for a model's media, optionally filtered by collection. Supports further composition with `where/3`, `limit/2`, etc.
 - `PhxMediaLibrary.verify_integrity/1` delegates to `Media.verify_integrity/1` to verify a stored file's checksum against the database record. Returns `:ok`, `{:error, :checksum_mismatch}`, or `{:error, :no_checksum}`
 - `Media.compute_checksum/2` computes SHA-256, SHA-1, or MD5 checksums for binary content. Used during upload and integrity verification
 - **Checksum fields on `Media` schema.** `checksum` (string) and `checksum_algorithm` (string, default `"sha256"`) fields. `MediaAdder.store_and_persist/4` computes SHA-256 before writing the file to storage. Migration `20240101000002_add_checksum_to_media.exs` adds columns and index
 - `PhxMediaLibrary.ImageProcessor.Null` is a no-op image processor for when no image processing library is installed. All operations return `{:error, {:no_image_processor, message}}` with a message telling the developer to install `:image`
-- **`Config.image_processor/0` auto-detection.** Defaults to `ImageProcessor.Image` when `:image` is available, falls back to `ImageProcessor.Null` otherwise
+- **`PhxMediaLibrary.Config.image_processor/0` auto-detection.** Defaults to `ImageProcessor.Image` when `:image` is available, falls back to `ImageProcessor.Null` otherwise
 - **Polymorphic type derivation from Ecto table name.** `__media_type__/0` now defaults to `__schema__(:source)` (e.g. `"posts"`, `"blog_categories"`). Override via `use PhxMediaLibrary.HasMedia, media_type: "custom"` or by defining `def __media_type__, do: "custom"`. Replaces the broken naive pluralization (`"categorys"`)
 - **Oban worker resolves full Conversion definitions.** `Workers.ProcessConversions` now stores `mediable_type` in job args, discovers the originating schema module via `find_model_module/1` (with `persistent_term` cache), retrieves full `Conversion` structs from the model's `get_media_conversions/1`, and filters by requested names. Handles legacy job args
-- **`Config.disk_config/1` safe string-to-atom resolution.** No longer uses `String.to_existing_atom/1`, which crashes on unknown atoms. Now iterates configured disk keys and compares strings
+- **`PhxMediaLibrary.Config.disk_config/1` safe string-to-atom resolution.** No longer uses `String.to_existing_atom/1`, which crashes on unknown atoms. Now iterates configured disk keys and compares strings
 - **`PathGenerator.full_path/2` uses `Code.ensure_loaded/1` + `function_exported?/3`.** Replaces fragile `Keyword.keys(__info__(:functions))` pattern for checking optional `path/2` callback
 - **56 integration tests against real Postgres.** Full lifecycle tests in `test/phx_media_library/integration_test.exs` using `Ecto.Adapters.SQL.Sandbox`. Tagged with `@moduletag :db` and auto-excluded when Postgres is unavailable. Covers: add→store→retrieve→delete, collection MIME validation, single_file replacement, max_files enforcement, ordering, checksum integrity and tamper detection, polymorphic type scoping, `has_many` preloading, `media_query/2` composability, clear/delete operations, error paths, disk and memory storage adapters, concurrent access, JSON field round-trips, and unique UUID constraints
 - **Test infrastructure.** `test_helper.exs` starts `TestRepo`, runs migrations programmatically, configures SQL Sandbox. `DataCase` module provides sandbox setup and `errors_on/1` helper. `NoOpProcessor` suppresses background task noise in integration tests
@@ -960,15 +960,15 @@ explicitly before upgrading to 0.8.
 ### Fixed
 
 - **`max_files` enforcement deleted wrong items.** `maybe_cleanup_collection` in `MediaAdder` used `Enum.drop(max)`, which removed the newest uploads instead of the oldest. Now uses `Enum.take(excess_count)` to delete the oldest excess items, keeping the `max` most recent
-- **`Config.disk_config/1` crash on string disk names.** `String.to_existing_atom/1` crashed when the atom hadn't been referenced yet. Now iterates configured disk keys and matches by string comparison
+- **`PhxMediaLibrary.Config.disk_config/1` crash on string disk names.** `String.to_existing_atom/1` crashed when the atom hadn't been referenced yet. Now iterates configured disk keys and matches by string comparison
 - **`PathGenerator.full_path/2` fragile function check.** Replaced `Keyword.keys(__info__(:functions))` with `Code.ensure_loaded/1` + `function_exported?/3` for optional callback detection
 - **Polymorphic type derivation was naive.** `get_mediable_type/1` appended "s" to module name (producing `"categorys"` for `Category`). Now derives from Ecto table name (`__schema__(:source)`) with configurable overrides
 - **Oban worker created empty Conversion structs.** Worker only serialized conversion names, losing dimensions/quality/format. Now stores `mediable_type` in job args, discovers the model module, and retrieves full `Conversion` definitions
-- **`has_media()` macro was a no-op.** Did not inject any Ecto association. Now injects a polymorphic `has_many` via `Ecto.Schema.__has_many__/4` with `:where` and `:defaults` for proper scoping
+- **`has_media()` macro was a no-op.** Did not inject any Ecto association. Now injects a polymorphic `has_many` via Ecto's internal `has_many` builder with `:where` and `:defaults` for proper scoping
 - **Credo alias ordering.** Fixed alphabetical ordering of alias groups in `PathGenerator`, `UrlGenerator`, `AsyncProcessor`, `ResponsiveImages`, `Components`, `Fixtures`, and `PathGeneratorTest`
 - **`ImageProcessor.Image.save/3` simplified.** Extracted `write_opts_for_format/2` to eliminate nested `case` inside `save/3`, reducing cyclomatic complexity
 - **`ImageProcessor.Image.maybe_resize/2` flattened.** Replaced nested `case` on fit mode with multiple function clauses for `:crop`, `:contain`/`:cover`/`:fill`, and default
-- **`Config.disk_config/1` simplified.** Extracted `resolve_disk_key/2` and `lookup_disk/2` to reduce cyclomatic complexity from 11 to under 9
+- **`PhxMediaLibrary.Config.disk_config/1` simplified.** Extracted `resolve_disk_key/2` and `lookup_disk/2` to reduce cyclomatic complexity from 11 to under 9
 - **`HasMedia.__before_compile__/1` decomposed.** Extracted `build_media_type_def/2`, `build_helpers/0`, and `build_dsl_defs/4` private functions to reduce nesting depth
 - **`Workers.ProcessConversions.resolve_conversions/3` flattened.** Extracted `get_model_conversions/2` helper to eliminate nested `if`/`function_exported?` checks
 - **Mix task refactoring.** `clean.ex`: extracted `report_orphaned_files/3`, `delete_or_report_file/3`, `find_orphaned_records/2`, `report_orphaned_records/3`, `delete_or_report_record/3`. `regenerate.ex`: extracted `conversions_for_media/2`, `run_or_report/4`, `do_regenerate/4`; used `Enum.map_join/3` instead of `Enum.map/2 |> Enum.join/2`. `regenerate_responsive.ex`: extracted `build_responsive_query/2`, `process_item/4`, `update_responsive_images/3`
