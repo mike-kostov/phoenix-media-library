@@ -280,10 +280,11 @@ if Code.ensure_loaded?(ExAws.S3) do
     # Rechunks a stream of arbitrarily-sized binary chunks into parts of
     # exactly `part_size` bytes, with a potentially smaller final part.
     #
-    # Uses Stream.transform/4 (start_fun, reducer, last_fun) so the
-    # accumulated buffer is flushed as a final emission when the source
-    # stream is exhausted — ensuring we never silently drop the tail of
-    # an upload.
+    # Stream.transform/5's last_fun flushes the remaining bytes as the final
+    # part. (Its 4-arity form takes a cleanup function instead, whose result
+    # is ignored: that dropped the tail of every upload before 0.9.0.) An
+    # empty stream still yields one empty part, as a multipart upload needs
+    # at least one.
     #
     # Memory profile: at most 2 × part_size bytes live in the accumulator
     # at any time (one full part being assembled + one incoming chunk).
@@ -301,15 +302,17 @@ if Code.ensure_loaded?(ExAws.S3) do
     defp rechunk(stream, part_size) do
       Stream.transform(
         stream,
-        # start_fun — initial accumulator: empty binary buffer
-        fn -> <<>> end,
-        # reducer — called for each incoming chunk
-        fn chunk, buffer -> split_parts(buffer <> chunk, part_size) end,
-        # last_fun — flush any remaining bytes as the final (possibly small) part
+        # The buffer, and whether any part was emitted yet
+        fn -> {<<>>, false} end,
+        fn chunk, {buffer, emitted?} ->
+          {parts, rest} = split_parts(buffer <> chunk, part_size)
+          {parts, {rest, emitted? or parts != []}}
+        end,
         fn
-          <<>> -> {[], <<>>}
-          leftover -> {[leftover], <<>>}
-        end
+          {<<>>, true} -> {[], nil}
+          {leftover, _emitted?} -> {[leftover], nil}
+        end,
+        fn _acc -> :ok end
       )
     end
   end

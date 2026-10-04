@@ -142,6 +142,10 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- Files added to an S3 disk lost their end: the adapter dropped the last
+  partial 5 MiB part of every upload, so files under 5 MiB were stored
+  empty or failed to upload, and bigger ones were cut short. Broken since
+  0.6.0.
 - `cache_bust: true` on a signed URL produced a second `?`, breaking the
   signature query; it now appends with `&`.
 - Maintenance tasks ignored per-collection settings unless given `--model`,

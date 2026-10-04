@@ -24,6 +24,30 @@ defmodule PhxMediaLibrary.Storage.S3Test do
       assert :ok = S3.delete(path, s3)
     end
 
+    test "a streamed upload of several parts arrives whole", %{prefix: prefix, s3: s3} do
+      path = "#{prefix}/big.bin"
+      chunk = :binary.copy("x", 64 * 1024)
+      chunks = List.duplicate(chunk, 90)
+
+      assert :ok = S3.put(path, {:stream, chunks}, s3)
+      assert {:ok, %{size: size}} = S3.stat(path, 16, s3)
+      assert size == 90 * 64 * 1024
+    end
+
+    test "a streamed upload smaller than one part arrives whole", %{prefix: prefix, s3: s3} do
+      path = "#{prefix}/small.txt"
+
+      assert :ok = S3.put(path, {:stream, ["hello ", "world"]}, s3)
+      assert {:ok, "hello world"} = S3.get(path, s3)
+    end
+
+    test "an empty streamed upload stores an empty object", %{prefix: prefix, s3: s3} do
+      path = "#{prefix}/empty.bin"
+
+      assert :ok = S3.put(path, {:stream, []}, s3)
+      assert {:ok, ""} = S3.get(path, s3)
+    end
+
     test "stat returns the size and the first bytes", %{prefix: prefix, s3: s3} do
       path = "#{prefix}/a.txt"
       :ok = S3.put(path, String.duplicate("a", 1_500), s3)
@@ -69,6 +93,28 @@ defmodule PhxMediaLibrary.Storage.S3Test do
 
       assert post_upload(url, fields, "tiny").status in 200..299
       assert {:ok, "tiny"} = S3.get(path, s3)
+    end
+  end
+
+  describe "media on an S3 disk, end to end" do
+    @describetag :db
+
+    setup :use_s3_disk
+
+    test "an added file is stored whole, with its checksum", %{s3: s3} do
+      path = create_temp_file("plain notes, stored on S3", "notes.txt")
+      on_exit(fn -> File.rm(path) end)
+
+      {:ok, media} =
+        create_test_post()
+        |> PhxMediaLibrary.add(path)
+        |> PhxMediaLibrary.to_collection(:documents, disk: :s3)
+
+      stored = PhxMediaLibrary.PathGenerator.relative_path(media, nil)
+      assert {:ok, "plain notes, stored on S3"} = S3.get(stored, s3)
+
+      assert media.checksum ==
+               :sha256 |> :crypto.hash("plain notes, stored on S3") |> Base.encode16(case: :lower)
     end
   end
 

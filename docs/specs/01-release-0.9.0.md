@@ -190,6 +190,14 @@ planning)
   AWS's documentation, uploads with `acl: private` fail on buckets with
   default settings, and R2 doesn't support ACL headers.
 
+**B8. Files added to an S3 disk are stored whole.** (Found in task 5b,
+2026-10-04.) Since 0.6.0 the S3 adapter dropped the last partial part of
+every streamed upload: a file under 5 MiB was stored empty (on Ministack;
+real S3 likely rejects the upload instead), a bigger one cut to a multiple
+of 5 MiB.
+- A streamed upload of any size, including empty, stores every byte; the
+  stored checksum matches the file.
+
 **B5. Placeholders without metadata.** Covered by F5; the tiny image no
 longer carries EXIF or color profiles.
 
