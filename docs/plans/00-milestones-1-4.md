@@ -1,4 +1,6 @@
-# PhxMediaLibrary priorities and roadmap
+# Plan 00: Milestones 1 to 4 (archived roadmap, up to 0.8)
+
+> Archived from `PRIORITIES.md` on 2026-10-04. Decisions moved to `docs/decisions/` (ADR-001 to ADR-013), open items to `docs/backlog.md`. Kept unchanged below as history.
 
 This document tracks what to build next, ordered by what matters most: developer experience. The principle behind every item is the same. A feature earns its place only if it cuts repetitive work for the developer using the library.
 
@@ -13,9 +15,6 @@ This document tracks what to build next, ordered by what matters most: developer
 - [Milestone 3b: remote URLs, metadata and Oban enhancements (v0.4.0) ✅](#milestone-3b-remote-urls-metadata-and-oban-enhancements-v040-)
 - [Milestone 3c: production hardening (v0.5.0) ✅](#milestone-3c-production-hardening-v050-)
 - [Milestone 4: best-in-class ✅](#milestone-4-best-in-class-)
-- [Design decisions](#design-decisions)
-- [Known issues](#known-issues)
-- [Parking lot](#parking-lot)
 
 ---
 
@@ -33,6 +32,7 @@ A developer should go from zero to a working media upload UI in a few minutes:
 Everything else, conversions, responsive images, S3 storage, layers on top without rewriting anything.
 
 ---
+
 
 ## Milestone 1: LiveView media component (v0.5.1) ✅
 
@@ -456,84 +456,3 @@ end
 - [x] Built-ins: `Default` (`{type}/{id}/{uuid}/{filename}`), `Flat` (`{uuid}/{filename}`), `DateBased` (`{year}/{month}/{day}/{type}/{id}/{uuid}/{filename}`), `Tenant` (`{tenant_id}/{type}/{id}/{uuid}/{filename}`)
 - [x] `path_context` escape hatch for tenant/user scoping without schema coupling
 - [x] `Config.path_generator/0` with application-level configuration
-
----
-
-## Design decisions
-
-Decisions made or pending that affect the library's architecture.
-
-### Decided
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Primary API style | Fluent pipeline (`post \|> add(upload) \|> to_collection(:images)`) | Mirrors Spatie, feels natural in Elixir |
-| Storage abstraction | Behaviour-based adapters | Clean separation, easy to extend |
-| Async processing | Behaviour with Task (default) and Oban (optional) | Simple default, a stronger option when you need it |
-| Config for global defaults | Application environment | Standard Elixir convention for library config |
-| Primary key type | Binary UUID | More portable, works across databases |
-
-### Pending
-
-| Decision | Options | Notes |
-|----------|---------|-------|
-| Library name | `PhxMediaLibrary`, `PhxMedia`, `ExMedia`, `Mediator` | Parking for later. The `Phx` prefix implies Phoenix-only but the core is Ecto-only |
-
-### Recently decided (Milestones 2 and v0.5.1)
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Schema DSL style | Both: macro blocks (`media_collections do ... end`) plus function-based (`def media_collections, do: [...]`). Nested `collection ... do convert ... end` as the recommended style (v0.5.1) | The DSL reads more naturally; the nested style makes conversion scoping visible. Function style preserved for backwards compat. Mutually exclusive per concern but mixable. See 2.7 |
-| Polymorphic type derivation | Ecto table name (`__schema__(:source)`) as default, overridable via a `use` option or `def __media_type__/0` | The table name is the most reliable default, no naive pluralization. Priority: user-defined fn, then explicit option, then table source, then module name fallback. See 2.6 |
-| `has_many` injection | Via the `has_media()` macro inside the schema block, calling `Ecto.Schema.__has_many__/4` directly at module compilation time | Bypasses macro-expansion timing issues with Ecto's schema block. Uses `:where` for polymorphic scoping, `:defaults` for auto-populating. Collection-scoped variants via `has_media(:images)`. See 2.4 |
-| LiveView component architecture | Three tiers: `MediaLive` LiveComponent (zero-boilerplate, v0.5.1), then `<.media_upload>` plus `<.media_gallery>` (composable), then `LiveUpload` helpers (full control) | `MediaLive` for a quick start; function components for layout control; the helper module for complete customization. See 1.0 to 1.3 |
-| Optional dep compile guards | All optional-dep modules wrapped in `if Code.ensure_loaded?` | Prevents noisy warnings in consumer projects. Pattern: `ImageProcessor.Image`, `AsyncProcessor.Oban`, `Storage.S3` (v0.5.1). See 2.1 |
-| Model module discovery | `PhxMediaLibrary.ModelRegistry` (always compiled, v0.5.1) with a persistent_term cache | Decoupled from the Oban worker so mix tasks and non-Oban setups can discover model modules. See 2.3 |
-| Optional image processing | `:image` marked `optional: true`; `ImageProcessor.Null` as a fallback with clear error messages; `Config.image_processor/0` auto-detects | The library works for file storage without libvips. See 2.1 |
-| Checksum strategy | SHA-256 computed before storage, stored alongside the media record | Supports sha256/sha1/md5. `verify_integrity/1` re-reads and compares. See 2.5 |
-
----
-
-## Known issues
-
-Active bugs or problems in the current codebase.
-
-- [x] **Oban worker creates empty Conversion structs.** Only the name is set, no dimensions/quality/format, so async processing produces broken conversions. (Fixed in Milestone 2.3)
-- [x] **`:image` is a hard required dependency.** The library won't compile without libvips installed. (Fixed in Milestone 2.1)
-- [x] **Pluralization is naive.** `get_mediable_type/1` just appends "s" to the module name, which breaks for irregular plurals. (Fixed in Milestone 2.6, now derives from the Ecto table name)
-- [x] **`String.to_existing_atom/1` in `Config.disk_config/1`.** Crashes if the atom doesn't exist yet. (Fixed, now iterates disk keys and compares strings)
-- [x] **No integration tests.** The core `to_collection/3` path is untested against a real database. (Fixed in Milestone 2.2, 56 integration tests)
-- [x] **`has_media()` macro is a no-op.** It doesn't inject any association. (Fixed in Milestone 2.4, injects a polymorphic `has_many`)
-- [x] **`clear_collection/2` and `clear_media/1` are N+1.** They fetch all, then delete one-by-one. (Fixed in Milestone 3.4, single `delete_all` query with batch file removal)
-- [x] **`PathGenerator.full_path/2` uses `Keyword.keys(__info__(:functions))`.** A fragile way to check for an optional callback implementation. (Fixed, now uses `Code.ensure_loaded/1` plus `function_exported?/3`)
-- [x] **`max_files` cleanup deletes newest items instead of oldest.** `Enum.drop(max)` on an ascending-ordered list removes the newest item. (Fixed, now keeps the newest `max` items and deletes the oldest excess)
-- [x] **No file size validation.** Collections can't limit upload size. (Fixed in Milestone 3.2, `:max_size` collection option, validated before storage)
-- [x] **MIME detection is extension-only.** No content-based verification. (Fixed in Milestone 3.3, `MimeDetector` behaviour with a magic-bytes default, `:verify_content_type` collection option)
-- [x] **`MediaAdder` loads the entire file into memory.** `File.read!` before storage. (Fixed in Milestone 3c/3.6, now streams in 64 KB chunks with a single-pass checksum)
-- [x] **Roughly 15 noisy ExAws/S3 compile warnings in consumer projects.** `Storage.S3` was compiled unconditionally, producing `ExAws.S3.* is undefined` warnings for projects without S3 deps. (Fixed in v0.5.1, wrapped in `if Code.ensure_loaded?(ExAws.S3)`)
-- [x] **`ProcessConversions.find_model_module/1 is undefined` warning in `mix phx_media_library.regenerate`.** The mix task referenced `ProcessConversions`, which only exists when Oban is installed. (Fixed in v0.5.1, extracted to `ModelRegistry`)
-- [x] **Multi-file selection broken by default.** Non-`single_file` collections without `max_files` defaulted to `max_entries: 1` (the Phoenix LiveView default), which disabled the `multiple` attribute. (Fixed in v0.5.1, defaults to `max_entries: 10`)
-- [x] **Upload progress bars invisible on fast/local uploads.** The progress bar only rendered when `progress > 0`, but local uploads complete instantly. (Fixed in v0.5.1, renders at `progress >= 0`)
-
----
-
-## Parking lot
-
-- ✅ **Cap served size at ingest** (`webp: [max_dimension:]`, `width:` URL
-  option). Came from sharo-shop spec 29: uploads of 17MB were stored and
-  served at native size while no view showed more than 1200px.
-
-Ideas and suggestions that don't have a home yet.
-
-- **Naming discussion.** Consider renaming the library for a shorter, more memorable name
-- **Ex Machina / test factory integration.** Helpers for generating media fixtures in consumer app tests
-- **Ecto multi integration.** Wrap add/delete operations in `Ecto.Multi` for transactional safety
-- **Pluggable filename sanitization.** Let users define their own sanitization rules
-- **Internationalized filenames.** Handle Unicode filenames properly (transliteration)
-- **Quota system.** Per-model or per-user storage limits
-- **Webhook/event system.** Beyond Telemetry, let users subscribe to media lifecycle events
-- **Pre-signed download URLs.** For private files with expiring access
-- **Zip download.** Download all media in a collection as a zip archive
-- **Duplicate detection.** Use checksums to detect and optionally prevent duplicate uploads
-- ~~**Image metadata extraction.** EXIF data, GPS coordinates, camera info~~ (Done in Milestone 3b.2)
-- **Auto-rotation.** Fix EXIF orientation on upload
