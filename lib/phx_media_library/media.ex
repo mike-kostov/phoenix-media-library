@@ -252,6 +252,56 @@ defmodule PhxMediaLibrary.Media do
     get_in(responsive || %{}, ["blurhash"])
   end
 
+  # custom_properties keys the library maintains itself.
+  @reserved_properties ~w(webp webp_width webp_height source_url)
+
+  @doc """
+  Merge `properties` into the media's custom properties and save. A `nil`
+  value removes that key. Keys may be atoms or strings.
+
+  The keys the library maintains itself (#{Enum.map_join(@reserved_properties, ", ", &"`#{&1}`")})
+  are refused with `{:error, {:reserved_properties, keys}}`.
+
+  ## Examples
+
+      {:ok, media} = Media.update_custom_properties(media, %{alt: "Red summer dress", caption: "New in"})
+      {:ok, media} = Media.update_custom_properties(media, %{caption: nil})
+
+  """
+  @spec update_custom_properties(t(), map()) ::
+          {:ok, t()} | {:error, Ecto.Changeset.t() | {:reserved_properties, [String.t()]}}
+  def update_custom_properties(%__MODULE__{} = media, properties) when is_map(properties) do
+    properties = Map.new(properties, fn {key, value} -> {to_string(key), value} end)
+
+    case Enum.filter(Map.keys(properties), &(&1 in @reserved_properties)) do
+      [] ->
+        {removed, set} = Enum.split_with(properties, fn {_key, value} -> is_nil(value) end)
+
+        updated =
+          (media.custom_properties || %{})
+          |> Map.drop(Enum.map(removed, &elem(&1, 0)))
+          |> Map.merge(Map.new(set))
+
+        media |> change(custom_properties: updated) |> Config.repo().update()
+
+      reserved ->
+        {:error, {:reserved_properties, reserved}}
+    end
+  end
+
+  @doc """
+  Set the alt text image components use for this media (see `alt_text/1`).
+  `nil` removes it, falling back to the uploaded name.
+
+  ## Examples
+
+      {:ok, media} = Media.update_alt_text(media, "Red summer dress, front view")
+
+  """
+  @spec update_alt_text(t(), String.t() | nil) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def update_alt_text(%__MODULE__{} = media, alt),
+    do: update_custom_properties(media, %{"alt" => alt})
+
   @doc """
   Width and height in pixels of the file served for the original
   (`conversion` nil) or a conversion, or `nil` when unknown.

@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer crash the LiveView.
 
 ### Added
+- `PhxMediaLibrary.update_alt_text/2` and `update_custom_properties/2` to
+  edit alt text, captions and other custom properties after upload (`nil`
+  removes a key). Keys the library maintains (`webp`, `webp_width`,
+  `webp_height`, `source_url`) are refused.
 - `cache_control:` option for S3 disks, stored as the `Cache-Control`
   header of every upload. The storage guide has a new Caching section.
 - `priority` on `media_img`, `responsive_img` and `picture` for the page's

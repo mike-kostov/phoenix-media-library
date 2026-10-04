@@ -599,6 +599,32 @@ defmodule PhxMediaLibrary do
   defdelegate verify_integrity(media), to: Media
 
   @doc """
+  Merge `properties` into a media item's custom properties and save; `nil`
+  removes a key. See `PhxMediaLibrary.Media.update_custom_properties/2`.
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.update_custom_properties(media, %{caption: "New in"})
+
+  """
+  @spec update_custom_properties(Media.t(), map()) ::
+          {:ok, Media.t()} | {:error, Ecto.Changeset.t() | {:reserved_properties, [String.t()]}}
+  defdelegate update_custom_properties(media, properties), to: Media
+
+  @doc """
+  Set a media item's alt text; `nil` removes it. See
+  `PhxMediaLibrary.Media.update_alt_text/2`.
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.update_alt_text(media, "Red summer dress, front view")
+
+  """
+  @spec update_alt_text(Media.t(), String.t() | nil) ::
+          {:ok, Media.t()} | {:error, Ecto.Changeset.t()}
+  defdelegate update_alt_text(media, alt), to: Media
+
+  @doc """
   Delete all media in a collection for a model.
 
   Deletes files from storage for each item, then removes all matching
