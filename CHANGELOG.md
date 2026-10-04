@@ -188,6 +188,9 @@ What apps must change when upgrading:
   quarter of the bytes. Pass `sizes` to keep the old value.
 
 ### Fixed
+- Uploads to a collection with responsive images raised with a custom
+  image processor: variants were saved with `save/2`, which the
+  `ImageProcessor` behaviour doesn't define. They now use `save/3`.
 - A conversion with `format:` wrote its bytes under the original's
   extension (WebP bytes in `photo_thumb.jpg`), so it was served with the
   wrong content type. It is now stored with its format's extension

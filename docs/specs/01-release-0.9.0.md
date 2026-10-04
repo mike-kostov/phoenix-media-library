@@ -200,6 +200,12 @@ of 5 MiB.
 - A streamed upload of any size, including empty, stores every byte; the
   stored checksum matches the file.
 
+**B9. Custom image processors work with responsive images.** (Found in
+task 11, 2026-10-04.) Responsive variants called `save/2`, which the
+`ImageProcessor` behaviour doesn't define, so an upload to a responsive
+collection raised with a processor that implements only `save/3`.
+- Responsive variants are saved through `save/3`.
+
 **B5. Placeholders without metadata.** Covered by F5; the tiny image no
 longer carries EXIF or color profiles.
 
