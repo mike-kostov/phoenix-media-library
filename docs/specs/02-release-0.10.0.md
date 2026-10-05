@@ -9,7 +9,8 @@ Source: `docs/backlog.md` (0.10.0 section), `docs/ideas/db-performance.md`,
 0.10.0 makes image formats configurable per app and per conversion, makes
 sure the library doesn't slow down the apps it is in, adds ways to bring
 media in (content, streams, bulk) and to copy or move it, adds dimension
-limits and an opt-in processing status, removes what 0.9.0 deprecated, and
+limits, an opt-in processing status, PDF thumbnails and Google Cloud
+Storage, removes what 0.9.0 deprecated, and
 settles the responsive rules. 0.9.0 is on Hex, so the
 upgrade notes cover 0.9 to 0.10. It is a minor 0.x release: breaking
 changes are allowed, each with a CHANGELOG entry and an upgrade note.
@@ -70,6 +71,22 @@ derived; two writes per job instead of a status column rewritten at each
 step. Off unless the app adds the columns (an optional migration) or turns
 it on in config. P1 measures the cost before the design is final.
 
+**F7. PDF thumbnails.** (backlog; Mike 2026-10-05) A PDF's first page
+becomes its image: conversions (`:thumb`, `:preview`), the placeholder and
+responsive variants are made from it, so PDFs show in galleries and
+components like images, while the PDF itself is served for download.
+Rendering uses libvips when it can read PDFs (the precompiled libvips of
+`:image` can't, checked 2026-10-05), else the `pdftoppm` command-line
+tool (poppler) when installed, like video posters use FFmpeg; without
+either, PDFs are stored as today and a warning is logged once.
+
+**F8. Google Cloud Storage.** (backlog; Mike 2026-10-05) Media can be
+stored on GCS, with public and signed URLs and direct uploads. Either a
+`provider: :gcs` preset of the S3 adapter, through GCS's S3-compatible API
+with HMAC keys, or a native adapter on its JSON API. Decided from Google's
+documentation (as `docs/ideas/s3-providers.md` did for R2): the preset if
+the compatible API covers what the library uses.
+
 ### Changes
 
 **C1. Removed: what 0.9.0 deprecated.**
@@ -129,6 +146,11 @@ warnings anywhere (as 0.9.0's P5).
 - F6: with status on, a media item's status reads queued, processing,
   done or failed through its background job; with it off, no extra
   writes.
+- F7: with libvips PDF support or `pdftoppm` available, a PDF gets a
+  `:thumb` image and a placeholder from its first page; without either,
+  the upload succeeds and logs once.
+- F8: put, get, delete, public and signed URLs and a direct upload work
+  against GCS (an emulator in tests, if one exists without an account).
 - P1 is reviewed with Mike before F2 and F6 are final.
 - `mix precommit` green, `mix docs` without warnings.
 
@@ -137,6 +159,9 @@ warnings anywhere (as 0.9.0's P5).
 1. F2's shape, after P1.
 2. F6: timestamps per media job (proposed) or per conversion; switched on
    by the columns' presence or by config; after P1.
-3. Whether P1's results change C3 or F1 (for example, fewer writes per
+3. F8: S3 preset or native adapter, after reading Google's documentation;
+   a native adapter would need a new optional dependency (e.g. Goth for
+   auth), which needs Mike's agreement.
+4. Whether P1's results change C3 or F1 (for example, fewer writes per
    upload).
-4. SQLite: after P1.
+5. SQLite: after P1.
