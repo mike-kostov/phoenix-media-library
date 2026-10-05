@@ -84,7 +84,9 @@ Carried over from `PRIORITIES.md`, with what has changed since.
 - `<.media_upload>` that detects S3 and uploads directly, and an
   `:external` option for `allow_media_upload/3`.
 - On-the-fly image transformation URLs (like Imgix).
-- LiveDashboard page with media stats.
+- LiveDashboard page with media stats. Mike (2026-10-05) wants to think
+  this through as an admin page for the doctor: the report, with repair
+  buttons, on top of `PhxMediaLibrary.Doctor` (spec 02, F9).
 - Migration guide for changing `mediable_type` values (ADR-007).
 
 Done since `PRIORITIES.md` was written: internationalized filenames

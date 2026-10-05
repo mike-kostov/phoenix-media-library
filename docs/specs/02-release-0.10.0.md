@@ -94,8 +94,12 @@ the compatible API covers what the library uses.
 soft-delete backlog) and `repair/2` runs the repairs it is given. The mix
 task becomes a thin wrapper (flags, output, confirmation) over the same
 functions, so there is one implementation.
-- Works in a release (`bin/my_app eval`), a scheduled job (Oban cron) or
-  an admin page; no `Mix` calls outside the task.
+- Works anywhere the app runs; no `Mix` calls outside the task.
+- `mix phx_media_library.gen.release` generates a small module in the app
+  and a `rel/overlays/bin/media_doctor` script, so a release runs
+  `bin/media_doctor --regenerate --yes` with the mix task's flags, the way
+  Phoenix's `mix phx.gen.release` provides `bin/migrate`. (Mike,
+  2026-10-05: no hand-typed `eval` in production.)
 - Each run emits a telemetry event with the counts, for monitoring and
   alerting.
 - Checks media in batches, so large tables (P1's 1M rows) don't load into
@@ -167,6 +171,8 @@ warnings anywhere (as 0.9.0's P5).
   the upload succeeds and logs once.
 - F8: put, get, delete, public and signed URLs and a direct upload work
   against GCS (an emulator in tests, if one exists without an account).
+- F9: `bin/media_doctor` from the generator runs the doctor in a release
+  with the mix task's flags.
 - F9: `PhxMediaLibrary.Doctor.check/1` and `repair/2` work without Mix
   (tested with Mix's shell unavailable), return the same results as the
   mix task, emit a telemetry event per run, and process media in batches.
