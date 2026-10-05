@@ -9,8 +9,8 @@ Source: `docs/backlog.md` (0.10.0 section), `docs/ideas/db-performance.md`,
 0.10.0 makes image formats configurable per app and per conversion, makes
 sure the library doesn't slow down the apps it is in, adds ways to bring
 media in (content, streams, bulk) and to copy or move it, adds dimension
-limits, an opt-in processing status, PDF thumbnails and Google Cloud
-Storage, removes what 0.9.0 deprecated, and
+limits, an opt-in processing status, PDF thumbnails, Google Cloud
+Storage and a doctor that runs in production, removes what 0.9.0 deprecated, and
 settles the responsive rules. 0.9.0 is on Hex, so the
 upgrade notes cover 0.9 to 0.10. It is a minor 0.x release: breaking
 changes are allowed, each with a CHANGELOG entry and an upgrade note.
@@ -87,6 +87,22 @@ with HMAC keys, or a native adapter on its JSON API. Decided from Google's
 documentation (as `docs/ideas/s3-providers.md` did for R2): the preset if
 the compatible API covers what the library uses.
 
+**F9. The doctor at runtime.** (Mike, 2026-10-05) Releases have no
+`mix`, so today the doctor can't run in production. Its logic moves into
+`PhxMediaLibrary.Doctor`, a regular module: `check/1` returns a report
+(issue counts and the media they concern, orphaned records, the
+soft-delete backlog) and `repair/2` runs the repairs it is given. The mix
+task becomes a thin wrapper (flags, output, confirmation) over the same
+functions, so there is one implementation.
+- Works in a release (`bin/my_app eval`), a scheduled job (Oban cron) or
+  an admin page; no `Mix` calls outside the task.
+- Each run emits a telemetry event with the counts, for monitoring and
+  alerting.
+- Checks media in batches, so large tables (P1's 1M rows) don't load into
+  memory at once.
+- The other maintenance tasks (`clean`, `purge_deleted`, `stats`) get the
+  same split where their logic isn't already a function.
+
 ### Changes
 
 **C1. Removed: what 0.9.0 deprecated.**
@@ -151,6 +167,9 @@ warnings anywhere (as 0.9.0's P5).
   the upload succeeds and logs once.
 - F8: put, get, delete, public and signed URLs and a direct upload work
   against GCS (an emulator in tests, if one exists without an account).
+- F9: `PhxMediaLibrary.Doctor.check/1` and `repair/2` work without Mix
+  (tested with Mix's shell unavailable), return the same results as the
+  mix task, emit a telemetry event per run, and process media in batches.
 - P1 is reviewed with Mike before F2 and F6 are final.
 - `mix precommit` green, `mix docs` without warnings.
 
