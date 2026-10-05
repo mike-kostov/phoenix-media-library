@@ -7,8 +7,10 @@ Source: `docs/backlog.md` (0.10.0 section), `docs/ideas/db-performance.md`,
 ## Objective
 
 0.10.0 makes image formats configurable per app and per conversion, makes
-sure the library doesn't slow down the apps it is in, removes what 0.9.0
-deprecated, and settles the responsive rules. 0.9.0 is on Hex, so the
+sure the library doesn't slow down the apps it is in, adds ways to bring
+media in (content, streams, bulk) and to copy or move it, adds dimension
+limits and an opt-in processing status, removes what 0.9.0 deprecated, and
+settles the responsive rules. 0.9.0 is on Hex, so the
 upgrade notes cover 0.9 to 0.10. It is a minor 0.x release: breaking
 changes are allowed, each with a CHANGELOG entry and an upgrade note.
 
@@ -44,6 +46,29 @@ changes are allowed, each with a CHANGELOG entry and an upgrade note.
 **F2. Bulk ingestion.** (Mike, 2026-10-05) A route for importing many
 media at once that doesn't write each row six to eight times. Its design
 waits for the database spike (P1); this spec gets its details then.
+
+**F3. Media from a binary, base64 or a stream.** (backlog; Mike
+2026-10-05) `add/2` accepts in-memory content and streams as sources, not
+only paths, uploads and URLs. The content is checked like any upload
+(type from the bytes, collection limits). Bulk ingestion (F2) builds on it.
+
+**F4. Copy and move media.** (backlog; Mike 2026-10-05) Copy or move a
+media item, with all its files (conversions, WebP, AVIF, variants), to
+another record or collection. The target collection's rules apply (accepted
+types, limits, file naming), and a move that breaks them is refused.
+
+**F5. Minimum and maximum image dimensions.** (backlog; Mike 2026-10-05)
+Per-collection limits on width and height, e.g. avatars at least 200x200,
+checked with the other upload validations and returned as tagged errors.
+
+**F6. Processing status, opt-in.** (backlog; Mike 2026-10-05) Apps can
+show whether an upload's background work is queued, running, done or
+failed. Proposed (Mike): three timestamps on the media row,
+`processing_started_at`, `processing_finished_at` and
+`processing_failed_at` (with the error), from which the status is
+derived; two writes per job instead of a status column rewritten at each
+step. Off unless the app adds the columns (an optional migration) or turns
+it on in config. P1 measures the cost before the design is final.
 
 ### Changes
 
@@ -95,12 +120,23 @@ warnings anywhere (as 0.9.0's P5).
 - C2: in a collection without `responsive:`, conversions get no variants.
 - C3: new installs get the new indexes; the optional migration runs on a
   0.9 database.
-- P1 is reviewed with Mike before F2 is specced.
+- F3: `add/2` with a binary, base64 or a stream stores the same media as
+  the same file from a path.
+- F4: a copied media item has its own files and record; a moved one keeps
+  its record and its files follow; collection rules apply to both.
+- F5: an image below the minimum or above the maximum is refused with a
+  tagged error naming the limit.
+- F6: with status on, a media item's status reads queued, processing,
+  done or failed through its background job; with it off, no extra
+  writes.
+- P1 is reviewed with Mike before F2 and F6 are final.
 - `mix precommit` green, `mix docs` without warnings.
 
 ## Open questions
 
 1. F2's shape, after P1.
-2. Whether P1's results change C3 or F1 (for example, fewer writes per
+2. F6: timestamps per media job (proposed) or per conversion; switched on
+   by the columns' presence or by config; after P1.
+3. Whether P1's results change C3 or F1 (for example, fewer writes per
    upload).
-3. SQLite: after P1.
+4. SQLite: after P1.

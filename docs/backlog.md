@@ -11,9 +11,11 @@ to Hex before 0.10.0, so 0.8.4 users see its deprecation notices first.
 
 ## 0.10.0 (specced in `docs/specs/02-release-0.10.0.md`, draft)
 
-The items below are carried into spec 02 (F1 formats, C3 indexes; also
-C1 removals, C2 responsive rule, P1 database spike, F2 bulk ingestion).
-They stay here until the spec is approved.
+Carried into spec 02: F1 formats and C3 indexes (below), plus C1
+removals, C2 responsive rule, P1 database spike, F2 bulk ingestion, F3
+binary and stream input, F4 copy and move, F5 dimension limits, F6
+processing status (moved from "After 0.9.0"). The items below stay here
+until the spec is approved.
 
 Release plan (Mike, 2026-10-04, revised the same day): 0.9.0 is published
 to Hex before 0.10.0, so its deprecation notices reach users; 0.10.0 then
@@ -60,14 +62,8 @@ Found during 0.9.0 (Mike, 2026-10-04):
   container was killed at the end of each run).
 - Keep the `spike/testcontainers` branch for local experiments.
 
-- Copy or move media between records.
-- Add media from a binary, base64 or a stream (`{:stream, enumerable}`).
 - PDF thumbnails.
 - Google Cloud Storage adapter.
-- Processing status for conversions (pending, done, failed).
-- Minimum and maximum image dimensions per collection.
-- Unify the responsive rules for originals and conversions (ADR-017).
-- Remove the deprecated repair tasks in 0.10.0 (ADR-016).
 
 ## Parking lot
 
