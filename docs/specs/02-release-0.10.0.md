@@ -102,6 +102,11 @@ functions, so there is one implementation.
   2026-10-05: no hand-typed `eval` in production.)
 - Each run emits a telemetry event with the counts, for monitoring and
   alerting.
+- On a schedule, from library config alone (`:doctor_schedule`: enabled,
+  runner `:oban | :internal | :auto`, a daily `at:` time, the repairs
+  allowed); off by default, report only by default, `rename`, `fix` and
+  `drop_originals` refused, one node at a time. Design and its
+  safeguards: `docs/ideas/scheduled-doctor.md` (agreed 2026-10-05).
 - Checks media in batches, so large tables (P1's 1M rows) don't load into
   memory at once.
 - The other maintenance tasks (`clean`, `purge_deleted`, `stats`) get the
@@ -173,6 +178,9 @@ warnings anywhere (as 0.9.0's P5).
   against GCS (an emulator in tests, if one exists without an account).
 - F9: `bin/media_doctor` from the generator runs the doctor in a release
   with the mix task's flags.
+- F9: with `:doctor_schedule` enabled, a run happens at `at:` through Oban
+  or the internal runner, on one node only, and only the listed repairs
+  run; disabled by default.
 - F9: `PhxMediaLibrary.Doctor.check/1` and `repair/2` work without Mix
   (tested with Mix's shell unavailable), return the same results as the
   mix task, emit a telemetry event per run, and process media in batches.
