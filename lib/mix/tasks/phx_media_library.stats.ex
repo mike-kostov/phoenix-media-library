@@ -35,8 +35,6 @@ defmodule Mix.Tasks.PhxMediaLibrary.Stats do
 
   use Mix.Task
 
-  import Ecto.Query
-
   @impl Mix.Task
   def run(args) do
     {opts, _, _} =
@@ -50,11 +48,6 @@ defmodule Mix.Tasks.PhxMediaLibrary.Stats do
 
     Mix.Task.run("app.start")
 
-    repo = PhxMediaLibrary.Config.repo()
-    include_trashed? = Keyword.get(opts, :include_trashed, false)
-    collection_filter = opts[:collection]
-    type_filter = opts[:type]
-
     Mix.shell().info("")
 
     Mix.shell().info(
@@ -64,71 +57,19 @@ defmodule Mix.Tasks.PhxMediaLibrary.Stats do
     Mix.shell().info("==============================")
     Mix.shell().info("")
 
-    base_query = build_base_query(include_trashed?, collection_filter, type_filter)
+    {:ok, %{collections: collections, disks: disks}} =
+      PhxMediaLibrary.Doctor.stats(
+        include_trashed: Keyword.get(opts, :include_trashed, false),
+        collection: opts[:collection],
+        type: opts[:type]
+      )
 
-    collection_rows = fetch_collection_stats(repo, base_query)
-    print_collection_table(collection_rows)
-
-    disk_rows = fetch_disk_stats(repo, base_query)
-    print_disk_table(disk_rows)
+    print_collection_table(collections)
+    print_disk_table(disks)
   end
 
   # ---------------------------------------------------------------------------
-  # Query builders
-  # ---------------------------------------------------------------------------
-
-  defp build_base_query(include_trashed?, collection_filter, type_filter) do
-    query = from(m in PhxMediaLibrary.Media)
-
-    query =
-      if not include_trashed? and PhxMediaLibrary.Media.soft_deletes_enabled?() do
-        where(query, [m], is_nil(m.deleted_at))
-      else
-        query
-      end
-
-    query =
-      if collection_filter do
-        where(query, [m], m.collection_name == ^collection_filter)
-      else
-        query
-      end
-
-    if type_filter do
-      where(query, [m], m.mediable_type == ^type_filter)
-    else
-      query
-    end
-  end
-
-  defp fetch_collection_stats(repo, base_query) do
-    base_query
-    |> group_by([m], [m.mediable_type, m.collection_name])
-    |> select([m], %{
-      mediable_type: m.mediable_type,
-      collection_name: m.collection_name,
-      count: count(m.id),
-      total_size: sum(m.size),
-      avg_size: avg(m.size)
-    })
-    |> order_by([m], asc: m.mediable_type, asc: m.collection_name)
-    |> repo.all()
-  end
-
-  defp fetch_disk_stats(repo, base_query) do
-    base_query
-    |> group_by([m], m.disk)
-    |> select([m], %{
-      disk: m.disk,
-      count: count(m.id),
-      total_size: sum(m.size)
-    })
-    |> order_by([m], asc: m.disk)
-    |> repo.all()
-  end
-
-  # ---------------------------------------------------------------------------
-  # Table printers
+  # Output
   # ---------------------------------------------------------------------------
 
   defp print_collection_table([]) do

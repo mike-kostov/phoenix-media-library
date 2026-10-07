@@ -39,7 +39,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
 
   use Mix.Task
 
-  import Ecto.Query
+  alias PhxMediaLibrary.Doctor
 
   @default_days 30
 
@@ -62,13 +62,10 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
 
     Mix.Task.run("app.start")
 
-    repo = Application.fetch_env!(:phx_media_library, :repo)
-    dry_run? = Keyword.get(opts, :dry_run, false)
-    skip_confirm? = Keyword.get(opts, :yes, false)
+    purge_opts = [days: Keyword.get(opts, :days, @default_days), all: opts[:all] == true]
 
-    cutoff = resolve_cutoff(opts)
-    query = build_query(cutoff)
-    count = repo.aggregate(query, :count)
+    {:ok, %{count: count, examples: examples}} =
+      Doctor.purge_deleted([dry_run: true] ++ purge_opts)
 
     if count == 0 do
       Mix.shell().info(
@@ -77,61 +74,33 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
 
       :ok
     else
-      label = cutoff_label(opts)
-
       Mix.shell().info("""
 
       #{IO.ANSI.cyan()}PhxMediaLibrary: Purge Deleted Media#{IO.ANSI.reset()}
       ====================================
 
-      Found #{IO.ANSI.yellow()}#{count}#{IO.ANSI.reset()} soft-deleted media item(s) #{label}.
+      Found #{IO.ANSI.yellow()}#{count}#{IO.ANSI.reset()} soft-deleted media item(s) #{cutoff_label(opts)}.
       """)
 
-      if dry_run? do
-        print_items(repo, query)
+      cond do
+        opts[:dry_run] ->
+          print_items(examples, count)
 
-        Mix.shell().info("\n#{IO.ANSI.yellow()}Dry run, no items were deleted.#{IO.ANSI.reset()}")
+          Mix.shell().info(
+            "\n#{IO.ANSI.yellow()}Dry run, no items were deleted.#{IO.ANSI.reset()}"
+          )
 
-        :ok
-      else
-        maybe_purge(repo, query, count, skip_confirm?)
+          :ok
+
+        opts[:yes] ||
+            Mix.shell().yes?("Permanently delete #{count} item(s)? This cannot be undone.") ->
+          purge(purge_opts, count)
+
+        true ->
+          Mix.shell().info("Aborted.")
+          :ok
       end
     end
-  end
-
-  defp maybe_purge(repo, query, count, skip_confirm?) do
-    confirmed? =
-      skip_confirm? ||
-        Mix.shell().yes?("Permanently delete #{count} item(s)? This cannot be undone.")
-
-    if confirmed? do
-      purge(repo, query, count)
-    else
-      Mix.shell().info("Aborted.")
-      :ok
-    end
-  end
-
-  defp resolve_cutoff(opts) do
-    if Keyword.get(opts, :all, false) do
-      nil
-    else
-      days = Keyword.get(opts, :days, @default_days)
-      DateTime.utc_now() |> DateTime.add(-days, :day) |> DateTime.truncate(:second)
-    end
-  end
-
-  defp build_query(nil) do
-    from(m in PhxMediaLibrary.Media,
-      where: not is_nil(m.deleted_at)
-    )
-  end
-
-  defp build_query(%DateTime{} = cutoff) do
-    from(m in PhxMediaLibrary.Media,
-      where: not is_nil(m.deleted_at),
-      where: m.deleted_at < ^cutoff
-    )
   end
 
   defp cutoff_label(opts) do
@@ -142,67 +111,36 @@ defmodule Mix.Tasks.PhxMediaLibrary.PurgeDeleted do
     end
   end
 
-  defp print_items(repo, query) do
-    items =
-      query
-      |> order_by([m], asc: m.deleted_at)
-      |> limit(50)
-      |> repo.all()
-
+  defp print_items(examples, total) do
     Mix.shell().info(
       "  #{IO.ANSI.cyan()}ID#{IO.ANSI.reset()} | Collection | Filename | Deleted At"
     )
 
     Mix.shell().info("  " <> String.duplicate("-", 70))
 
-    Enum.each(items, fn media ->
-      deleted = media.deleted_at |> DateTime.to_iso8601()
+    Enum.each(examples, fn media ->
+      deleted = DateTime.to_iso8601(media.deleted_at)
 
       Mix.shell().info(
         "  #{String.slice(media.id, 0..7)}... | #{media.collection_name} | #{media.file_name} | #{deleted}"
       )
     end)
 
-    total = repo.aggregate(query, :count)
-
-    if total > 50 do
-      Mix.shell().info("  ... and #{total - 50} more")
-    end
+    if total > length(examples),
+      do: Mix.shell().info("  ... and #{total - length(examples)} more")
   end
 
-  defp purge(repo, query, count) do
-    # Fetch all items so we can delete their files
-    items = repo.all(query)
-
-    # Delete files from storage
-    deleted_files =
-      Enum.reduce(items, 0, fn media, acc ->
-        case delete_files(media) do
-          :ok -> acc + 1
-          _ -> acc
-        end
-      end)
-
-    # Delete database records
-    {db_count, _} =
-      query
-      |> exclude(:order_by)
-      |> repo.delete_all()
+  defp purge(purge_opts, count) do
+    {:ok, %{purged: purged, files_failed: failed}} = Doctor.purge_deleted(purge_opts)
 
     Mix.shell().info("""
 
     #{IO.ANSI.green()}✓ Purge complete!#{IO.ANSI.reset()}
 
-      Database records removed: #{db_count}
-      File cleanups attempted:  #{deleted_files}/#{count}
+      Database records removed: #{purged}
+      File cleanups attempted:  #{purged - failed}/#{count}
     """)
 
-    {:ok, db_count}
-  end
-
-  defp delete_files(media) do
-    PhxMediaLibrary.Media.delete_files(media)
-  rescue
-    _ -> :error
+    {:ok, purged}
   end
 end

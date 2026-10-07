@@ -150,7 +150,8 @@ module.
 functions (on `Doctor` or their own modules) where it isn't one already;
 the tasks wrap them.
 **Acceptance criteria:**
-- [ ] Each task's logic is callable without Mix and tested that way.
+- [x] Each task's logic is callable without Mix and tested that way.
+      (`Doctor.stats/1`, `purge_deleted/1`, `clean/1`.)
 **Verification:** task tests; `mix precommit`.
 **Dependencies:** Task 5
 **Scope:** S

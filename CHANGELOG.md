@@ -28,7 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and admin pages. Media is read in batches (`:batch_size`, `:pause`), and
   each run emits a `[:phx_media_library, :doctor, :check | :repair]`
   telemetry event with its counts. `mix phx_media_library.doctor` now
-  wraps them.
+  wraps them. `Doctor.stats/1`, `purge_deleted/1` and `clean/1` do the
+  same for `mix phx_media_library.stats`, `purge_deleted` and `clean`.
+
+### Fixed
+- `mix phx_media_library.clean --disk NAME` turned the argument into an
+  atom, and loaded every media row of the disk at once; it now looks the
+  disk up among the configured ones and reads media in batches.
 
 ## [0.9.0] - 2026-10-04
 

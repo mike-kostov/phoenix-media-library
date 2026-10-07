@@ -98,4 +98,77 @@ defmodule PhxMediaLibrary.DoctorTest do
     source = File.read!("lib/phx_media_library/doctor.ex")
     refute source =~ "Mix."
   end
+
+  describe "stats/1" do
+    test "counts and sizes per collection and per disk", %{png: png} do
+      media = add(png)
+
+      assert {:ok, %{collections: collections, disks: disks}} = Doctor.stats(type: "posts")
+
+      assert %{count: count} =
+               Enum.find(
+                 collections,
+                 &(&1.collection_name == "images" and &1.mediable_type == "posts")
+               )
+
+      assert count >= 1
+      assert Enum.any?(disks, &(&1.disk == media.disk and &1.count >= 1))
+    end
+  end
+
+  describe "purge_deleted/1" do
+    setup do
+      previous = Application.fetch_env(:phx_media_library, :soft_deletes)
+      Application.put_env(:phx_media_library, :soft_deletes, true)
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:phx_media_library, :soft_deletes, value)
+          :error -> Application.delete_env(:phx_media_library, :soft_deletes)
+        end
+      end)
+    end
+
+    test "a dry run reports, a real run purges in batches", %{png: png} do
+      old = add(png)
+      long_ago = DateTime.utc_now() |> DateTime.add(-40, :day) |> DateTime.truncate(:second)
+      Repo.update!(Ecto.Changeset.change(old, deleted_at: long_ago))
+
+      assert {:ok, %{count: count, examples: [_ | _]}} = Doctor.purge_deleted(dry_run: true)
+      assert count >= 1
+      assert Repo.get(Media, old.id)
+
+      assert {:ok, %{purged: purged}} = Doctor.purge_deleted(batch_size: 1)
+      assert purged >= 1
+      refute Repo.get(Media, old.id)
+    end
+  end
+
+  describe "clean/1" do
+    test "finds orphaned files and records on a local disk; force deletes them", %{png: png} do
+      media = add(png)
+
+      dir =
+        Path.join("priv/static/uploads", Path.dirname(PathGenerator.relative_path(media, nil)))
+
+      stray = Path.join(dir, "stray.txt")
+      File.write!(stray, "x")
+      orphan = create_media(disk: "local")
+
+      assert {:ok, [%{disk: :local, files: {:ok, files}, records: records}]} =
+               Doctor.clean(disk: "local")
+
+      assert Path.relative_to(stray, "priv/static/uploads") in files
+      assert Enum.any?(records, &(&1.id == orphan.id))
+      assert File.exists?(stray)
+
+      assert {:ok, _} = Doctor.clean(disk: "local", force: true)
+      refute File.exists?(stray)
+      refute Repo.get(Media, orphan.id)
+    end
+
+    test "an unknown disk is an error, not a new atom" do
+      assert {:error, {:unknown_disk, "nope"}} = Doctor.clean(disk: "nope")
+    end
+  end
 end

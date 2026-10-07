@@ -36,8 +36,6 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
 
   use Mix.Task
 
-  import Ecto.Query
-
   @impl Mix.Task
   def run(args) do
     {opts, _, _} =
@@ -50,13 +48,8 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
         ]
       )
 
-    # Start the application
     Mix.Task.run("app.start")
-
     force? = opts[:force] || false
-    disk = opts[:disk]
-    files_only? = opts[:files_only] || false
-    records_only? = opts[:records_only] || false
 
     Mix.shell().info("""
 
@@ -69,161 +62,69 @@ defmodule Mix.Tasks.PhxMediaLibrary.Clean do
       Mix.shell().info("Use --force to actually delete orphaned items\n")
     end
 
-    disks = get_disks(disk)
+    clean_opts = [
+      disk: opts[:disk],
+      files: !opts[:records_only],
+      records: !opts[:files_only],
+      force: force?
+    ]
 
-    unless records_only? do
-      clean_orphaned_files(disks, force?)
+    case PhxMediaLibrary.Doctor.clean(clean_opts) do
+      {:ok, results} ->
+        unless opts[:records_only], do: report_files(results, force?)
+        unless opts[:files_only], do: report_records(results, force?)
+        Mix.shell().info("\n#{IO.ANSI.green()}✓ Cleanup complete!#{IO.ANSI.reset()}")
+
+      {:error, {:unknown_disk, name}} ->
+        Mix.raise("Unknown disk: #{name}")
     end
-
-    unless files_only? do
-      clean_orphaned_records(disks, force?)
-    end
-
-    Mix.shell().info("\n#{IO.ANSI.green()}✓ Cleanup complete!#{IO.ANSI.reset()}")
   end
 
-  defp get_disks(nil) do
-    Application.get_env(:phx_media_library, :disks, [])
-    |> Keyword.keys()
-  end
-
-  defp get_disks(disk) do
-    [String.to_atom(disk)]
-  end
-
-  defp clean_orphaned_files(disks, force?) do
+  defp report_files(results, force?) do
     Mix.shell().info("\n#{IO.ANSI.cyan()}Checking for orphaned files...#{IO.ANSI.reset()}\n")
 
-    repo = PhxMediaLibrary.Config.repo()
+    Enum.each(results, fn %{disk: disk, files: files} ->
+      Mix.shell().info("Disk: #{disk}")
 
-    Enum.each(disks, fn disk_name ->
-      Mix.shell().info("Disk: #{disk_name}")
+      case files do
+        {:ok, []} ->
+          Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
 
-      config = PhxMediaLibrary.Config.disk_config(disk_name)
-      adapter = config[:adapter]
+        {:ok, paths} ->
+          Mix.shell().info("  Found #{length(paths)} orphaned file(s):")
+          Enum.each(paths, &Mix.shell().info("    #{deleted(force?)}#{&1}"))
 
-      case adapter do
-        PhxMediaLibrary.Storage.Disk ->
-          clean_local_disk(disk_name, config, repo, force?)
+        {:skipped, {:no_root, root}} ->
+          Mix.shell().info("  Storage root doesn't exist: #{root}")
 
-        PhxMediaLibrary.Storage.S3 ->
-          clean_s3_disk(disk_name, config, repo, force?)
-
-        _ ->
-          Mix.shell().info("  Skipping (unsupported adapter)")
+        {:skipped, _reason} ->
+          Mix.shell().info("  Skipping (files are listed on local disks only)")
       end
     end)
   end
 
-  defp clean_local_disk(disk_name, config, repo, force?) do
-    root = config[:root]
-
-    if File.exists?(root) do
-      find_and_report_orphaned_files(disk_name, root, repo, force?)
-    else
-      Mix.shell().info("  Storage root doesn't exist: #{root}")
-    end
-  end
-
-  defp find_and_report_orphaned_files(disk_name, root, repo, force?) do
-    # Get all files in storage
-    storage_files =
-      root
-      |> Path.join("**/*")
-      |> Path.wildcard()
-      |> Enum.filter(&File.regular?/1)
-      |> Enum.map(&Path.relative_to(&1, root))
-      |> MapSet.new()
-
-    # Get all expected paths from database
-    db_paths =
-      from(m in PhxMediaLibrary.Media, where: m.disk == ^to_string(disk_name))
-      |> repo.all()
-      |> Enum.flat_map(&PhxMediaLibrary.Media.owned_paths/1)
-      |> MapSet.new()
-
-    # Find orphaned files
-    orphaned = MapSet.difference(storage_files, db_paths)
-    report_orphaned_files(orphaned, root, force?)
-  end
-
-  defp report_orphaned_files(orphaned, root, force?) do
-    # `map_size/1` on a MapSet counts struct fields, never 0. Compare the set size.
-    if MapSet.size(orphaned) == 0 do
-      Mix.shell().info("  #{IO.ANSI.green()}No orphaned files found#{IO.ANSI.reset()}")
-    else
-      Mix.shell().info("  Found #{MapSet.size(orphaned)} orphaned file(s):")
-
-      Enum.each(orphaned, fn path ->
-        delete_or_report_file(path, root, force?)
-      end)
-    end
-  end
-
-  defp delete_or_report_file(path, root, true = _force?) do
-    full_path = Path.join(root, path)
-    File.rm!(full_path)
-    Mix.shell().info("    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{path}")
-  end
-
-  defp delete_or_report_file(path, _root, false = _force?) do
-    Mix.shell().info("    #{path}")
-  end
-
-  # S3 cleanup requires ExAws.S3.list_objects_v2. It is planned for Milestone 3.
-  defp clean_s3_disk(_disk_name, _config, _repo, _force?) do
-    Mix.shell().info("  S3 cleanup not yet implemented")
-  end
-
-  defp clean_orphaned_records(disks, force?) do
+  defp report_records(results, force?) do
     Mix.shell().info(
       "\n#{IO.ANSI.cyan()}Checking for orphaned database records...#{IO.ANSI.reset()}\n"
     )
 
-    repo = PhxMediaLibrary.Config.repo()
-
-    Enum.each(disks, fn disk_name ->
-      Mix.shell().info("Disk: #{disk_name}")
-
-      storage = PhxMediaLibrary.Config.storage_adapter(disk_name)
-
-      media_items =
-        from(m in PhxMediaLibrary.Media, where: m.disk == ^to_string(disk_name))
-        |> repo.all()
-
-      orphaned = find_orphaned_records(media_items, storage)
-      report_orphaned_records(orphaned, repo, force?)
+    Enum.each(results, fn %{disk: disk, records: records} ->
+      Mix.shell().info("Disk: #{disk}")
+      report_disk_records(records, force?)
     end)
   end
 
-  # A record is orphaned only when none of its files exist. Checking just the
-  # original would flag WebP-only media (keep_original: false, drop_originals).
-  defp find_orphaned_records(media_items, storage) do
-    Enum.reject(media_items, fn media ->
-      media
-      |> PhxMediaLibrary.Media.owned_paths()
-      |> Enum.any?(&PhxMediaLibrary.StorageWrapper.exists?(storage, &1))
+  defp report_disk_records([], _force?),
+    do: Mix.shell().info("  #{IO.ANSI.green()}No orphaned records found#{IO.ANSI.reset()}")
+
+  defp report_disk_records(records, force?) do
+    Mix.shell().info("  Found #{length(records)} orphaned record(s):")
+
+    Enum.each(records, fn media ->
+      Mix.shell().info("    #{deleted(force?)}#{media.file_name} (#{media.id})")
     end)
   end
 
-  defp report_orphaned_records([], _repo, _force?) do
-    Mix.shell().info("  #{IO.ANSI.green()}No orphaned records found#{IO.ANSI.reset()}")
-  end
-
-  defp report_orphaned_records(orphaned, repo, force?) do
-    Mix.shell().info("  Found #{length(orphaned)} orphaned record(s):")
-    Enum.each(orphaned, &delete_or_report_record(&1, repo, force?))
-  end
-
-  defp delete_or_report_record(media, repo, true = _force?) do
-    repo.delete!(media)
-
-    Mix.shell().info(
-      "    #{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: #{media.file_name} (#{media.id})"
-    )
-  end
-
-  defp delete_or_report_record(media, _repo, false = _force?) do
-    Mix.shell().info("    #{media.file_name} (#{media.id})")
-  end
+  defp deleted(true), do: "#{IO.ANSI.red()}Deleted#{IO.ANSI.reset()}: "
+  defp deleted(false), do: ""
 end

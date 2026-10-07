@@ -24,7 +24,7 @@ defmodule PhxMediaLibrary.Doctor do
 
   import Ecto.Query
 
-  alias PhxMediaLibrary.{Config, Health, Media, Pipeline, Telemetry}
+  alias PhxMediaLibrary.{Config, Health, Media, Pipeline, StorageWrapper, Telemetry}
 
   @typedoc "An issue kind, as in `PhxMediaLibrary.Health`."
   @type kind :: atom()
@@ -189,6 +189,222 @@ defmodule PhxMediaLibrary.Doctor do
   """
   @spec repairable() :: [kind()]
   def repairable, do: @repair_order
+
+  @doc """
+  Storage statistics: count and sizes per mediable type and collection, and
+  per disk.
+
+  ## Options
+
+  - `:include_trashed`: count soft-deleted media too
+  - `:collection`, `:type`: only this collection or mediable type
+
+  ## Examples
+
+      {:ok, %{collections: rows, disks: disks}} = PhxMediaLibrary.Doctor.stats(type: "products")
+      hd(rows)  #=> %{mediable_type: "products", collection_name: "images", count: 120, total_size: 48_000_000, avg_size: 400_000}
+
+  """
+  @spec stats(keyword()) :: {:ok, %{collections: [map()], disks: [map()]}}
+  def stats(opts \\ []) do
+    base =
+      from(m in Media)
+      |> stats_trashed(opts[:include_trashed])
+      |> stats_filter(:collection_name, opts[:collection])
+      |> stats_filter(:mediable_type, opts[:type])
+
+    collections =
+      base
+      |> group_by([m], [m.mediable_type, m.collection_name])
+      |> select([m], %{
+        mediable_type: m.mediable_type,
+        collection_name: m.collection_name,
+        count: count(m.id),
+        total_size: sum(m.size),
+        avg_size: avg(m.size)
+      })
+      |> order_by([m], asc: m.mediable_type, asc: m.collection_name)
+      |> Config.repo().all()
+
+    disks =
+      base
+      |> group_by([m], m.disk)
+      |> select([m], %{disk: m.disk, count: count(m.id), total_size: sum(m.size)})
+      |> order_by([m], asc: m.disk)
+      |> Config.repo().all()
+
+    {:ok, %{collections: collections, disks: disks}}
+  end
+
+  defp stats_trashed(query, true), do: query
+
+  defp stats_trashed(query, _include?) do
+    if Media.soft_deletes_enabled?(), do: where(query, [m], is_nil(m.deleted_at)), else: query
+  end
+
+  defp stats_filter(query, _field, nil), do: query
+  defp stats_filter(query, field, value), do: where(query, [m], field(m, ^field) == ^value)
+
+  @doc """
+  Permanently delete soft-deleted media, files included, in batches.
+
+  ## Options
+
+  - `:days`: only media deleted more than this many days ago (default 30)
+  - `:all`: every soft-deleted media item, whatever its age
+  - `:dry_run`: count and list (up to 50), delete nothing
+  - `:batch_size`: see the module docs
+
+  Returns `{:ok, %{count: n, examples: [media]}}` for a dry run, else
+  `{:ok, %{count: n, purged: n, files_failed: n}}`.
+
+  ## Examples
+
+      {:ok, %{count: 12}} = PhxMediaLibrary.Doctor.purge_deleted(days: 7, dry_run: true)
+      {:ok, %{purged: 12}} = PhxMediaLibrary.Doctor.purge_deleted(days: 7)
+
+  """
+  @spec purge_deleted(keyword()) :: {:ok, map()}
+  def purge_deleted(opts \\ []) do
+    query = trashed_query(opts)
+    count = Config.repo().aggregate(query, :count)
+
+    if opts[:dry_run] do
+      examples = query |> order_by([m], asc: m.deleted_at) |> limit(50) |> Config.repo().all()
+      {:ok, %{count: count, examples: examples}}
+    else
+      {purged, failed} =
+        query
+        |> batches(opts)
+        |> Enum.reduce({0, 0}, fn media, {purged, failed} ->
+          files_ok? = delete_files_safely(media)
+          Config.repo().delete!(media)
+          {purged + 1, if(files_ok?, do: failed, else: failed + 1)}
+        end)
+
+      {:ok, %{count: count, purged: purged, files_failed: failed}}
+    end
+  end
+
+  defp trashed_query(opts) do
+    query = from(m in Media, where: not is_nil(m.deleted_at))
+
+    if opts[:all] do
+      query
+    else
+      days = Keyword.get(opts, :days, 30)
+      cutoff = DateTime.utc_now() |> DateTime.add(-days, :day) |> DateTime.truncate(:second)
+      where(query, [m], m.deleted_at < ^cutoff)
+    end
+  end
+
+  defp delete_files_safely(media) do
+    Media.delete_files(media)
+    true
+  rescue
+    _ -> false
+  end
+
+  @doc """
+  Find files in storage that no media owns, and media none of whose files
+  exist, per disk; with `force: true`, delete them. Files are listed on
+  local disks only; records are checked on any disk, in batches.
+
+  ## Options
+
+  - `:disk`: only this disk (default: every configured disk)
+  - `:files`, `:records`: check files, records (both default `true`)
+  - `:force`: delete what was found (default: report only)
+
+  Returns `{:ok, [%{disk: name, files: {:ok, [path]} | {:skipped, reason}, records: [media]}]}`,
+  or `{:error, {:unknown_disk, name}}`.
+
+  ## Examples
+
+      {:ok, [%{disk: :local, files: {:ok, orphaned_files}}]} = PhxMediaLibrary.Doctor.clean(disk: "local")
+
+  """
+  @spec clean(keyword()) :: {:ok, [map()]} | {:error, term()}
+  def clean(opts \\ []) do
+    with {:ok, disks} <- clean_disks(opts[:disk]) do
+      {:ok, Enum.map(disks, &clean_disk(&1, opts))}
+    end
+  end
+
+  defp clean_disk(disk, opts) do
+    files =
+      if Keyword.get(opts, :files, true),
+        do: orphaned_files(disk),
+        else: {:skipped, :not_requested}
+
+    records = if Keyword.get(opts, :records, true), do: orphaned_records(disk, opts), else: []
+    if opts[:force], do: delete_orphans(disk, files, records)
+    %{disk: disk, files: files, records: records}
+  end
+
+  defp clean_disks(nil),
+    do: {:ok, :phx_media_library |> Application.get_env(:disks, []) |> Keyword.keys()}
+
+  defp clean_disks(name) do
+    case Enum.find(
+           Keyword.keys(Application.get_env(:phx_media_library, :disks, [])),
+           &(to_string(&1) == to_string(name))
+         ) do
+      nil -> {:error, {:unknown_disk, name}}
+      disk -> {:ok, [disk]}
+    end
+  end
+
+  defp orphaned_files(disk) do
+    config = Config.disk_config(disk)
+
+    case {config[:adapter], config[:root]} do
+      {PhxMediaLibrary.Storage.Disk, root} when is_binary(root) ->
+        if File.dir?(root),
+          do: {:ok, local_orphans(disk, root)},
+          else: {:skipped, {:no_root, root}}
+
+      {adapter, _root} ->
+        {:skipped, {:unsupported_adapter, adapter}}
+    end
+  end
+
+  defp local_orphans(disk, root) do
+    stored =
+      root
+      |> Path.join("**/*")
+      |> Path.wildcard()
+      |> Enum.filter(&File.regular?/1)
+      |> MapSet.new(&Path.relative_to(&1, root))
+
+    owned =
+      from(m in Media, where: m.disk == ^to_string(disk))
+      |> batches([])
+      |> Enum.reduce(MapSet.new(), fn media, acc -> Enum.into(Media.owned_paths(media), acc) end)
+
+    stored |> MapSet.difference(owned) |> Enum.sort()
+  end
+
+  # A record is orphaned only when none of its files exist: WebP-only media
+  # (keep_original: false) has no original.
+  defp orphaned_records(disk, opts) do
+    storage = Config.storage_adapter(disk)
+
+    from(m in Media, where: m.disk == ^to_string(disk))
+    |> batches(opts)
+    |> Enum.reject(fn media ->
+      media |> Media.owned_paths() |> Enum.any?(&StorageWrapper.exists?(storage, &1))
+    end)
+  end
+
+  defp delete_orphans(disk, files, records) do
+    with {:ok, paths} <- files do
+      root = Config.disk_config(disk)[:root]
+      Enum.each(paths, &File.rm(Path.join(root, &1)))
+    end
+
+    Enum.each(records, fn media -> Config.repo().delete!(media) end)
+  end
 
   # -- Loading ---------------------------------------------------------------
 
