@@ -134,11 +134,12 @@ report; `repair/2` runs the repairs it is given; a telemetry event per
 run. The mix task keeps its flags, output and prompt, and calls the
 module.
 **Acceptance criteria:**
-- [ ] `Doctor.check/1` and `repair/2` give the same results as the mix
-      task, without Mix.
-- [ ] Media is loaded in batches (no whole-table load).
-- [ ] A `[:phx_media_library, :doctor, :run]` telemetry event with the
-      counts.
+- [x] `Doctor.check/1` and `repair/1` give the same results as the mix
+      task, without Mix. (`repair/1` takes options and checks again as it
+      goes, so it never holds a full list of problem media.)
+- [x] Media is loaded in batches (no whole-table load).
+- [x] `[:phx_media_library, :doctor, :check]` and `[..., :repair]`
+      telemetry events with the counts.
 **Verification:** doctor tests run against the module and the task;
 `mix precommit`.
 **Dependencies:** none

@@ -195,7 +195,11 @@ defmodule PhxMediaLibrary.MixProject do
           PhxMediaLibrary.AsyncProcessor.Inline,
           PhxMediaLibrary.Workers.ProcessConversions
         ],
-        "Health and repairs": [PhxMediaLibrary.Health, PhxMediaLibrary.Pipeline],
+        "Health and repairs": [
+          PhxMediaLibrary.Doctor,
+          PhxMediaLibrary.Health,
+          PhxMediaLibrary.Pipeline
+        ],
         "Errors and telemetry": [
           PhxMediaLibrary.Error,
           PhxMediaLibrary.StorageError,

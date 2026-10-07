@@ -49,6 +49,23 @@ All event names begin with `[:phx_media_library, ...]`.
 | `[:phx_media_library, :batch, :stop]` | `%{duration: integer()}` | `%{operation: atom(), count: integer()}` |
 | `[:phx_media_library, :batch, :exception]` | `%{duration: integer()}` | `%{operation: atom(), count: integer(), kind: atom(), reason: term(), stacktrace: list()}` |
 
+### Doctor
+
+Emitted by each `PhxMediaLibrary.Doctor` run (the mix task, a release
+command or a scheduled job), for monitoring and alerting:
+
+| Event | Measurements | Metadata |
+|-------|-------------|----------|
+| `[:phx_media_library, :doctor, :check]` | `%{checked: integer(), errors: integer(), issues: integer()}` | `%{counts: map(), orphans: map() \| nil, backlog: integer() \| nil}` |
+| `[:phx_media_library, :doctor, :repair]` | `%{done: integer(), failed: integer()}` | `%{repairs: [atom()], rebuild: [atom()]}` |
+
+```elixir
+:telemetry.attach("media-health", [:phx_media_library, :doctor, :check], fn
+  _event, %{errors: errors}, _meta, _config when errors > 0 -> MyApp.Alerts.notify(:media_errors, errors)
+  _event, _measurements, _meta, _config -> :ok
+end, nil)
+```
+
 ### Remote downloads
 
 Emitted when you add media from a URL via `add_from_url/3`.

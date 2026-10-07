@@ -82,6 +82,14 @@ mix phx_media_library.install
 can. Without flags it only reports. Repairs show their plan and ask before
 running (`--yes` skips the question, `--dry-run` only shows the plan).
 
+The same checks and repairs are plain functions in `PhxMediaLibrary.Doctor`,
+for code that runs without Mix (a scheduled job, an admin page):
+
+```elixir
+{:ok, report} = PhxMediaLibrary.Doctor.check(model: "products")
+{:ok, %{done: done, failed: 0}} = PhxMediaLibrary.Doctor.repair(repairs: [:missing_placeholder])
+```
+
 ```bash
 mix phx_media_library.doctor                       # report
 mix phx_media_library.doctor --regenerate          # missing conversions, WebP, AVIF, variants, placeholders

@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they got them whenever the global `responsive_images` switch was on (its
   default). To keep them, set `responsive: true` on the collection.
 
+### Added
+- `PhxMediaLibrary.Doctor.check/1` and `repair/1`: the doctor's checks and
+  repairs as plain functions, without Mix, for releases, scheduled jobs
+  and admin pages. Media is read in batches (`:batch_size`, `:pause`), and
+  each run emits a `[:phx_media_library, :doctor, :check | :repair]`
+  telemetry event with its counts. `mix phx_media_library.doctor` now
+  wraps them.
+
 ## [0.9.0] - 2026-10-04
 
 See [Upgrading to 0.9](guides/upgrading-to-0.9.md) for what to do after

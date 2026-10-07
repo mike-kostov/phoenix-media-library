@@ -26,7 +26,9 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   other settings: after changing a collection's conversion, WebP, AVIF,
   responsive or placeholder settings, run `--rebuild` for it.
 
-  See `PhxMediaLibrary.Health` for the checks as functions.
+  The task is a thin wrapper: the checks and repairs are
+  `PhxMediaLibrary.Doctor.check/1` and `repair/1`, which also run without
+  Mix (in a release, a scheduled job, an admin page).
 
   ## Usage
 
@@ -84,9 +86,7 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
 
   use Mix.Task
 
-  import Ecto.Query
-
-  alias PhxMediaLibrary.{Config, Health, Media, Pipeline}
+  alias PhxMediaLibrary.{Doctor, Health}
 
   @switches [
     regenerate: :boolean,
@@ -162,154 +162,95 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
     info(IO.ANSI.cyan() <> IO.ANSI.bright() <> "PhxMediaLibrary Doctor" <> IO.ANSI.reset())
     info("======================\n")
 
-    media = load_media(opts)
-    results = if opts[:skip_files], do: [], else: check_all(media, opts)
+    report = check(opts)
+    if report.checked > 0, do: info("Checking #{report.checked} media item(s)...\n")
 
-    errors =
-      if opts[:id],
-        do: report_issues(results),
-        else: report_issues(results) + report_orphans(opts) + report_backlog()
+    report_issues(report, opts)
+    report_orphans(report)
+    report_backlog(report)
 
-    run_repairs(results, media, opts)
-    print_summary(errors)
+    run_repairs(report, opts)
+    print_summary(report.errors)
 
-    if opts[:strict] && errors > 0, do: exit({:shutdown, 1})
+    if opts[:strict] && report.errors > 0, do: exit({:shutdown, 1})
   end
 
   # ---------------------------------------------------------------------------
-  # Checking
+  # Checking: PhxMediaLibrary.Doctor does the work
   # ---------------------------------------------------------------------------
 
-  defp load_media(opts) do
-    query = from(m in Media, order_by: [asc: m.inserted_at, asc: m.id])
+  defp check(opts) do
+    check_opts =
+      [
+        id: opts[:id],
+        model: opts[:model],
+        collection: opts[:collection],
+        disk: opts[:disk],
+        deep: opts[:deep] == true,
+        files: !opts[:skip_files],
+        orphans: !opts[:skip_orphans] and is_nil(opts[:id]),
+        backlog: is_nil(opts[:id])
+      ]
 
-    media =
-      [:id, :model, :collection, :disk]
-      |> Enum.reduce(query, fn key, query -> filter(query, key, opts[key]) end)
-      |> Media.exclude_trashed()
-      |> Config.repo().all()
-
-    if opts[:id] && media == [],
-      do: Mix.raise("No media with ID #{opts[:id]} (or it is in the trash)"),
-      else: media
-  end
-
-  defp filter(query, _key, nil), do: query
-
-  defp filter(query, :id, id) do
-    case Ecto.UUID.cast(id) do
-      {:ok, uuid} -> where(query, [m], m.id == ^uuid)
-      :error -> Mix.raise("--id must be a media UUID, got #{inspect(id)}")
+    case Doctor.check(check_opts) do
+      {:ok, report} -> report
+      {:error, {:invalid_id, id}} -> Mix.raise("--id must be a media UUID, got #{inspect(id)}")
+      {:error, {:not_found, id}} -> Mix.raise("No media with ID #{id} (or it is in the trash)")
     end
-  end
-
-  defp filter(query, :model, model),
-    do: where(query, [m], m.mediable_type == ^mediable_type(model))
-
-  defp filter(query, :collection, name), do: where(query, [m], m.collection_name == ^name)
-  defp filter(query, :disk, disk), do: where(query, [m], m.disk == ^disk)
-
-  # "products" or "MyApp.Catalog.Product".
-  defp mediable_type(model) do
-    if model =~ ~r/^[A-Z]/ do
-      module = Module.concat([model])
-      Code.ensure_loaded(module)
-      PhxMediaLibrary.Model.mediable_type(struct(module))
-    else
-      model
-    end
-  end
-
-  defp check_all(media, opts) do
-    info("Checking #{length(media)} media item(s)...\n")
-
-    media
-    |> Enum.map(&{&1, Health.check(&1, deep: opts[:deep])})
-    |> Enum.reject(fn {_media, issues} -> issues == [] end)
   end
 
   # ---------------------------------------------------------------------------
   # Reporting
   # ---------------------------------------------------------------------------
 
-  # Returns the number of error kinds reported.
-  defp report_issues(results) do
-    by_kind =
-      for {media, issues} <- results, issue <- issues, reduce: %{} do
-        acc -> Map.update(acc, kind(issue), [{media, issue}], &[{media, issue} | &1])
-      end
+  defp report_issues(%{counts: counts}, opts) when counts == %{} do
+    unless opts[:skip_files], do: info("#{green("✓")} Files, metadata and names: no issues")
+  end
 
-    if by_kind == %{}, do: info("#{green("✓")} Files, metadata and names: no issues")
-
+  defp report_issues(report, _opts) do
     # Errors first, then repairable issues in the order repairs run.
-    [:no_files, :checksum_mismatch | @repairs |> Keyword.values() |> List.flatten()]
+    [:no_files, :checksum_mismatch | Doctor.repairable()]
     |> Enum.uniq()
-    |> Enum.filter(&Map.has_key?(by_kind, &1))
-    |> Enum.map(fn kind -> report_kind(kind, Enum.reverse(by_kind[kind])) end)
-    |> Enum.sum()
+    |> Enum.filter(&Map.has_key?(report.counts, &1))
+    |> Enum.each(&report_kind(&1, report.counts[&1], report.examples[&1]))
   end
 
-  defp report_kind(kind, items) do
-    error? = Health.error?(kind)
-    mark = if error?, do: red("✗"), else: yellow("!")
-    info("#{mark} #{@labels[kind]}: #{length(items)}  (#{@hints[kind]})")
-
-    items
-    |> Enum.take(5)
-    |> Enum.each(fn {media, issue} -> info("    #{describe(media)}#{detail(issue)}") end)
-
-    if length(items) > 5, do: info("    ... and #{length(items) - 5} more")
-    if error?, do: 1, else: 0
+  defp report_kind(kind, count, examples) do
+    mark = if Health.error?(kind), do: red("✗"), else: yellow("!")
+    info("#{mark} #{@labels[kind]}: #{count}  (#{@hints[kind]})")
+    Enum.each(examples, fn example -> info("    #{describe(example)}#{detail(example)}") end)
+    if count > length(examples), do: info("    ... and #{count - length(examples)} more")
   end
 
-  defp report_orphans(opts) do
-    if opts[:skip_orphans] do
-      0
-    else
-      %{orphans: orphans, unknown_types: unknown} = Health.orphaned_parents()
+  defp report_orphans(%{orphans: nil}), do: :ok
 
-      Enum.each(unknown, fn type ->
-        info("#{yellow("!")} No model found for type '#{type}', skipping its orphan check")
-      end)
-
-      report_orphan_count(orphans)
-    end
-  end
-
-  defp report_orphan_count(orphans) when orphans == %{} do
-    info("#{green("✓")} Orphaned records: none")
-    0
-  end
-
-  defp report_orphan_count(orphans) do
-    count = orphans |> Map.values() |> Enum.map(&length/1) |> Enum.sum()
-    info("#{red("✗")} Media of deleted parent records: #{count} parent(s)")
-
-    Enum.each(orphans, fn {type, ids} ->
-      info("    #{type}: #{ids |> Enum.take(5) |> Enum.map_join(", ", &to_string/1)}")
+  defp report_orphans(%{orphans: orphans, unknown_types: unknown}) do
+    Enum.each(unknown, fn type ->
+      info("#{yellow("!")} No model found for type '#{type}', skipping its orphan check")
     end)
 
-    1
+    if orphans == %{} do
+      info("#{green("✓")} Orphaned records: none")
+    else
+      count = orphans |> Map.values() |> Enum.map(&length/1) |> Enum.sum()
+      info("#{red("✗")} Media of deleted parent records: #{count} parent(s)")
+
+      Enum.each(orphans, fn {type, ids} ->
+        info("    #{type}: #{ids |> Enum.take(5) |> Enum.map_join(", ", &to_string/1)}")
+      end)
+    end
   end
 
-  defp report_backlog do
-    if Media.soft_deletes_enabled?() do
-      cutoff = DateTime.utc_now() |> DateTime.add(-30, :day) |> DateTime.truncate(:second)
-      query = from(m in Media, where: not is_nil(m.deleted_at) and m.deleted_at < ^cutoff)
+  defp report_backlog(%{backlog: nil}), do: :ok
 
-      case Config.repo().aggregate(query, :count) do
-        0 ->
-          info("#{green("✓")} Soft-delete backlog: none older than 30 days")
+  defp report_backlog(%{backlog: 0}),
+    do: info("#{green("✓")} Soft-delete backlog: none older than 30 days")
 
-        count ->
-          info(
-            "#{yellow("!")} Soft-delete backlog: #{count} record(s) older than 30 days " <>
-              "(mix phx_media_library.purge_deleted)"
-          )
-      end
-    end
-
-    0
+  defp report_backlog(%{backlog: count}) do
+    info(
+      "#{yellow("!")} Soft-delete backlog: #{count} record(s) older than 30 days " <>
+        "(mix phx_media_library.purge_deleted)"
+    )
   end
 
   defp print_summary(0), do: info("\n#{green("No errors.")}")
@@ -319,8 +260,14 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
   # Repairs
   # ---------------------------------------------------------------------------
 
-  defp run_repairs(results, media, opts) do
-    plan = repair_plan(results, opts) ++ rebuild_plan(media, opts)
+  defp run_repairs(report, opts) do
+    repairs = for {flag, kinds} <- @repairs, opts[flag], kind <- kinds, do: kind
+    rebuild = if opts[:rebuild], do: rebuild_targets(opts), else: []
+
+    plan =
+      repair_plan(report, repairs) ++ for(what <- rebuild, do: {"Rebuild #{what}", report.images})
+
+    plan = Enum.reject(plan, fn {_label, count} -> count == 0 end)
 
     cond do
       plan == [] ->
@@ -334,31 +281,17 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
         print_plan(plan)
 
         if opts[:yes] || Mix.shell().yes?("\nRun these repairs?"),
-          do: execute(plan),
+          do: execute(opts, repairs, rebuild),
           else: info("Repairs skipped.")
     end
   end
 
-  # [{media, [step]}], where a step is an issue to repair or
-  # {:rebuild, what, conversion_names}.
-  defp repair_plan(results, opts) do
-    selected = for {flag, kinds} <- @repairs, opts[flag], kind <- kinds, do: kind
-    order = @repairs |> Keyword.values() |> List.flatten()
-
-    for {media, issues} <- results,
-        steps = issues |> Enum.filter(&(kind(&1) in selected)) |> sort_by_kind(order),
-        steps != [],
-        do: {media, steps}
-  end
-
-  defp rebuild_plan(media, opts) do
-    if opts[:rebuild] do
-      conversions = Keyword.get_values(opts, :conversion)
-      steps = for what <- rebuild_targets(opts), do: {:rebuild, what, conversions}
-      for m <- media, String.starts_with?(m.mime_type || "", "image/"), do: {m, steps}
-    else
-      []
-    end
+  defp repair_plan(report, repairs) do
+    for kind <- Doctor.repairable(),
+        kind in repairs,
+        count = report.counts[kind],
+        count,
+        do: {"Repair: #{@labels[kind]}", count}
   end
 
   defp rebuild_targets(opts) do
@@ -380,85 +313,47 @@ defmodule Mix.Tasks.PhxMediaLibrary.Doctor do
         "--only accepts conversions, webp, avif, responsive, placeholders; got #{inspect(other)}"
       )
 
-  defp sort_by_kind(issues, order),
-    do: Enum.sort_by(issues, &Enum.find_index(order, fn kind -> kind == kind(&1) end))
-
   defp print_plan(plan) do
-    counts =
-      for {_media, steps} <- plan, step <- steps, reduce: %{} do
-        acc -> Map.update(acc, step_label(step), 1, &(&1 + 1))
-      end
-
     info("\nRepair plan:")
-    Enum.each(counts, fn {label, count} -> info("  #{label}: #{count}") end)
+    Enum.each(plan, fn {label, count} -> info("  #{label}: #{count}") end)
   end
 
-  defp execute(plan) do
+  defp execute(opts, repairs, rebuild) do
     info("")
-    {ok, failed} = Enum.reduce(plan, {0, 0}, &execute_media/2)
-    info("\n#{green("✓")} #{ok} repair(s) done, #{failed} failed")
+
+    {:ok, %{done: done, failed: failed, failures: failures}} =
+      Doctor.repair(
+        id: opts[:id],
+        model: opts[:model],
+        collection: opts[:collection],
+        disk: opts[:disk],
+        deep: opts[:deep] == true,
+        repairs: repairs,
+        rebuild: rebuild,
+        conversions: Keyword.get_values(opts, :conversion)
+      )
+
+    Enum.each(failures, fn %{id: id, step: step, reason: reason} ->
+      info("  #{red("failed")} #{String.slice(id, 0, 8)} #{step_label(step)}: #{inspect(reason)}")
+    end)
+
+    info("\n#{green("✓")} #{done} repair(s) done, #{failed} failed")
   end
-
-  defp execute_media({media, steps}, totals) do
-    {_media, totals} =
-      Enum.reduce(steps, {media, totals}, fn step, {media, {ok, failed}} ->
-        case run_step(media, step) do
-          {:ok, media} ->
-            {media, {ok + 1, failed}}
-
-          {:error, reason} ->
-            info("  #{red("failed")} #{describe(media)} #{step_label(step)}: #{inspect(reason)}")
-            {media, {ok, failed + 1}}
-        end
-      end)
-
-    totals
-  end
-
-  # Runs a step and returns the media to continue with (reloaded, since steps
-  # update the record), or {:error, reason}.
-  defp run_step(media, :no_files) do
-    case Health.repair(media, :no_files) do
-      :ok -> {:ok, media}
-      error -> error
-    end
-  end
-
-  defp run_step(media, {:rebuild, :conversions, only}),
-    do: continue(media, Pipeline.conversions(media, only: only))
-
-  defp run_step(media, {:rebuild, :webp, _}), do: continue(media, Pipeline.webp(media))
-  defp run_step(media, {:rebuild, :avif, _}), do: continue(media, Pipeline.avif(media))
-
-  defp run_step(media, {:rebuild, :placeholders, _}),
-    do: continue(media, Pipeline.placeholder(media))
-
-  defp run_step(media, {:rebuild, :responsive, _}) do
-    of = [nil | Map.keys(media.generated_conversions || %{})]
-    continue(media, Pipeline.responsive(media, of: of))
-  end
-
-  defp run_step(media, issue), do: continue(media, Health.repair(media, issue))
-
-  defp continue(_media, {:error, _} = error), do: error
-  defp continue(media, _ok_or_skip), do: {:ok, Config.repo().reload!(media)}
 
   # ---------------------------------------------------------------------------
   # Helpers
   # ---------------------------------------------------------------------------
 
-  defp kind({kind, _detail}), do: kind
-  defp kind(kind), do: kind
-
   defp step_label({:rebuild, what, _}), do: "Rebuild #{what}"
-  defp step_label(issue), do: "Repair: #{@labels[kind(issue)]}"
+  defp step_label({kind, _detail}), do: "Repair: #{@labels[kind]}"
+  defp step_label(kind), do: "Repair: #{@labels[kind]}"
 
-  defp detail({:missing_conversions, names}), do: ": #{Enum.join(names, ", ")}"
-  defp detail(_issue), do: ""
+  defp detail(%{detail: names}) when is_list(names), do: ": #{Enum.join(names, ", ")}"
+  defp detail(_example), do: ""
 
-  defp describe(media) do
-    "#{String.slice(media.id, 0, 8)} #{media.mediable_type}/#{media.collection_name} " <>
-      media.file_name
+  defp describe(example) do
+    "#{String.slice(example.id, 0, 8)} #{example.mediable_type}/#{example.collection_name} " <>
+      example.file_name
   end
 
   defp info(message), do: Mix.shell().info(message)
