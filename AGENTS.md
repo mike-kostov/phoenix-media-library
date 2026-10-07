@@ -40,8 +40,9 @@ FFmpeg. Tests run on PostgreSQL. Releases go to Hex. There is no CI
   re-argue later, gets an ADR in `docs/decisions/`.
 - Agreed work without a spec yet goes in `docs/backlog.md`. Bugs found
   during a release go into that release.
-- Versioning: fixes go into the current patch line (0.8.x); features and
-  changed behaviour go into the next minor. Ask before deciding which.
+- Versioning: features and changed behaviour go into the minor in progress
+  (0.10.0, which keeps growing until Mike releases it); fixes after a
+  release go into its patch line (0.10.x). Ask before deciding which.
 - Never write a date into a file without checking the real current time
   first.
 

@@ -9,7 +9,7 @@ Done: everything agreed for 0.9.0 is in `docs/specs/01-release-0.9.0.md`
 and `docs/plans/01-release-0.9.0.md`, tagged 2026-10-04. Mike publishes it
 to Hex before 0.10.0, so 0.8.4 users see its deprecation notices first.
 
-## 0.10.0 (specced in `docs/specs/02-release-0.10.0.md`, draft)
+## 0.10.0 (specced in `docs/specs/02-release-0.10.0.md`, approved 2026-10-07; plan `docs/plans/02-release-0.10.0.md`)
 
 Carried into spec 02: F1 formats and C3 indexes (below), plus C1
 removals, C2 responsive rule, P1 database spike, F2 bulk ingestion, F3

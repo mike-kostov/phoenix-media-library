@@ -1,6 +1,8 @@
 # Spec 02: Release 0.10.0
 
-Status: draft, 2026-10-05. Waiting for Mike's review.
+Status: approved (Mike, 2026-10-07). 0.10.0 keeps growing: new features
+are added here as they are agreed; fixes after its release go into 0.10.x.
+Plan: `docs/plans/02-release-0.10.0.md`.
 Source: `docs/backlog.md` (0.10.0 section), `docs/ideas/db-performance.md`,
 `docs/ideas/media-indexes.md`, ADR-017, ADR-024 (amended).
 
