@@ -1,7 +1,7 @@
 # Implementation Plan: Release 0.10.0
 
 Spec: `docs/specs/02-release-0.10.0.md` (approved 2026-10-07)
-Status: draft, waiting for Mike's review (2026-10-07)
+Status: approved (Mike, 2026-10-07)
 Decisions: ADR-016 (removals), ADR-017 (responsive rule), ADR-024
 (amended: formats)
 
