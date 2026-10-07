@@ -486,11 +486,9 @@ config :phx_media_library,
   ]
 ```
 
-Originals get variants only in collections that set `responsive:` (or with
-`with_responsive_images/1`). Conversions get them whenever the global
-`enabled` is on, which is the default; `enabled: false` turns them off.
-A later minor release will make conversions follow their collection too
-(ADR-017).
+Originals and conversions get variants only in collections that set
+`responsive:` (an upload can ask for the original's with
+`with_responsive_images/1`). `enabled: false` turns them off everywhere.
 
 Rebuild responsive variants for existing media after changing widths:
 

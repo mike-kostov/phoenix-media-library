@@ -1,6 +1,9 @@
 # ADR-017: Responsive variants of conversions keep the old default until a minor release
 
 ## Status
+Superseded in 0.10.0 (spec 02, C2; Mike, 2026-10-05): conversions follow
+their collection's `responsive:`, like originals.
+
 Accepted (Mike, 2026-10-04)
 
 ## Date

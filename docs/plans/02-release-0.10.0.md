@@ -100,9 +100,9 @@ would take. Scripts under `tmp/`, results in `docs/ideas/db-performance.md`.
 collection sets `responsive:` (or the upload asks), like originals.
 `Model.conversion_responsive?/2` follows `Model.responsive?/3`.
 **Acceptance criteria:**
-- [ ] In a collection without `responsive:`, conversions get no variants,
+- [x] In a collection without `responsive:`, conversions get no variants,
       whatever the global switch says.
-- [ ] With `responsive: true`, conversions get them as before.
+- [x] With `responsive: true`, conversions get them as before.
 **Verification:** pipeline and responsive tests (tested without the
 library's own config); `mix precommit`.
 **Dependencies:** none

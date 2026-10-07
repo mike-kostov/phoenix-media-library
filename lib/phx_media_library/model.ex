@@ -248,23 +248,19 @@ defmodule PhxMediaLibrary.Model do
   defp image_library?, do: Code.ensure_loaded?(Image)
 
   @doc """
-  Whether responsive variants are generated for a collection's conversions.
-
-  Unlike the original, conversions get variants whenever the global
-  `responsive_images` switch is on (its default), or when the collection
-  opts in. This is the long-standing default, kept until a minor release
-  unifies the two rules.
+  Whether responsive variants are generated for a collection's conversions:
+  the same rule as for the original (`responsive?/3`), so only collections
+  that set `responsive:` get them (ADR-017; before 0.10, conversions got
+  them whenever the global switch was on).
 
   ## Examples
 
-      PhxMediaLibrary.Model.conversion_responsive?(post, :images)
+      PhxMediaLibrary.Model.conversion_responsive?(post, :photos)
       #=> true
 
   """
   @spec conversion_responsive?(target(), atom() | String.t()) :: boolean()
-  def conversion_responsive?(target, collection_name) do
-    Config.responsive_images_enabled?() or responsive?(target, collection_name)
-  end
+  def conversion_responsive?(target, collection_name), do: responsive?(target, collection_name)
 
   @doc """
   The maximum image size in pixels for a collection: its `max_pixels:`, or

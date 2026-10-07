@@ -68,11 +68,13 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
   end
 
   test "crops keep their own variants", %{jpeg: jpeg} do
-    media = add(jpeg, :images)
-    files = responsive_files(media)
+    media = add(jpeg, :responsive_webp)
+    wide = PhxMediaLibrary.Conversion.new(:wide, width: 800, height: 200, fit: :crop)
+    :ok = PhxMediaLibrary.Conversions.process(media, [wide])
+    media = TestRepo.get!(Media, media.id)
 
-    assert Enum.any?(files, &(&1 =~ ~r/_banner_\d+w\./))
-    refute media.responsive_images["banner"]["reuses"]
+    assert Enum.any?(responsive_files(media), &(&1 =~ ~r/_wide_\d+w\./))
+    refute media.responsive_images["wide"]["reuses"]
   end
 
   test "a WebP conversion doesn't reuse JPEG variants of the original", %{jpeg: jpeg} do

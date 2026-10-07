@@ -29,7 +29,7 @@ defmodule PhxMediaLibrary.Config do
   | `:webp` | off | `true` or `[quality:, keep_original:, max_dimension:]` |
   | `:avif` | off | `true` or `[quality:]` |
   | `:placeholder` | `:blur` | `:blur`, `:color`, `false` or `[size: px]` |
-  | `:responsive_images` | `[enabled: true, widths: [320, 640, 960, 1280, 1920]]` | Widths for `srcset`; `enabled: false` stops variants of conversions |
+  | `:responsive_images` | `[enabled: true, widths: [320, 640, 960, 1280, 1920]]` | Widths for `srcset`; `enabled: false` turns variants off everywhere |
   | `:max_image_pixels` | `100_000_000` | Largest image accepted, in pixels |
   | `:async_processor` | `PhxMediaLibrary.AsyncProcessor.Task` | Background work: `Task`, `Oban` or `Inline` |
   | `:image_processor` | `PhxMediaLibrary.ImageProcessor.Image` when `:image` is installed | Image backend |

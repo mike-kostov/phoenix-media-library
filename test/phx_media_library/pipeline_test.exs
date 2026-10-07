@@ -106,18 +106,6 @@ defmodule PhxMediaLibrary.PipelineTest do
       assert Enum.sort(widths) == [160, 320, 400]
     end
 
-    test "conversions keep getting variants by default, with the global widths", %{png: png} do
-      # :images doesn't opt in; the global switch (default on) still applies
-      # to conversions — the long-standing default.
-      media = add(png, :images)
-      assert :ok = Conversions.process(media, [Conversion.new(:big, width: 360)])
-
-      widths =
-        Repo.reload!(media).responsive_images["big"]["variants"] |> Enum.map(& &1["width"])
-
-      assert Enum.sort(widths) == [320, 360]
-    end
-
     # A crop: same-shape conversions reuse the original's variants (ADR-024).
     test "conversions use the collection's widths when it sets them", %{png: png} do
       media = add(png, :responsive_plain)
@@ -128,6 +116,18 @@ defmodule PhxMediaLibrary.PipelineTest do
         Repo.reload!(media).responsive_images["big"]["variants"] |> Enum.map(& &1["width"])
 
       assert Enum.sort(widths) == [160, 320, 360]
+    end
+
+    # ADR-017, spec 02 C2: one rule for originals and conversions.
+    test "conversions follow their collection: no responsive:, no variants", %{png: png} do
+      restore_env_on_exit(:responsive_images)
+      Application.put_env(:phx_media_library, :responsive_images, enabled: true)
+
+      media = add(png, :images)
+      wide = Conversion.new(:wide, width: 360, height: 100, fit: :crop)
+      assert :ok = Conversions.process(media, [wide])
+
+      refute get_in(Repo.reload!(media).responsive_images, ["wide", "variants"])
     end
 
     test "conversions get no variants when the global switch is off", %{png: png} do
@@ -165,10 +165,11 @@ defmodule PhxMediaLibrary.PipelineTest do
       refute get_in(media.responsive_images, ["original", "variants"])
     end
 
-    test "conversions get variants (the global switch defaults to on)", %{png: png} do
+    test "conversions get no variants unless their collection opts in", %{png: png} do
       media = add(png, :images)
-      assert :ok = Conversions.process(media, [Conversion.new(:big, width: 360)])
-      assert Map.has_key?(Repo.reload!(media).responsive_images, "big")
+      wide = Conversion.new(:wide, width: 360, height: 100, fit: :crop)
+      assert :ok = Conversions.process(media, [wide])
+      refute get_in(Repo.reload!(media).responsive_images, ["wide", "variants"])
     end
 
     test "a global enabled: false blocks with_responsive_images/1", %{png: png} do

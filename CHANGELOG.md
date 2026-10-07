@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `regenerate_responsive` and `drop_originals`: use
     `mix phx_media_library.doctor --rebuild --only conversions|webp|responsive`
     and `--drop-originals`.
+- **One responsive rule** (ADR-017). Conversions get responsive variants
+  only when their collection sets `responsive:`, like originals; before,
+  they got them whenever the global `responsive_images` switch was on (its
+  default). To keep them, set `responsive: true` on the collection.
 
 ## [0.9.0] - 2026-10-04
 
