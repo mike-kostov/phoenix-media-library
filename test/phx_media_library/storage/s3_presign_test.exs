@@ -20,10 +20,10 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
     |> Map.fetch!("conditions")
   end
 
-  describe "Storage.S3.presigned_upload_url/3" do
+  describe "Storage.S3.presigned_upload/3 on a :post disk" do
     test "returns a presigned POST whose policy enforces size, type and key" do
-      assert {:ok, url, fields} =
-               S3.presigned_upload_url(
+      assert {:ok, %{method: :post, url: url, fields: fields}} =
+               S3.presigned_upload(
                  "posts/1/uuid/photo.jpg",
                  [content_type: "image/jpeg", content_length_range: {0, 5_000_000}],
                  @s3
@@ -40,7 +40,7 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
     end
 
     test "omits conditions that weren't asked for" do
-      assert {:ok, _url, fields} = S3.presigned_upload_url("a/b.jpg", [], @s3)
+      assert {:ok, %{fields: fields}} = S3.presigned_upload("a/b.jpg", [], @s3)
 
       refute Map.has_key?(fields, "Content-Type")
       refute Enum.any?(policy_conditions(fields), &match?(["content-length-range" | _], &1))
@@ -60,7 +60,6 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
         disks
         |> Keyword.put(:s3, [adapter: S3] ++ @s3)
         |> Keyword.put(:s3_put, [adapter: S3, direct_upload: :put] ++ @s3)
-        |> Keyword.put(:legacy, adapter: PhxMediaLibrary.LegacyPresignAdapter)
       )
     end
 
@@ -142,32 +141,6 @@ defmodule PhxMediaLibrary.Storage.S3PresignTest do
                )
 
       assert ["content-length-range", 0, 500] in policy_conditions(fields)
-    end
-
-    test "an adapter with only the old callback is treated as POST" do
-      assert {:ok, %{method: :post, url: "https://legacy.example.com", fields: fields}} =
-               PhxMediaLibrary.presigned_upload(create_test_post(), :documents,
-                 filename: "notes.txt",
-                 disk: :legacy
-               )
-
-      assert fields == %{"legacy" => "yes"}
-    end
-
-    # Called through apply/3: the function is deprecated.
-    test "presigned_upload_url/3 still returns {:ok, url, fields, key}" do
-      post = create_test_post()
-      args = [post, :documents, [filename: "notes.txt", disk: :s3]]
-
-      assert {:ok, url, %{"key" => key}, key} =
-               apply(PhxMediaLibrary, :presigned_upload_url, args)
-
-      assert url =~ "media-bucket"
-
-      args = [post, :documents, [filename: "notes.txt", disk: :s3_put]]
-      assert {:ok, put_url, fields, key} = apply(PhxMediaLibrary, :presigned_upload_url, args)
-      assert fields == %{}
-      assert put_url =~ "/media-bucket/#{key}?"
     end
   end
 end

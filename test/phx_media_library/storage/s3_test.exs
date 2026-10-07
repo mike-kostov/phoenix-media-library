@@ -103,11 +103,11 @@ defmodule PhxMediaLibrary.Storage.S3Test do
          %{prefix: prefix, s3: s3} do
       path = "#{prefix}/upload.txt"
 
-      {:ok, url, fields} =
-        S3.presigned_upload_url(
+      {:ok, %{method: :post, url: url, fields: fields}} =
+        S3.presigned_upload(
           path,
           [content_type: "text/plain", content_length_range: {0, 10}],
-          s3
+          Keyword.put(s3, :direct_upload, :post)
         )
 
       assert url =~ Keyword.fetch!(s3, :endpoint)

@@ -111,6 +111,8 @@ defmodule PhxMediaLibrary.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
+      # The CHANGELOG names functions that later releases removed.
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       extras: [
         "README.md",
         "guides/getting-started.md",

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+- Removed what 0.9.0 deprecated:
+  - `PhxMediaLibrary.presigned_upload_url/3`: use `presigned_upload/3`,
+    which returns the method, URL, fields, headers and key.
+  - The `presigned_upload_url/3` storage callback: custom adapters
+    implement `presigned_upload/3`.
+  - `mix phx_media_library.regenerate`, `regenerate_webp`,
+    `regenerate_responsive` and `drop_originals`: use
+    `mix phx_media_library.doctor --rebuild --only conversions|webp|responsive`
+    and `--drop-originals`.
+
 ## [0.9.0] - 2026-10-04
 
 See [Upgrading to 0.9](guides/upgrading-to-0.9.md) for what to do after

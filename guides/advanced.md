@@ -99,9 +99,8 @@ exist, all or `--only conversions,webp,avif,responsive,placeholders`
 `--collection` or `--disk`. `--strict` exits with status 1 when it finds
 errors, for scheduled jobs.
 
-The doctor replaces `regenerate`, `regenerate_webp`,
-`regenerate_responsive` and `drop_originals`, which still run, print a
-notice, and go in 0.10.0.
+The doctor replaced `regenerate`, `regenerate_webp`,
+`regenerate_responsive` and `drop_originals`, which were removed in 0.10.
 
 ### Clean orphaned files
 

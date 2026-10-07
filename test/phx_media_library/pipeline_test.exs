@@ -9,7 +9,6 @@ defmodule PhxMediaLibrary.PipelineTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias Mix.Tasks.PhxMediaLibrary.DropOriginals
   alias PhxMediaLibrary.{Config, Conversion, Conversions, Media, PathGenerator, Pipeline}
   alias PhxMediaLibrary.TestRepo, as: Repo
 
@@ -77,7 +76,7 @@ defmodule PhxMediaLibrary.PipelineTest do
   end
 
   describe "drop_original/2" do
-    test "mix drop_originals honours the collection's keep_original without --model", %{png: png} do
+    test "honours the collection's keep_original", %{png: png} do
       media = add(png, :webp_only)
       original = PathGenerator.full_path(media, nil)
       refute File.exists?(original)
@@ -85,7 +84,7 @@ defmodule PhxMediaLibrary.PipelineTest do
       # Bring the original back, as if it predates keep_original: false.
       File.cp!(png, original)
 
-      DropOriginals.run([])
+      assert :ok = Pipeline.drop_original(media)
       refute File.exists?(original)
     end
 

@@ -101,24 +101,6 @@ defmodule PhxMediaLibrary.Storage do
               {:ok, presigned_upload()} | {:error, term()}
 
   @doc """
-  Deprecated: implement `presigned_upload/3` instead. Adapters that only
-  implement this callback keep working, as a form POST, until 0.10.0.
-
-  Returns `{:ok, url, fields}` where `url` is the upload endpoint and
-  `fields` is a map of form fields the client sends with the file in a
-  `multipart/form-data` POST.
-
-  ## Options
-
-  - `:expires_in`: URL expiration in seconds (default: adapter-specific)
-  - `:content_type`: expected content type of the upload
-  - `:content_length_range`: `{min, max}` byte range tuple for upload size validation
-
-  """
-  @callback presigned_upload_url(path(), presigned_opts(), opts()) ::
-              {:ok, String.t(), map()} | {:error, term()}
-
-  @doc """
   Return a stored object's size and its first bytes (up to `header_bytes`),
   without reading the whole object.
 
@@ -129,7 +111,7 @@ defmodule PhxMediaLibrary.Storage do
   @callback stat(path(), header_bytes :: pos_integer(), opts()) ::
               {:ok, %{size: non_neg_integer(), header: binary()}} | {:error, term()}
 
-  @optional_callbacks [path: 2, presigned_upload: 3, presigned_upload_url: 3, stat: 3]
+  @optional_callbacks [path: 2, presigned_upload: 3, stat: 3]
 
   @doc """
   Percent-encode each segment of a storage path for use in a URL.

@@ -294,9 +294,10 @@ object that fails is deleted and the call returns `{:error, reason}`; a
 missing one returns `{:error, :not_found}`.
 
 Before 0.9 the upload was a presigned `PUT` returned by
-`presigned_upload_url/3`, now deprecated. On AWS disks a client that still
-sends a `PUT` gets an error from S3: switch it to the uploader above, or
-set `direct_upload: :put` on the disk and send the signed `content-type`.
+`presigned_upload_url/3`, removed in 0.10. On AWS disks a client that
+still sends a `PUT` gets an error from S3: switch it to the uploader above,
+or set `direct_upload: :put` on the disk and send the signed
+`content-type`.
 
 ## Per-collection disk override
 

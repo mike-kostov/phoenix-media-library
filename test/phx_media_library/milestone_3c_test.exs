@@ -1044,27 +1044,22 @@ defmodule PhxMediaLibrary.Milestone3cTest do
   end
 
   # =========================================================================
-  # Storage behaviour: presigned_upload_url callback
+  # Storage behaviour: presigned_upload callback
   # =========================================================================
 
-  describe "storage behaviour: presigned_upload_url/3 optional callback" do
-    test "Disk adapter does not export presigned_upload_url/3" do
-      Code.ensure_loaded(Storage.Disk)
-      refute function_exported?(Storage.Disk, :presigned_upload_url, 3)
-    end
+  describe "storage behaviour: presigned_upload/3 optional callback" do
+    test "Disk and Memory adapters don't export it; S3 does" do
+      for adapter <- [Storage.Disk, Storage.Memory] do
+        Code.ensure_loaded(adapter)
+        refute function_exported?(adapter, :presigned_upload, 3)
+      end
 
-    test "Memory adapter does not export presigned_upload_url/3" do
-      Code.ensure_loaded(Storage.Memory)
-      refute function_exported?(Storage.Memory, :presigned_upload_url, 3)
-    end
-
-    test "S3 adapter exports presigned_upload_url/3" do
       Code.ensure_loaded(Storage.S3)
-      assert function_exported?(Storage.S3, :presigned_upload_url, 3)
+      assert function_exported?(Storage.S3, :presigned_upload, 3)
     end
   end
 
-  describe "storage wrapper: presigned_upload_url/3" do
+  describe "storage wrapper: presigned_upload/3" do
     test "returns {:error, :not_supported} for adapters without the callback" do
       storage = %StorageWrapper{
         adapter: Storage.Memory,
@@ -1072,7 +1067,7 @@ defmodule PhxMediaLibrary.Milestone3cTest do
       }
 
       assert {:error, :not_supported} =
-               StorageWrapper.presigned_upload_url(storage, "test/path.txt")
+               StorageWrapper.presigned_upload(storage, "test/path.txt", [])
     end
   end
 

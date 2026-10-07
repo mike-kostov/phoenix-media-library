@@ -86,10 +86,11 @@ would take. Scripts under `tmp/`, results in `docs/ideas/db-performance.md`.
 `StorageWrapper`), and the `regenerate`, `regenerate_webp`,
 `regenerate_responsive` and `drop_originals` tasks.
 **Acceptance criteria:**
-- [ ] The functions, callback and tasks are gone; nothing references
+- [x] The functions, callback and tasks are gone; nothing references
       them; tests that covered them are removed or moved to their
       replacements.
-- [ ] CHANGELOG and upgrade notes name each replacement.
+- [x] CHANGELOG and upgrade notes name each replacement. (CHANGELOG now;
+      the 0.10 upgrade guide in Task 20.)
 **Verification:** `mix compile --warnings-as-errors`; `mix precommit`.
 **Dependencies:** none
 **Scope:** S

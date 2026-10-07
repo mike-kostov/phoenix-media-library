@@ -946,31 +946,6 @@ defmodule PhxMediaLibrary do
   end
 
   @doc """
-  Deprecated: use `presigned_upload/3`, which also tells the browser the
-  method and headers to use. Removed in 0.10.0.
-
-  Returns `{:ok, url, fields, key}`: the form fields for a `:post` disk, or
-  an empty map for a `:put` disk (the browser must send the content type
-  that was signed, `:content_type` or the type of the filename). Takes the
-  same options as `presigned_upload/3`.
-
-  ## Examples
-
-      {:ok, url, fields, key} =
-        PhxMediaLibrary.presigned_upload_url(post, :images, filename: "photo.jpg")
-
-  """
-  @deprecated "Use PhxMediaLibrary.presigned_upload/3 instead"
-  @spec presigned_upload_url(Ecto.Schema.t(), atom(), keyword()) ::
-          {:ok, String.t(), map(), String.t()} | {:error, term()}
-  def presigned_upload_url(model, collection_name, opts \\ []) do
-    case presigned_upload(model, collection_name, opts) do
-      {:ok, %{url: url, fields: fields, key: key}} -> {:ok, url, fields, key}
-      {:error, _} = error -> error
-    end
-  end
-
-  @doc """
   Complete a direct (presigned) upload by creating the `Media` record.
 
   Call this after the client has finished uploading directly to storage.

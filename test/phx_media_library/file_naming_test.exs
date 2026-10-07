@@ -96,7 +96,7 @@ defmodule PhxMediaLibrary.FileNamingTest do
     assert Media.alt_text(media) == "Summer Photo"
   end
 
-  test "direct uploads store under the name presigned_upload_url chose" do
+  test "direct uploads store under the name presigned_upload chose" do
     post = create_test_post()
     storage_path = "posts/#{post.id}/#{Ecto.UUID.generate()}/posts_x_images_y.jpg"
 

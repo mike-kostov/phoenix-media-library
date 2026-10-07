@@ -318,11 +318,6 @@ if Code.ensure_loaded?(ExAws.S3) do
       end
     end
 
-    # Deprecated callback: always a form POST.
-    @impl true
-    def presigned_upload_url(path, presigned_opts, opts),
-      do: presigned_post(path, presigned_opts, options(opts))
-
     defp presigned_post(path, presigned_opts, opts) do
       bucket = Keyword.fetch!(opts, :bucket)
       content_type = Keyword.get(presigned_opts, :content_type)
