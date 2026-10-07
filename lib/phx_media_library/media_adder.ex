@@ -191,7 +191,9 @@ defmodule PhxMediaLibrary.MediaAdder do
         resolve_file_path(path, custom_filename)
 
       # Plug.Upload must come before generic map pattern
-      %Plug.Upload{path: path, filename: original_filename} ->
+      # A map pattern, not %Plug.Upload{}: Plug is optional (apps without it
+      # still compile).
+      %{__struct__: Plug.Upload, path: path, filename: original_filename} ->
         resolve_file_path(path, custom_filename || original_filename)
 
       # Phoenix.LiveView.UploadEntry or similar map with path/filename
@@ -575,24 +577,29 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp coerce_float(_), do: 0.0
 
-  defp maybe_generate_blurhash(media, file_path) do
-    case PhxMediaLibrary.Blurhash.generate(file_path) do
-      {:ok, hash} ->
-        updated_responsive =
-          Map.put(media.responsive_images || %{}, "blurhash", hash)
+  # Blurhash needs the optional :image library; without it there is nothing
+  # to generate (and no clause to compile that could never match).
+  if Code.ensure_loaded?(Image) do
+    defp maybe_generate_blurhash(media, file_path) do
+      case PhxMediaLibrary.Blurhash.generate(file_path) do
+        {:ok, hash} ->
+          updated_responsive = Map.put(media.responsive_images || %{}, "blurhash", hash)
 
-        case media
-             |> Ecto.Changeset.change(responsive_images: updated_responsive)
-             |> Config.repo().update() do
-          {:ok, updated_media} -> updated_media
-          {:error, _} -> media
-        end
+          case media
+               |> Ecto.Changeset.change(responsive_images: updated_responsive)
+               |> Config.repo().update() do
+            {:ok, updated_media} -> updated_media
+            {:error, _} -> media
+          end
 
-      {:error, _} ->
-        # Blurhash generation failed (e.g. unsupported format). Don't
-        # fail the upload, just skip the placeholder.
-        media
+        {:error, _} ->
+          # Blurhash generation failed (e.g. unsupported format). Don't
+          # fail the upload, just skip the placeholder.
+          media
+      end
     end
+  else
+    defp maybe_generate_blurhash(media, _file_path), do: media
   end
 
   # The file is already stored; don't leave it behind if the insert fails.
@@ -655,7 +662,7 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   defp source_type({:url, _, _}), do: :url
   defp source_type({:url, _}), do: :url
-  defp source_type(%Plug.Upload{}), do: :upload
+  defp source_type(%{__struct__: Plug.Upload}), do: :upload
   defp source_type(%{path: _, filename: _}), do: :upload_entry
   defp source_type(path) when is_binary(path), do: :path
   defp source_type(_), do: :unknown

@@ -197,6 +197,7 @@ defmodule PhxMediaLibrary.MixProject do
         ],
         "Health and repairs": [
           PhxMediaLibrary.Doctor,
+          PhxMediaLibrary.Doctor.CLI,
           PhxMediaLibrary.Health,
           PhxMediaLibrary.Pipeline
         ],

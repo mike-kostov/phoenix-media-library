@@ -152,6 +152,7 @@ $ mix phx_media_library.doctor               # report only
 $ mix phx_media_library.doctor --regenerate  # make missing thumbnails, WebP, AVIF, placeholders
 $ mix phx_media_library.doctor --rename      # move older files to the naming scheme
 $ mix phx_media_library.doctor --id <uuid>   # one media item
+$ bin/media_doctor --regenerate --yes        # in a release (mix phx_media_library.gen.release)
 ```
 
 It finds media with no files left, missing derivatives, lost metadata,

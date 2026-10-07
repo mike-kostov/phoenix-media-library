@@ -161,9 +161,16 @@ the tasks wrap them.
 `rel/overlays/bin/media_doctor` script that passes the mix task's flags,
 the way `mix phx.gen.release` provides `bin/migrate`.
 **Acceptance criteria:**
-- [ ] The generated script runs the doctor in a release built from a
+- [x] The generated script runs the doctor in a release built from a
       generated Phoenix app (checked once by hand, steps recorded).
-- [ ] Running the generator twice doesn't overwrite without asking.
+      (2026-10-07, with a plain `mix new --sup` app instead of Phoenix, so
+      no optional dependency was present: path dependency on this repo,
+      Ecto and Postgrex, a Repo and one schema; `mix ecto.create`,
+      `mix phx_media_library.install`, `mix ecto.migrate`,
+      `mix phx_media_library.gen.release`, `MIX_ENV=prod mix release`;
+      `bin/media_doctor` printed the report and exited 0, and exited 2 for
+      `--id 42`. The check found spec 02's B1, fixed in the same commit.)
+- [x] Running the generator twice doesn't overwrite without asking.
 **Verification:** generator tests; one manual release check; `mix precommit`.
 **Dependencies:** Task 5
 **Scope:** M

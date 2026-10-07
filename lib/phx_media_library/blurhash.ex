@@ -185,6 +185,9 @@ defmodule PhxMediaLibrary.Blurhash do
         {r, g, b}
       end
     end
+
+    # Components must be in 1–9; values outside that range are clamped.
+    defp clamp_components(n), do: clamp(n, 1, 9)
   else
     @doc """
     Returns `false`. The `:image` library is not available.
@@ -351,7 +354,4 @@ defmodule PhxMediaLibrary.Blurhash do
   # ---------------------------------------------------------------------------
 
   defp clamp(v, min_v, max_v), do: max(min_v, min(max_v, v))
-
-  # Components must be in 1–9; values outside that range are clamped.
-  defp clamp_components(n), do: clamp(n, 1, 9)
 end

@@ -136,6 +136,18 @@ the default. 0.10.0 makes conversions follow their collection too: no
 use. Existing apps get an optional migration and an upgrade note. P1 may
 add to this.
 
+### Bugs
+
+**B1. The library compiles without its optional dependencies.** (Found
+2026-10-07, in Task 7's release check.) In an app without Phoenix
+LiveView, compiling the library failed: `ViewHelpers`, `Components`,
+`MediaLive` and `LiveUpload` used LiveView unguarded, and `MediaAdder`
+matched `%Plug.Upload{}`, which needs Plug. Without `:image` it warned
+(an unused function in `Blurhash`, a never-matching clause in
+`MediaAdder`). Present in 0.9.0 and before.
+- An app with none of the optional dependencies compiles the library
+  with no errors and no warnings.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

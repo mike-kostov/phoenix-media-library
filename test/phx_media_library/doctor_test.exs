@@ -4,6 +4,7 @@ defmodule PhxMediaLibrary.DoctorTest do
   import PhxMediaLibrary.Fixtures
 
   alias PhxMediaLibrary.{Config, Doctor, Media, PathGenerator, StorageWrapper}
+  alias PhxMediaLibrary.Doctor.CLI
   alias PhxMediaLibrary.TestRepo, as: Repo
 
   @moduletag :db
@@ -169,6 +170,27 @@ defmodule PhxMediaLibrary.DoctorTest do
 
     test "an unknown disk is an error, not a new atom" do
       assert {:error, {:unknown_disk, "nope"}} = Doctor.clean(disk: "nope")
+    end
+  end
+
+  describe "CLI.main/1, what bin/media_doctor runs" do
+    import ExUnit.CaptureIO
+
+    test "prints the report and returns the exit status", %{png: png} do
+      media = add(png)
+
+      output =
+        capture_io(fn -> assert 0 == CLI.main(["--id", media.id]) end)
+
+      assert output =~ "PhxMediaLibrary Doctor"
+      assert output =~ "Checking 1 media item(s)"
+    end
+
+    test "invalid arguments return 2 and go to standard error" do
+      stderr =
+        capture_io(:stderr, fn -> assert 2 == CLI.main(["--id", "42"]) end)
+
+      assert stderr =~ "--id must be a media UUID"
     end
   end
 end

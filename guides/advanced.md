@@ -90,6 +90,14 @@ for code that runs without Mix (a scheduled job, an admin page):
 {:ok, %{done: done, failed: 0}} = PhxMediaLibrary.Doctor.repair(repairs: [:missing_placeholder])
 ```
 
+In a release there is no `mix`. `mix phx_media_library.gen.release`
+generates `rel/overlays/bin/media_doctor`, which takes the same flags:
+
+```bash
+mix phx_media_library.gen.release       # once, in your project
+bin/media_doctor --regenerate --yes     # in the release
+```
+
 ```bash
 mix phx_media_library.doctor                       # report
 mix phx_media_library.doctor --regenerate          # missing conversions, WebP, AVIF, variants, placeholders
