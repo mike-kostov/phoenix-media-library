@@ -366,6 +366,48 @@ Not recommended now:
 - **SQLite now.** Little library code changes; the cost is a second test
   setup. Better after recommendation 2.
 
+## Rerun with the 0.10 changes, 100k (2026-10-08)
+
+Method: `tmp/db-spike/rerun_100k.md` (scripts `run_rerun.sh`,
+`import_bench.exs`, `bench.exs --mode current --indexes lean`). The
+library as of plan 02 Task 19: derivative data in the insert, the job's
+start and final update (C4, F6), lean indexes (C3), UUIDv7 (C5), compact
+responsive data (C6). Postgres 18.6 in this repo's own container; the
+first spike ran on 17.10 elsewhere, and 18 turns data checksums on by
+default, which roughly doubles WAL for the same writes. So the old setup
+was rerun on 18 in the same session as the baseline. Two runs per side;
+cells show both. p95 varies up to twofold between identical runs.
+
+| 100k | First spike (17) | Before, on 18 | After |
+|---|---|---|---|
+| Heavy upload: statements | 4 SELECT, 1 INSERT, 6 UPDATE | | 2 SELECT, 1 INSERT, 2 UPDATE |
+| Heavy upload: index entries, WAL, commits | 15, 7.7 kB, 7 | | 3, 3.8 kB, 3 |
+| Plain, bare upload WAL | 4.2, 1.1 kB | | 3.4, 0.8 kB |
+| Idle p95, preload `:images` / `:media` | 6.3 / 16.5 ms | 8.8–11.7 / 18.3–32.3 | 3.1–5.1 / 8.2–9.4 |
+| 100/s p95, preload `:images` / `:media` | 8.1 / 21.9 ms | 12.9–14.9 / 38.5–38.9 | 4.4–9.6 / 15.3–20.3 |
+| 100/s p95, `get_media` / join | 1.04 / 9.5 ms | 1.8–2.0 / 16.8–18.0 | 1.5–1.6 / 10.8–12.7 |
+| 100/s writer statement p95 | 23 ms | 51–56 | 26–51 |
+| 100/s per upload: WAL, dead rows | 9.8 kB, 2.1 | 11.6 kB, 1.8 | 4.6 kB, 0.9 |
+| 100/s index growth | 12.3 MB | 11 MB | 1.5 MB |
+| 20/s HOT updates, dead rows per upload | 75%, 2.0 | 80%, 1.4 | 36–58%, 1.4 |
+
+- Writes did what the spike predicted: a third of the statements and a
+  fifth of the index entries per heavy upload, WAL per upload down 60% at
+  100/s, dead rows halved, index growth down from 11 to 1.5 MB.
+- Reads: preload `:media` p95 about halved. The idle runs show it comes
+  from the rows: compact `responsive_images` keeps the heavy row out of
+  TOAST. That row is 1,992 bytes against the 2,032-byte threshold, so a
+  big EXIF block or long names could push it back (not measured).
+- HOT updates fell at 20/s: the insert now carries most of the row, and
+  the final update rewrites about 2 kB of it, which often no longer fits
+  on its page. Fillfactor may be worth retesting (backlog).
+- `import_media/2`: 836 rows/s for 10,000 small JPEGs on local disk,
+  against 9,390 for raw `insert_all`. The inserts are 7% of the time;
+  checking and storing files is 82%. 15% went to a position lookup per
+  file that the batch then replaced; fixed after this run.
+- Not run: the jobs' updates after an import, imports from URLs or S3,
+  real photos with EXIF, 1M rows.
+
 ## Not measured
 
 - Anything on a dedicated database host; every latency here shares a

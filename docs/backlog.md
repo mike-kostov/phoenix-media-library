@@ -70,6 +70,12 @@ Found during 0.9.0 (Mike, 2026-10-04):
   `phx-media-library-db` (README, Contributing), started 2026-10-08 when
   the database the tests had borrowed went away; next, start it from
   `test_helper.exs` like Ministack.
+- Retest fillfactor on the media table with the 0.10 write pattern: the
+  100k rerun saw HOT updates at 20/s fall from 80% to 36–58%, as the
+  job's final update rewrites about 2 kB of a row the insert filled
+  (`docs/ideas/db-performance.md`, the 0.10 rerun).
+- Measure how close real rows (photos with EXIF, long names) come to the
+  TOAST threshold: the heavy test row is 1,992 bytes against 2,032.
 - Try the `:gcs` preset on a real bucket: put, multipart, ranged GET,
   signed GET and PUT, and whether POST forms with `X-Amz-*` fields work
   (`docs/ideas/gcs.md` lists what Google's docs don't confirm).
