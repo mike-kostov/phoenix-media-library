@@ -192,6 +192,78 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
+  The formats a conversion (or, with `nil`, a collection's responsive
+  variants) is made in, in priority order: the last is the safe one, which
+  plain URLs and `<img>` use.
+
+  The first of these that is set wins:
+
+  1. the conversion's `formats:` (or `format: x`, which is `formats: [x]`)
+  2. the collection's `formats:`, else its `avif:` (`avif: true` is
+     `[:avif, :webp]`; `avif: false` drops AVIF from the global list)
+  3. `config :phx_media_library, formats:`, else the global `avif:`
+  4. `[:webp]`
+
+  Files libvips can't convert (SVG, PDF, video) keep their own format,
+  `[original: []]`, unless the conversion lists formats itself.
+
+  ## Examples
+
+      PhxMediaLibrary.Model.formats(post, :photos, "image/jpeg")
+      #=> [avif: [quality: 50], webp: []]
+
+      PhxMediaLibrary.Model.formats(post, :photos, "image/jpeg", thumb_conversion)
+      #=> [webp: []]
+
+  """
+  @spec formats(target(), atom() | String.t(), String.t() | nil, Conversion.t() | nil) ::
+          Config.formats()
+  def formats(target, collection_name, mime_type, conversion \\ nil) do
+    cond do
+      match?(%Conversion{formats: [_ | _]}, conversion) -> conversion.formats
+      not convertible?(mime_type) -> [original: []]
+      true -> collection_formats(collection(target, collection_name))
+    end
+  end
+
+  defp convertible?(mime_type),
+    do: PhxMediaLibrary.Webp.convertible?(mime_type) or mime_type == "image/webp"
+
+  defp collection_formats(%Collection{formats: [_ | _] = formats}), do: formats
+
+  defp collection_formats(%Collection{avif: avif}) when not is_nil(avif) do
+    settings = Config.resolve_avif(avif)
+
+    if settings[:enabled],
+      do: avif_shorthand(settings),
+      else: without_avif(global_formats())
+  end
+
+  defp collection_formats(_collection), do: global_formats()
+
+  defp global_formats do
+    settings = Config.resolve_avif(nil)
+
+    cond do
+      formats = Config.formats() -> formats
+      settings[:enabled] -> avif_shorthand(settings)
+      true -> [webp: []]
+    end
+  end
+
+  defp avif_shorthand(settings) do
+    avif = if settings[:quality], do: [quality: settings[:quality]], else: []
+    [avif: avif, webp: []]
+  end
+
+  defp without_avif(formats) do
+    case Keyword.delete(formats, :avif) do
+      [] -> [webp: []]
+      formats -> formats
+    end
+  end
+
+  @doc """
   Resolved responsive-image settings for a collection: its `responsive:`
   override merged over the global config (see
   `PhxMediaLibrary.Config.resolve_responsive/1`).

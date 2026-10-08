@@ -553,6 +553,7 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:fit` - Resize strategy (`:contain`, `:cover`, `:fill`, `:crop`)
   - `:quality` - Output quality for JPEG/WebP (1-100)
   - `:format` - Output format (`:jpg`, `:png`, `:webp`, `:original`)
+  - `:formats` - Output formats in priority order, e.g. `[:avif, :webp]` (see `PhxMediaLibrary.Model.formats/4`)
   - `:collections` - Only apply to these collections (default: all)
   - `:queued` - Process asynchronously (default: true)
 
@@ -583,6 +584,7 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:fit` - Resize strategy (`:contain`, `:cover`, `:fill`, `:crop`)
   - `:quality` - Output quality for JPEG/WebP (1-100)
   - `:format` - Output format (`:jpg`, `:png`, `:webp`, `:original`)
+  - `:formats` - Output formats in priority order, e.g. `[:avif, :webp]` (see `PhxMediaLibrary.Model.formats/4`)
   - `:collections` - Only apply to these collections (default: all)
   - `:queued` - Process asynchronously (default: true)
 

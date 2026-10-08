@@ -242,8 +242,8 @@ tests; `mix precommit`.
 `:original`; default `[:webp]`; `avif: true` and a conversion's
 `format: x` as shorthands. `Model` resolves it.
 **Acceptance criteria:**
-- [ ] Every combination resolves to the documented ordered list.
-- [ ] Invalid formats are a clear configuration error.
+- [x] Every combination resolves to the documented ordered list.
+- [x] Invalid formats are a clear configuration error.
 **Verification:** model and config tests; `mix precommit`.
 **Dependencies:** none
 **Scope:** S

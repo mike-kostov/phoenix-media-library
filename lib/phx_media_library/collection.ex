@@ -42,6 +42,10 @@ defmodule PhxMediaLibrary.Collection do
     `config :phx_media_library, :placeholder` (`:blur` unless configured).
   - `:responsive`: responsive-images override, same shape (`true`/`false`/keyword
     with `widths:`), merged over the global `config :phx_media_library, :responsive`.
+  - `:formats`: the formats of the collection's conversions and responsive
+    variants, in priority order: `[:avif, :webp]`, or with options,
+    `[avif: [quality: 50], webp: [quality: 80]]`. `nil` (default) uses
+    `config :phx_media_library, :formats`. See `PhxMediaLibrary.Model.formats/4`.
 
   """
 
@@ -60,7 +64,8 @@ defmodule PhxMediaLibrary.Collection do
     :webp,
     :avif,
     :responsive,
-    :placeholder
+    :placeholder,
+    :formats
   ]
 
   @type override :: boolean() | keyword() | nil
@@ -80,7 +85,8 @@ defmodule PhxMediaLibrary.Collection do
           webp: override(),
           avif: override(),
           responsive: override(),
-          placeholder: :blur | :color | false | keyword() | nil
+          placeholder: :blur | :color | false | keyword() | nil,
+          formats: PhxMediaLibrary.Config.formats() | nil
         }
 
   @doc """
@@ -102,6 +108,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:avif` - AVIF override: `true`/`false`/keyword (`quality:`), merged over global config (default: inherit)
   - `:responsive` - Responsive-images override: `true`/`false`/keyword, merged over global (default: inherit)
   - `:placeholder` - `:blur`, `:color`, `false` or `[size: px]` (default: global `:placeholder`, else `:blur` at 32px)
+  - `:formats` - Formats of conversions and variants, in priority order (default: global `:formats`, else `[:webp]`)
 
   ## Examples
 
@@ -112,6 +119,8 @@ defmodule PhxMediaLibrary.Collection do
       Collection.new(:hero, webp: [quality: 90, keep_original: false], responsive: [widths: [640, 1280]])
 
       Collection.new(:avatar, single_file: true, max_size: 2_000_000)
+
+      Collection.new(:photos, formats: [avif: [quality: 50], webp: [quality: 80]])
 
       Collection.new(:documents,
         accepts: ~w(application/pdf),
@@ -138,7 +147,18 @@ defmodule PhxMediaLibrary.Collection do
       webp: Keyword.get(opts, :webp),
       avif: Keyword.get(opts, :avif),
       responsive: Keyword.get(opts, :responsive),
-      placeholder: Keyword.get(opts, :placeholder)
+      placeholder: Keyword.get(opts, :placeholder),
+      formats: formats(name, opts)
     }
+  end
+
+  defp formats(name, opts) do
+    with {:ok, value} <- Keyword.fetch(opts, :formats),
+         {:error, message} <- PhxMediaLibrary.Config.normalize_formats(value) do
+      raise ArgumentError, "collection #{inspect(name)}: " <> message
+    else
+      {:ok, formats} -> formats
+      :error -> nil
+    end
   end
 end

@@ -28,6 +28,7 @@ defmodule PhxMediaLibrary.Config do
   | `:file_naming` | `:semantic` | Stored filenames: `:semantic`, `:slug` or `:random` (`PhxMediaLibrary.FileName`) |
   | `:webp` | off | `true` or `[quality:, keep_original:, max_dimension:]` |
   | `:avif` | off | `true` or `[quality:]` |
+  | `:formats` | `[:webp]` | Formats of conversions and responsive variants, in priority order: `[:avif, :webp]`, `[avif: [quality: 50], webp: [quality: 80]]` |
   | `:placeholder` | `:blur` | `:blur`, `:color`, `false` or `[size: px]` |
   | `:responsive_images` | `[enabled: true, widths: [320, 640, 960, 1280, 1920]]` | Widths for `srcset`; `enabled: false` turns variants off everywhere |
   | `:max_image_pixels` | `100_000_000` | Largest image accepted, in pixels |
@@ -253,6 +254,108 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @avif_defaults [enabled: false, quality: nil]
+
+  @formats [:avif, :webp, :jpg, :png, :original]
+
+  @typedoc "A normalized `formats:` list: each format with its options, in priority order."
+  @type formats :: [{:avif | :webp | :jpg | :png | :original, keyword()}]
+
+  @doc """
+  Normalize a `formats:` value: atoms, or formats with options
+  (`quality:`), in priority order. `:jpeg` is `:jpg`; `:original` is the
+  uploaded file's format.
+
+  ## Examples
+
+      iex> PhxMediaLibrary.Config.normalize_formats([:avif, webp: [quality: 80]])
+      {:ok, [avif: [], webp: [quality: 80]]}
+
+      iex> PhxMediaLibrary.Config.normalize_formats([:gif])
+      {:error, "formats: [:gif]: unknown format :gif; use :avif, :webp, :jpg, :png or :original"}
+
+  """
+  @spec normalize_formats(term()) :: {:ok, formats()} | {:error, String.t()}
+  def normalize_formats(value) when is_list(value) and value != [] do
+    normalized = Enum.map(value, &normalize_format/1)
+
+    cond do
+      error = Enum.find(normalized, &match?({:error, _}, &1)) ->
+        {:error, "formats: #{inspect(value)}: " <> elem(error, 1)}
+
+      length(Enum.uniq_by(normalized, &elem(&1, 0))) != length(normalized) ->
+        {:error, "formats: #{inspect(value)}: a format is listed twice"}
+
+      true ->
+        {:ok, normalized}
+    end
+  end
+
+  def normalize_formats(value),
+    do: {:error, "formats: must be a non-empty list, got #{inspect(value)}"}
+
+  defp normalize_format({format, opts}) when is_list(opts) do
+    with {format, []} <- normalize_format(format),
+         :ok <- format_options(format, opts) do
+      {format, opts}
+    end
+  end
+
+  defp normalize_format(:jpeg), do: {:jpg, []}
+  defp normalize_format(format) when format in @formats, do: {format, []}
+
+  defp normalize_format(other) do
+    {:error, "unknown format #{inspect(other)}; use :avif, :webp, :jpg, :png or :original"}
+  end
+
+  defp format_options(format, opts) do
+    case Keyword.pop(opts, :quality) do
+      {quality, []} when is_nil(quality) or quality in 1..100 ->
+        :ok
+
+      {_quality, []} ->
+        {:error, "quality of #{inspect(format)} must be 1..100"}
+
+      {_quality, other} ->
+        {:error, "unknown options #{inspect(Keyword.keys(other))} for #{inspect(format)}"}
+    end
+  end
+
+  @doc """
+  Like `normalize_formats/1`, but raises `ArgumentError` on an invalid
+  value: a configuration error.
+
+  ## Examples
+
+      iex> PhxMediaLibrary.Config.normalize_formats!([:avif, :webp])
+      [avif: [], webp: []]
+
+  """
+  @spec normalize_formats!(term()) :: formats()
+  def normalize_formats!(value) do
+    case normalize_formats(value) do
+      {:ok, formats} -> formats
+      {:error, message} -> raise ArgumentError, message
+    end
+  end
+
+  @doc """
+  The global `config :phx_media_library, formats:`, normalized, or `nil`
+  when unset (see `PhxMediaLibrary.Model.formats/4` for the defaults).
+  Raises `ArgumentError` when it is invalid.
+
+  ## Examples
+
+      PhxMediaLibrary.Config.formats()
+      #=> [avif: [quality: 50], webp: []]
+
+  """
+  @spec formats() :: formats() | nil
+  def formats do
+    case Application.fetch_env(:phx_media_library, :formats) do
+      {:ok, value} -> normalize_formats!(value)
+      :error -> nil
+    end
+  end
 
   @doc "Global AVIF config (`config :phx_media_library, :avif`)."
   def avif_config do
