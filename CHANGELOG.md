@@ -111,6 +111,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- In a collection with conversions, uploads of files that aren't images
+  (PDFs, text) queued a conversions job that always failed, and Oban
+  retried it. They now queue none.
 - `config :phx_media_library, webp: true`, as documented, raised
   `FunctionClauseError` whenever WebP settings were read, failing every
   image upload; only the keyword form worked. `true` and `false` now work.

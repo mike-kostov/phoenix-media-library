@@ -742,7 +742,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   # can be retried. Otherwise the job stays async and the original is
   # retained.
   defp process_conversions_and_finalize_webp(adder, media, collection_name) do
-    conversions = Model.conversions(adder.model, collection_name)
+    conversions = conversions(adder, media, collection_name)
 
     background? = conversions != [] or placeholder?(adder, media, collection_name)
 
@@ -766,6 +766,11 @@ defmodule PhxMediaLibrary.MediaAdder do
       true ->
         media
     end
+  end
+
+  # Only images are converted; a job for anything else would fail.
+  defp conversions(adder, media, collection_name) do
+    if image?(media.mime_type), do: Model.conversions(adder.model, collection_name), else: []
   end
 
   defp placeholder?(adder, media, collection_name),

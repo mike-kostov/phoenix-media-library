@@ -47,15 +47,20 @@ defmodule PhxMediaLibrary.Conversions do
 
         :ok
 
-      # Placeholders only: they never fail the job.
+      # Placeholders only: they never fail the job. Files that aren't
+      # images have no conversions (and no placeholders).
       fresh when conversions == [] ->
         generate_placeholders(fresh, [])
         :ok
 
       fresh ->
-        LocalSource.with_path(fresh, nil, &process(fresh, conversions, &1))
+        if image?(fresh),
+          do: LocalSource.with_path(fresh, nil, &process(fresh, conversions, &1)),
+          else: :ok
     end
   end
+
+  defp image?(media), do: String.starts_with?(media.mime_type || "", "image/")
 
   defp process(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()

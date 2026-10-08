@@ -204,6 +204,14 @@ every image upload failed; only the keyword form worked. Present in 0.9.0
 and before.
 - `webp: true` and `webp: false` work globally, as `avif:` already did.
 
+**B4. No failing conversion jobs for files that aren't images.** (Found
+2026-10-08 in Task 15.) In a collection with conversions, every upload
+queued a conversions job, whatever the file: for a PDF or a text file the
+job failed ("Failed to find load"), and Oban retried it. Present in 0.9.0
+and before.
+- Files that aren't images queue no conversions, and a job for one
+  succeeds without doing anything.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
