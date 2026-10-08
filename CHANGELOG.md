@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   end of the indexes. Measured at 1M rows: bulk loads 26% faster, the
   primary key and uuid indexes 21% and 23% smaller. The columns don't
   change, and existing ids keep working.
+- Fewer writes per upload: the heaviest upload (WebP, AVIF, responsive
+  variants, conversions and placeholders) wrote its media row 7 times;
+  now once when it is inserted and once at the end of its background job.
+  The upload's derivatives go into the insert, and `Pipeline` steps take
+  `write: false` to return their changes instead of saving them. A failed
+  insert now removes the derivatives too, not only the original.
 
 ### Added
 - `PhxMediaLibrary.Doctor.check/1` and `repair/1`: the doctor's checks and

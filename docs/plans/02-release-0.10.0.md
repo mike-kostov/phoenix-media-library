@@ -130,10 +130,10 @@ upload's WebP, AVIF and responsive results go into the insert; the
 background job ends with one update; `Pipeline` steps can return changes
 instead of writing them; the doctor's repairs still write per step.
 **Acceptance criteria:**
-- [ ] The heaviest upload writes its row once on upload and once more at
+- [x] The heaviest upload writes its row once on upload and once more at
       the end of its background job (counted in a test through Ecto's
       query telemetry).
-- [ ] Uploads, repairs and the doctor give the same media as before.
+- [x] Uploads, repairs and the doctor give the same media as before.
 **Verification:** the full suite; the spike's write count rerun;
 `mix precommit`.
 **Dependencies:** Task 1 checkpoint

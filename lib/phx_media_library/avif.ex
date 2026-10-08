@@ -75,15 +75,15 @@ defmodule PhxMediaLibrary.Avif do
       {:ok, media} = Avif.encode(media, "/tmp/photo.jpg", [quality: nil], storage, "posts/1/u/photo.jpg")
 
   """
-  @spec encode(map(), String.t(), keyword(), term(), String.t()) ::
+  @spec encode(map(), String.t(), keyword(), term(), String.t(), keyword()) ::
           {:ok, map()} | {:error, term()}
-  def encode(media, source_path, settings, storage, orig_storage_path) do
+  def encode(media, source_path, settings, storage, orig_storage_path, opts \\ []) do
     avif_path = Path.rootname(orig_storage_path) <> ".avif"
 
     case Webp.transcode(source_path, :avif, settings, storage, avif_path) do
       {:ok, _dims} ->
         props = Map.put(media.custom_properties || %{}, "avif", avif_path)
-        media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
+        PhxMediaLibrary.Media.save_changes(media, [custom_properties: props], opts)
 
       {:error, reason} = error ->
         Logger.warning(

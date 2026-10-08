@@ -422,44 +422,47 @@ defmodule PhxMediaLibrary.MediaAdder do
     # This avoids loading the entire file into memory.
     with {:ok, checksum} <- stream_and_checksum(storage, storage_path, file_info.path),
          attrs = Map.merge(attrs, %{checksum: checksum, checksum_algorithm: "sha256"}),
-         {:ok, media} <- insert_media_or_remove_file(attrs, storage, storage_path) do
+         media = struct(Media, Map.put(attrs, :id, PhxMediaLibrary.UUIDv7.generate())),
+         derived = derive(media, adder, file_info),
+         {:ok, media} <- insert_or_remove_files(derived) do
       # Handle single file collections
       Model.enforce_collection_limits(adder.model, collection_name, media)
-
-      # The same Pipeline steps repairs use. WebP runs FIRST so responsive
-      # variants inherit the .webp encoding; it reads the uploaded temp file.
-      media = step(media, Pipeline.webp(media, model: adder.model, source: file_info.path))
-      media = step(media, Pipeline.avif(media, model: adder.model, source: file_info.path))
-
-      media =
-        if image?(file_info.mime_type) do
-          step(
-            media,
-            Pipeline.responsive(media, model: adder.model, requested: adder.generate_responsive)
-          )
-        else
-          media
-        end
-
-      # Generate blurhash placeholder when enabled and Image is available.
-      media =
-        if image?(file_info.mime_type) and Config.blurhash_enabled?() do
-          maybe_generate_blurhash(media, file_info.path)
-        else
-          media
-        end
-
-      # Generate poster frame for videos when FFmpeg is available.
-      # Must happen before temp file cleanup so the source file is still present.
-      media =
-        if video?(file_info.mime_type) do
-          maybe_generate_poster(media, file_info.path)
-        else
-          media
-        end
-
       {:ok, media}
     end
+  end
+
+  # The same Pipeline steps repairs use, on the media before it is inserted:
+  # each stores its files and returns its changes in the struct
+  # (`write: false`), so the row is written once (spec 02, C4). WebP runs
+  # first so responsive variants inherit the .webp encoding; the steps read
+  # the uploaded temp file.
+  defp derive(media, adder, file_info) do
+    steps = [model: adder.model, source: file_info.path, write: false]
+
+    media = step(media, Pipeline.webp(media, steps))
+    media = step(media, Pipeline.avif(media, steps))
+
+    media =
+      if image?(file_info.mime_type) do
+        step(
+          media,
+          Pipeline.responsive(media, [requested: adder.generate_responsive] ++ steps)
+        )
+      else
+        media
+      end
+
+    # Generate blurhash placeholder when enabled and Image is available.
+    media =
+      if image?(file_info.mime_type) and Config.blurhash_enabled?(),
+        do: maybe_generate_blurhash(media, file_info.path),
+        else: media
+
+    # Poster frame for videos when FFmpeg is available, while the uploaded
+    # file is still present.
+    if video?(file_info.mime_type),
+      do: maybe_generate_poster(media, file_info.path),
+      else: media
   end
 
   # A failed or skipped derivative never fails the upload; the original is
@@ -547,12 +550,10 @@ defmodule PhxMediaLibrary.MediaAdder do
             "url" => poster_url
           })
 
-        case media
-             |> Ecto.Changeset.change(responsive_images: updated_responsive)
-             |> Config.repo().update() do
-          {:ok, updated_media} -> updated_media
-          {:error, _} -> media
-        end
+        {:ok, media} =
+          Media.save_changes(media, [responsive_images: updated_responsive], write: false)
+
+        media
 
       {:error, _} ->
         media
@@ -585,12 +586,10 @@ defmodule PhxMediaLibrary.MediaAdder do
         {:ok, hash} ->
           updated_responsive = Map.put(media.responsive_images || %{}, "blurhash", hash)
 
-          case media
-               |> Ecto.Changeset.change(responsive_images: updated_responsive)
-               |> Config.repo().update() do
-            {:ok, updated_media} -> updated_media
-            {:error, _} -> media
-          end
+          {:ok, media} =
+            Media.save_changes(media, [responsive_images: updated_responsive], write: false)
+
+          media
 
         {:error, _} ->
           # Blurhash generation failed (e.g. unsupported format). Don't
@@ -602,15 +601,14 @@ defmodule PhxMediaLibrary.MediaAdder do
     defp maybe_generate_blurhash(media, _file_path), do: media
   end
 
-  # The file is already stored; don't leave it behind if the insert fails.
-  defp insert_media_or_remove_file(attrs, storage, storage_path) do
-    result =
-      %Media{}
-      |> Media.changeset(attrs)
-      |> Config.repo().insert()
+  # Every file is already stored (original and derivatives); don't leave
+  # them behind if the insert fails.
+  defp insert_or_remove_files(%Media{} = derived) do
+    attrs = derived |> Map.from_struct() |> Map.take(Media.__schema__(:fields))
+    result = %Media{id: derived.id} |> Media.changeset(attrs) |> Config.repo().insert()
 
     with {:error, _} <- result do
-      StorageWrapper.delete(storage, storage_path)
+      Media.delete_files(derived)
       result
     end
   end

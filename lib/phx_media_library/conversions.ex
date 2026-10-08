@@ -68,17 +68,21 @@ defmodule PhxMediaLibrary.Conversions do
           process_conversion(media, image, conversion, processor, storage)
         end)
 
-      # Update media with generated conversions
       generated =
         for {conversion, {:ok, _name}} <- Enum.zip(conversions, results),
             into: %{},
             do: {to_string(conversion.name), recorded(conversion)}
 
-      # The files exist only if the record says so: a failed write fails
-      # the job, so it can be retried.
-      with :ok <- update_generated_conversions(media, generated) do
-        maybe_generate_responsive_for_conversions(media, results)
-        generate_placeholders(media, results)
+      # The responsive variants and placeholders go into the same struct
+      # (`write: false`), so the job writes the row once (spec 02, C4).
+      derived =
+        %{media | generated_conversions: Map.merge(media.generated_conversions, generated)}
+        |> derive(&maybe_generate_responsive_for_conversions(&1, results, write: false))
+        |> derive(&generate_placeholders(&1, results, write: false))
+
+      changes = Map.take(derived, [:generated_conversions, :responsive_images])
+
+      with :ok <- record(media, changes) do
         conversion_failures(media, results)
       end
     end
@@ -114,7 +118,10 @@ defmodule PhxMediaLibrary.Conversions do
 
     with {:ok, image} <- processor.open(original_path),
          {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do
-      update_generated_conversions(media, %{to_string(conversion.name) => recorded(conversion)})
+      updated =
+        Map.put(media.generated_conversions, to_string(conversion.name), recorded(conversion))
+
+      record(media, generated_conversions: updated)
     end
   end
 
@@ -201,12 +208,10 @@ defmodule PhxMediaLibrary.Conversions do
     %{media | generated_conversions: recorded}
   end
 
-  defp update_generated_conversions(%Media{} = media, new_conversions) do
-    updated = Map.merge(media.generated_conversions, new_conversions)
-
-    case media
-         |> Ecto.Changeset.change(generated_conversions: updated)
-         |> Config.repo().update() do
+  # The files exist only if the record says so: a failed write fails the
+  # job, so it can be retried.
+  defp record(%Media{} = media, changes) do
+    case Media.save_changes(media, changes) do
       {:ok, _media} ->
         :ok
 
@@ -222,18 +227,24 @@ defmodule PhxMediaLibrary.Conversions do
 
   # Responsive variants of the new conversions (see
   # Model.conversion_responsive?/2 for when), with the collection's widths.
-  defp maybe_generate_responsive_for_conversions(media, results) do
+  defp maybe_generate_responsive_for_conversions(media, results, opts) do
     case successful_conversion_names(results) do
-      [] -> :ok
-      names -> Pipeline.responsive(Config.repo().reload!(media), of: names)
+      [] -> :skipped
+      names -> Pipeline.responsive(media, [of: names] ++ opts)
     end
   end
 
   # Placeholders for the original and the new conversions (crops).
-  defp generate_placeholders(media, results) do
-    Pipeline.placeholder(Config.repo().reload!(media),
-      of: [nil | successful_conversion_names(results)]
-    )
+  defp generate_placeholders(media, results, opts \\ []) do
+    Pipeline.placeholder(media, [of: [nil | successful_conversion_names(results)]] ++ opts)
+  end
+
+  # A failed or skipped step leaves the media as it was.
+  defp derive(media, step) do
+    case step.(media) do
+      {:ok, %Media{} = derived} -> derived
+      _skipped_or_failed -> media
+    end
   end
 
   defp successful_conversion_names(results) do

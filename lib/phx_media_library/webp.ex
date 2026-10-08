@@ -51,16 +51,18 @@ defmodule PhxMediaLibrary.Webp do
 
   @doc """
   Same as `generate/5`, but returns `{:ok, media}` or `{:error, reason}`
-  (logged as a warning) so callers can report failures.
+  (logged as a warning) so callers can report failures. With
+  `write: false` in `opts`, the WebP is stored but the record is only
+  updated in the returned struct (see `PhxMediaLibrary.Media.save_changes/3`).
 
   ## Examples
 
       {:ok, media} = Webp.encode(media, "/tmp/photo.jpg", [quality: 82], storage, "posts/1/u/photo.jpg")
 
   """
-  @spec encode(map(), String.t(), keyword(), term(), String.t()) ::
+  @spec encode(map(), String.t(), keyword(), term(), String.t(), keyword()) ::
           {:ok, map()} | {:error, term()}
-  def encode(media, source_path, settings, storage, orig_storage_path) do
+  def encode(media, source_path, settings, storage, orig_storage_path, opts \\ []) do
     settings = Keyword.put_new(settings, :quality, 82)
     webp_path = Path.rootname(orig_storage_path) <> ".webp"
 
@@ -71,7 +73,7 @@ defmodule PhxMediaLibrary.Webp do
           |> Map.put("webp", webp_path)
           |> put_dims(dims)
 
-        media |> Ecto.Changeset.change(custom_properties: props) |> Config.repo().update()
+        PhxMediaLibrary.Media.save_changes(media, [custom_properties: props], opts)
 
       {:error, reason} = error ->
         Logger.warning(

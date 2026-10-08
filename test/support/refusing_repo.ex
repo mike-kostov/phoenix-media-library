@@ -1,12 +1,13 @@
 defmodule PhxMediaLibrary.RefusingRepo do
   @moduledoc """
-  A Repo for tests: reads go to `PhxMediaLibrary.TestRepo`; every `update/2`
-  returns `{:error, :refused}`, as a constraint or validation failure
-  would, so tests can check that callers don't treat it as success.
+  A Repo for tests: reads go to `PhxMediaLibrary.TestRepo`; every `insert/2`
+  and `update/2` returns `{:error, :refused}`, as a constraint or validation
+  failure would, so tests can check that callers don't treat it as success.
   """
 
   alias PhxMediaLibrary.TestRepo
 
+  def insert(_changeset, _opts \\ []), do: {:error, :refused}
   def update(_changeset, _opts \\ []), do: {:error, :refused}
   def get(queryable, id, opts \\ []), do: TestRepo.get(queryable, id, opts)
   def get!(queryable, id, opts \\ []), do: TestRepo.get!(queryable, id, opts)

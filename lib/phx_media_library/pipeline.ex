@@ -18,6 +18,10 @@ defmodule PhxMediaLibrary.Pipeline do
     * `:source`: a local path to the original. Uploads pass the uploaded
       temp file; otherwise the original is read from storage (fetched into a
       temporary file for S3, see `PhxMediaLibrary.LocalSource`).
+    * `:write`: `false` stores the step's files but only applies its
+      changes to the returned media, without writing the row, so a caller
+      can collect several steps and write once (uploads do; repairs write
+      per step). Default `true`.
 
   Steps return `{:ok, media}` (or `:ok`), `{:skip, reason}` when the step
   doesn't apply to this media, or `{:error, reason}`.
@@ -92,7 +96,7 @@ defmodule PhxMediaLibrary.Pipeline do
       true ->
         storage = Config.storage_adapter(media.disk)
         original = PathGenerator.relative_path(media, nil)
-        with_source(media, opts, &Webp.encode(media, &1, settings, storage, original))
+        with_source(media, opts, &Webp.encode(media, &1, settings, storage, original, opts))
     end
   end
 
@@ -134,7 +138,7 @@ defmodule PhxMediaLibrary.Pipeline do
         settings = Keyword.put(settings, :max_dimension, max_dimension)
         storage = Config.storage_adapter(media.disk)
         original = PathGenerator.relative_path(media, nil)
-        with_source(media, opts, &Avif.encode(media, &1, settings, storage, original))
+        with_source(media, opts, &Avif.encode(media, &1, settings, storage, original, opts))
     end
   end
 
@@ -186,7 +190,7 @@ defmodule PhxMediaLibrary.Pipeline do
 
         if placeholders == %{},
           do: {:skip, :no_placeholder},
-          else: update(media, responsive_images: put_placeholders(media, placeholders))
+          else: update(media, [responsive_images: put_placeholders(media, placeholders)], opts)
     end
   end
 
@@ -318,7 +322,11 @@ defmodule PhxMediaLibrary.Pipeline do
         widths = Model.responsive_settings(target, media.collection_name)[:widths]
 
         with {:ok, data} <- generate_variants(media, sources, widths) do
-          update(media, responsive_images: merge_responsive(media.responsive_images || %{}, data))
+          update(
+            media,
+            [responsive_images: merge_responsive(media.responsive_images || %{}, data)],
+            opts
+          )
         end
     end
   end
@@ -592,9 +600,6 @@ defmodule PhxMediaLibrary.Pipeline do
     end
   end
 
-  defp update(media, changes) do
-    media
-    |> Ecto.Changeset.change(changes)
-    |> Config.repo().update()
-  end
+  defp update(media, changes, opts \\ []),
+    do: Media.save_changes(media, changes, write: Keyword.get(opts, :write, true))
 end

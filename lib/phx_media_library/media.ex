@@ -616,6 +616,28 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  Write `changes` to the media's row, or, with `write: false`, only apply
+  them to the struct. Processing steps use it so an upload can collect
+  every step's changes and write its row once (spec 02, C4); repairs write
+  per step.
+
+  ## Examples
+
+      {:ok, media} = Media.save_changes(media, custom_properties: %{"alt" => "A dress"})
+      {:ok, unsaved} = Media.save_changes(media, [responsive_images: data], write: false)
+
+  """
+  @spec save_changes(t(), keyword() | map(), keyword()) ::
+          {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def save_changes(%__MODULE__{} = media, changes, opts \\ []) do
+    changeset = Ecto.Changeset.change(media, changes)
+
+    if Keyword.get(opts, :write, true),
+      do: Config.repo().update(changeset),
+      else: {:ok, Ecto.Changeset.apply_changes(changeset)}
+  end
+
+  @doc """
   Check if a conversion has been generated.
   """
   @spec has_conversion?(t(), atom()) :: boolean()
