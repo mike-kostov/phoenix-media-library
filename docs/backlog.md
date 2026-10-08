@@ -54,6 +54,18 @@ breaking changes are acceptable with a CHANGELOG entry and upgrade notes.
 
 ## After 0.9.0
 
+From the database spike (`docs/ideas/db-performance.md`, Mike 2026-10-08):
+- Monotonic UUIDv7 ids for `id` and `uuid` (recommendation 5): inserts
+  26% faster, primary key and uuid indexes 21% to 23% smaller; about 15
+  lines, no dependency. Mike: interesting; not scheduled yet.
+- SQLite support: the library code uses nothing Postgres-specific; about
+  2 to 4 days, mostly a second test setup. Deferred; better after spec 02's
+  C4 (fewer writes per upload).
+- Compact `responsive_images` (recommendation 6): store widths, derive
+  paths; preload p95 -18%. Deferred until after spec 02's F1 (formats).
+- Autovacuum note in the guides for busy media tables (recommendation 7).
+
+
 Found during 0.9.0 (Mike, 2026-10-04):
 - Try the S3 adapter on a real provider: Cloudflare R2's free tier with
   a real project's images (presigned PUT and its signed Content-Type, uploads
@@ -69,6 +81,10 @@ Found during 0.9.0 (Mike, 2026-10-04):
 Carried over from `PRIORITIES.md`, with what has changed since.
 
 - Library rename: `docs/ideas/library-name.md`.
+- A separate table for responsive variants (Mike, 2026-10-08). The spike
+  found it would add a join or query to every page that shows media; the
+  compact format above is the cheaper win. Revisit if per-media variant
+  sizes become a need.
 - Test factory helpers (ExMachina) for media fixtures in app tests.
 - `Ecto.Multi` integration for transactional add and delete.
 - Custom filename strategies (a function). The built-in strategies of

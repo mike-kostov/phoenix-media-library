@@ -130,11 +130,25 @@ the default. 0.10.0 makes conversions follow their collection too: no
 `responsive: true` on the collection; the upgrade notes say so.
 
 **C3. Media table indexes.** (`docs/ideas/media-indexes.md`, Mike
-2026-10-05) In the installer template: drop the redundant
-(mediable_type, mediable_id) index and the checksum index, make
-(deleted_at) a partial index, and drop (collection_name) unless P1 shows a
-use. Existing apps get an optional migration and an upgrade note. P1 may
+2026-10-05; confirmed by P1, `docs/ideas/db-performance.md`) In the
+installer template: drop (mediable_type, mediable_id) (redundant with the
+three-column index), (collection_name) (only `stats --collection` uses
+it) and the checksum index (no library query reads it); make
+(deleted_at) partial. P1 found no read slower without them; WAL per
+upload drops by a third and index space halves. Existing apps get an optional migration and an upgrade note. P1 may
 add to this.
+
+**C4. Fewer writes per upload.** (Mike, 2026-10-08; recommendation 2 of
+`docs/ideas/db-performance.md`.) Today the heaviest upload writes its
+media row seven times (an insert and six updates); under 100 uploads/s at
+1M rows that slows the app's reads (preload p95 41 ms against 11 ms when
+each row is written once).
+- On upload, the WebP, AVIF and responsive results go into the insert;
+  the background work ends with one update for the conversions, their
+  variants and placeholders.
+- Repairs (the doctor) keep writing per step: `Pipeline` steps can return
+  their changes instead of writing them (ADR-014 holds).
+- No migration; F6's `processing_finished_at` rides on the final update.
 
 ### Bugs
 
@@ -144,7 +158,8 @@ LiveView, compiling the library failed: `ViewHelpers`, `Components`,
 `MediaLive` and `LiveUpload` used LiveView unguarded, and `MediaAdder`
 matched `%Plug.Upload{}`, which needs Plug. Without `:image` it warned
 (an unused function in `Blurhash`, a never-matching clause in
-`MediaAdder`). Present in 0.9.0 and before.
+`MediaAdder`). Present in 0.9.0 and before. Fixed in 0.10.0, with no 0.9.1 (Mike,
+2026-10-08).
 - An app with none of the optional dependencies compiles the library
   with no errors and no warnings.
 

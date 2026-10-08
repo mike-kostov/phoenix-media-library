@@ -75,8 +75,10 @@ would take. Scripts under `tmp/`, results in `docs/ideas/db-performance.md`.
 **Scope:** M
 
 ### Checkpoint: Measure
-- [ ] Mike reviews the spike; spec 02 is updated with what it changes
-      (C3, F2, F6).
+- [x] Mike reviews the spike; spec 02 is updated with what it changes
+      (C3, F2, F6). (2026-10-08: C3 confirmed, C4 and B2 added, F6 rides
+      on C4's final update; UUIDv7, SQLite and compact responsive data
+      to the backlog.)
 
 ### Phase 1: Small changes
 
@@ -120,6 +122,30 @@ Task 1's findings.
 - [ ] The library's queries still use an index (checked with `EXPLAIN`).
 **Verification:** migration tests against Postgres; `mix precommit`.
 **Dependencies:** Task 1 checkpoint
+**Scope:** S
+
+#### Task 4a: Fewer writes per upload (C4)
+**Description:** Per `docs/ideas/db-performance.md` recommendation 2: the
+upload's WebP, AVIF and responsive results go into the insert; the
+background job ends with one update; `Pipeline` steps can return changes
+instead of writing them; the doctor's repairs still write per step.
+**Acceptance criteria:**
+- [ ] The heaviest upload writes its row once on upload and once more at
+      the end of its background job (counted in a test through Ecto's
+      query telemetry).
+- [ ] Uploads, repairs and the doctor give the same media as before.
+**Verification:** the full suite; the spike's write count rerun;
+`mix precommit`.
+**Dependencies:** Task 1 checkpoint
+**Scope:** M
+
+#### Task 4b: Conversion record write errors (B2)
+**Description:** `Conversions.update_generated_conversions/2` returns the
+update's error instead of `:ok`, so the job fails and can retry.
+**Acceptance criteria:**
+- [ ] A failing update makes `Conversions.process/2` return an error.
+**Verification:** conversion tests; `mix precommit`.
+**Dependencies:** none (done with or before Task 4a)
 **Scope:** S
 
 ### Checkpoint: Small changes
