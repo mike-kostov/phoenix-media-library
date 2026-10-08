@@ -148,6 +148,7 @@ defmodule PhxMediaLibrary.MixProject do
           PhxMediaLibrary.Collection,
           PhxMediaLibrary.Conversion,
           PhxMediaLibrary.FileName,
+          PhxMediaLibrary.UUIDv7,
           PhxMediaLibrary.Config
         ],
         "Phoenix and LiveView": [

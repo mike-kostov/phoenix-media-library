@@ -49,7 +49,8 @@ defmodule PhxMediaLibrary.Media do
 
   @mediable_id_type Application.compile_env(:phx_media_library, :mediable_id_type, :binary_id)
 
-  @primary_key {:id, :binary_id, autogenerate: true}
+  # Time-ordered ids (UUIDv7): new rows land at the end of the index.
+  @primary_key {:id, PhxMediaLibrary.UUIDv7, autogenerate: true}
   @foreign_key_type :binary_id
   schema "media" do
     field(:uuid, :string)

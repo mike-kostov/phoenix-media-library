@@ -658,7 +658,7 @@ defmodule PhxMediaLibrary.MediaAdder do
     media
   end
 
-  defp generate_uuid, do: Ecto.UUID.generate()
+  defp generate_uuid, do: PhxMediaLibrary.UUIDv7.generate()
 
   defp source_type({:url, _, _}), do: :url
   defp source_type({:url, _}), do: :url

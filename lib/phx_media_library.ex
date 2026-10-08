@@ -911,7 +911,7 @@ defmodule PhxMediaLibrary do
       storage = Config.storage_adapter(disk)
       content_type = Keyword.get(opts, :content_type) || MIME.from_path(filename)
 
-      uuid = Ecto.UUID.generate()
+      uuid = PhxMediaLibrary.UUIDv7.generate()
       mediable_type = Model.mediable_type(model)
 
       file_name =
@@ -1068,7 +1068,7 @@ defmodule PhxMediaLibrary do
   defp uuid_from_path(storage_path) do
     case storage_path |> Path.dirname() |> Path.basename() |> Ecto.UUID.cast() do
       {:ok, uuid} -> uuid
-      :error -> Ecto.UUID.generate()
+      :error -> PhxMediaLibrary.UUIDv7.generate()
     end
   end
 

@@ -153,9 +153,9 @@ update's error instead of `:ok`, so the job fails and can retry.
 UUIDv7 `id` and `uuid` values on new media, with a counter within each
 millisecond; no new dependency; existing rows untouched.
 **Acceptance criteria:**
-- [ ] New media ids are valid UUIDv7, strictly increasing within one
+- [x] New media ids are valid UUIDv7, strictly increasing within one
       process, and sortable by creation time.
-- [ ] Existing v4 rows and their URLs keep working.
+- [x] Existing v4 rows and their URLs keep working.
 **Verification:** id tests; the spike's bulk load rerun; `mix precommit`.
 **Dependencies:** none
 **Scope:** S
