@@ -221,10 +221,10 @@ tree with a Postgres advisory lock) and `:auto`; a daily `at:` time; only
 listed repairs, never `rename`, `fix` or `drop_originals`; batches with
 pauses; startup checks.
 **Acceptance criteria:**
-- [ ] Disabled by default: no process, no job.
-- [ ] Enabled: one run per day at `at:`, on one node, with only the
+- [x] Disabled by default: no process, no job.
+- [x] Enabled: one run per day at `at:`, on one node, with only the
       allowed repairs; a missing Oban queue warns at startup.
-- [ ] Each run emits the doctor's telemetry event.
+- [x] Each run emits the doctor's telemetry event.
 **Verification:** scheduler tests with a controllable clock; Oban worker
 tests; `mix precommit`.
 **Dependencies:** Task 5

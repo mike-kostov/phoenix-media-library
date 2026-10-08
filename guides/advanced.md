@@ -115,6 +115,27 @@ exist, all or `--only conversions,webp,avif,responsive,placeholders`
 `--collection` or `--disk`. `--strict` exits with status 1 when it finds
 errors, for scheduled jobs.
 
+### The doctor on a schedule
+
+The library can run the doctor once a day by itself, set up from config
+alone:
+
+```elixir
+config :phx_media_library, :doctor_schedule,
+  enabled: true,
+  at: ~T[03:00:00],                                       # UTC
+  repair: [:missing_placeholder, :missing_conversions]   # default [], report only
+```
+
+Each run logs a line with the counts and emits the doctor's telemetry
+events (`[:phx_media_library, :doctor, :check]` and `:repair`), which you
+can alert on. With Oban as a dependency the run is an Oban job in the
+`:default` queue (`oban: [name: Oban, queue: :media]` to change it); else
+a process in the library takes a Postgres advisory lock, so one node runs
+it. Repairs that change URLs or delete things (`:needs_rename`,
+`:no_files`, `:original_not_dropped`) are refused on a schedule. See
+`PhxMediaLibrary.Doctor.Schedule` for every option.
+
 The doctor replaced `regenerate`, `regenerate_webp`,
 `regenerate_responsive` and `drop_originals`, which were removed in 0.10.
 

@@ -56,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   task's flags: `bin/media_doctor --regenerate --yes`. The flags, output
   and prompt live in `PhxMediaLibrary.Doctor.CLI`, shared with the mix
   task.
+- The doctor on a schedule: `config :phx_media_library, :doctor_schedule,
+  enabled: true` runs it daily at `at:` (UTC), report only unless
+  `repair:` lists issue kinds, and logs the counts. It runs as an Oban job
+  when Oban is a dependency, else in a library process under a Postgres
+  advisory lock; one node runs it either way. Off by default; repairs that
+  change URLs or delete things are refused. See
+  `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
 - When the record of a media item's conversions couldn't be updated, the

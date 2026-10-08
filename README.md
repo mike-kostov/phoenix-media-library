@@ -157,7 +157,12 @@ $ bin/media_doctor --regenerate --yes        # in a release (mix phx_media_libra
 
 It finds media with no files left, missing derivatives, lost metadata,
 checksum mismatches (`--deep`) and records whose parent is gone. Repairs
-show their plan and ask first.
+show their plan and ask first. It can also run daily by itself, from
+config:
+
+```elixir
+config :phx_media_library, :doctor_schedule, enabled: true, repair: [:missing_placeholder]
+```
 
 ## Uploads straight to S3 or R2
 
@@ -189,7 +194,7 @@ uploader.
 | **LiveView** | `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers with partial-failure results |
 | **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>` (image with caption) |
 | **Security** | Content-based MIME detection, SHA-256 checksums, safe stored names, SVGs served sandboxed (`Plug.StaticHeaders`) |
-| **Doctor** | `mix phx_media_library.doctor` checks files, metadata, names and checksums, and repairs what it can |
+| **Doctor** | `mix phx_media_library.doctor` checks files, metadata, names and checksums, and repairs what it can; in releases too, and daily from config |
 | **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2` and a purge task |
 | **Batch ops** | `clear_collection/2`, `clear_media/1`, `reorder/3`, `move_to/2` |
 | **Telemetry** | `:start`/`:stop`/`:exception` spans for add, delete, conversion, storage, batch, download |

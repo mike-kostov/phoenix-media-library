@@ -194,11 +194,13 @@ defmodule PhxMediaLibrary.MixProject do
           PhxMediaLibrary.AsyncProcessor.Task,
           PhxMediaLibrary.AsyncProcessor.Oban,
           PhxMediaLibrary.AsyncProcessor.Inline,
-          PhxMediaLibrary.Workers.ProcessConversions
+          PhxMediaLibrary.Workers.ProcessConversions,
+          PhxMediaLibrary.Workers.Doctor
         ],
         "Health and repairs": [
           PhxMediaLibrary.Doctor,
           PhxMediaLibrary.Doctor.CLI,
+          PhxMediaLibrary.Doctor.Schedule,
           PhxMediaLibrary.Health,
           PhxMediaLibrary.Pipeline
         ],
