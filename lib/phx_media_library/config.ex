@@ -235,8 +235,24 @@ defmodule PhxMediaLibrary.Config do
 
   @webp_defaults [enabled: false, quality: 82, keep_original: true, max_dimension: nil]
 
-  @doc "Global WebP config (`config :phx_media_library, :webp`)."
-  def webp_config, do: Application.get_env(:phx_media_library, :webp, [])
+  @doc """
+  Global WebP config (`config :phx_media_library, :webp`): `true`,
+  `false` or a keyword, as a keyword.
+
+  ## Examples
+
+      PhxMediaLibrary.Config.webp_config()
+      #=> [enabled: true]
+
+  """
+  @spec webp_config() :: keyword()
+  def webp_config do
+    case Application.get_env(:phx_media_library, :webp, []) do
+      true -> [enabled: true]
+      false -> [enabled: false]
+      keyword -> keyword
+    end
+  end
 
   @doc """
   Resolve the effective WebP settings for a collection.

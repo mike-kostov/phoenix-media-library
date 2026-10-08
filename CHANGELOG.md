@@ -93,6 +93,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- `config :phx_media_library, webp: true`, as documented, raised
+  `FunctionClauseError` whenever WebP settings were read, failing every
+  image upload; only the keyword form worked. `true` and `false` now work.
 - When the record of a media item's conversions couldn't be updated, the
   error was ignored and the conversion reported success, leaving files the
   record didn't know about. `Conversions.process/2` and `process_single/2`

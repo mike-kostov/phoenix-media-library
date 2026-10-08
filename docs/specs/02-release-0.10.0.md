@@ -189,6 +189,13 @@ leaves files on storage that the record doesn't know about, and the
 caller reports success.
 - A failed update is returned (or at least logged) and the job can retry.
 
+**B3. Global `webp: true` works.** (Found 2026-10-08 in Task 11's
+follow-up.) `config :phx_media_library, webp: true`, as the `Config` docs
+show it, raised `FunctionClauseError` wherever WebP settings were read, so
+every image upload failed; only the keyword form worked. Present in 0.9.0
+and before.
+- `webp: true` and `webp: false` work globally, as `avif:` already did.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
