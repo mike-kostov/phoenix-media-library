@@ -75,7 +75,7 @@ defmodule PhxMediaLibrary.WriteCountTest do
     assert media.custom_properties["avif"]
     assert get_in(media.responsive_images, ["original", "variants"])
     assert get_in(media.responsive_images, ["original", "placeholder"])
-    assert media.generated_conversions["thumb"] == "webp"
+    assert media.generated_conversions["thumb"] == ["avif", "webp"]
     assert File.exists?(PathGenerator.full_path(media, :thumb))
   end
 

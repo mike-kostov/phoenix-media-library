@@ -508,11 +508,19 @@ defmodule PhxMediaLibrary.Pipeline do
   # WebP are named by the path generator; responsive variants are
   # "{name}_..." beside them; anything else (the video poster) keeps its name.
   defp path_moves(media, renamed) do
+    conversions =
+      for name <- Map.keys(media.generated_conversions || %{}),
+          move <-
+            Enum.zip(
+              PathGenerator.conversion_paths(media, name),
+              PathGenerator.conversion_paths(renamed, name)
+            ),
+          do: move
+
     named =
-      [nil | Map.keys(media.generated_conversions || %{})]
-      |> Map.new(
-        &{PathGenerator.relative_path(media, &1), PathGenerator.relative_path(renamed, &1)}
-      )
+      [{PathGenerator.relative_path(media, nil), PathGenerator.relative_path(renamed, nil)}]
+      |> Kernel.++(conversions)
+      |> Map.new()
       |> put_sibling_move(media, renamed, "webp")
       |> put_sibling_move(media, renamed, "avif")
 

@@ -60,18 +60,15 @@ defmodule PhxMediaLibrary.Conversions do
   defp process(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-    conversions = Enum.map(conversions, &in_served_format(media, &1))
+    plans = Enum.map(conversions, &plan(media, &1, processor))
 
     with {:ok, image} <- processor.open(original_path) do
-      results =
-        Enum.map(conversions, fn conversion ->
-          process_conversion(media, image, conversion, processor, storage)
-        end)
+      results = Enum.map(plans, &process_conversion(media, image, &1, processor, storage))
 
       generated =
-        for {conversion, {:ok, _name}} <- Enum.zip(conversions, results),
+        for {{conversion, _formats, recorded}, {:ok, _name}} <- Enum.zip(plans, results),
             into: %{},
-            do: {to_string(conversion.name), recorded(conversion)}
+            do: {to_string(conversion.name), recorded}
 
       # The responsive variants and placeholders go into the same struct
       # (`write: false`), so the job writes the row once (spec 02, C4).
@@ -114,44 +111,69 @@ defmodule PhxMediaLibrary.Conversions do
   defp process_single(%Media{} = media, %Conversion{} = conversion, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
-    conversion = in_served_format(media, conversion)
+    {conversion, _formats, recorded} = plan = plan(media, conversion, processor)
 
     with {:ok, image} <- processor.open(original_path),
-         {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do
-      updated =
-        Map.put(media.generated_conversions, to_string(conversion.name), recorded(conversion))
-
+         {:ok, _} <- process_conversion(media, image, plan, processor, storage) do
+      updated = Map.put(media.generated_conversions, to_string(conversion.name), recorded)
       record(media, generated_conversions: updated)
     end
   end
 
-  defp process_conversion(media, image, %Conversion{} = conversion, processor, storage) do
+  # A conversion with the formats it is made in (Model.formats/4, without
+  # those the image processor can't write) and what generated_conversions
+  # will record for it.
+  defp plan(media, %Conversion{} = conversion, processor) do
+    formats =
+      media
+      |> Model.formats(media.collection_name, media.mime_type, conversion)
+      |> writable(processor)
+
+    {conversion, formats, recorded(media, formats)}
+  end
+
+  # AVIF needs a libvips built with it; without, the other formats are
+  # still made. A list of nothing writable is kept, so the conversion fails.
+  defp writable(formats, processor) do
+    case Enum.filter(formats, &writable?(&1, processor)) do
+      ^formats ->
+        formats
+
+      [] ->
+        formats
+
+      writable ->
+        if Keyword.has_key?(formats, :avif), do: PhxMediaLibrary.Avif.log_unsupported_once()
+        writable
+    end
+  end
+
+  defp writable?({:original, _opts}, _processor), do: true
+
+  defp writable?({format, _opts}, processor),
+    do: PhxMediaLibrary.ImageProcessor.supports_format?(processor, format)
+
+  defp process_conversion(media, image, {conversion, formats, recorded}, processor, storage) do
     telemetry_metadata = %{media: media, conversion: conversion.name}
 
     Telemetry.span([:phx_media_library, :conversion], telemetry_metadata, fn ->
-      conversion_path =
-        PathGenerator.relative_path(with_recorded(media, conversion), conversion.name)
+      paths =
+        PathGenerator.conversion_paths(
+          with_recorded(media, conversion, recorded),
+          conversion.name
+        )
 
-      previous_path = previous_path(media, conversion)
-      temp_path = temp_file_path(conversion_path)
+      previous_paths = previous_paths(media, conversion)
 
       result =
-        try do
-          with {:ok, converted} <- processor.apply_conversion(image, conversion),
-               {:ok, _} <- save_image(processor, converted, temp_path, conversion),
-               {:ok, content} <- File.read(temp_path),
-               :ok <- StorageWrapper.put(storage, conversion_path, content) do
-            # Rebuilt in another format: the old file is no longer owned.
-            if previous_path not in [nil, conversion_path],
-              do: StorageWrapper.delete(storage, previous_path)
-
-            {:ok, conversion.name}
-          else
-            error ->
-              {:error, {conversion.name, error}}
-          end
-        after
-          File.rm(temp_path)
+        with {:ok, converted} <- processor.apply_conversion(image, conversion),
+             :ok <-
+               store_formats(converted, Enum.zip(formats, paths), conversion, processor, storage) do
+          # Rebuilt in other formats: the old files are no longer owned.
+          Enum.each(previous_paths -- paths, &StorageWrapper.delete(storage, &1))
+          {:ok, conversion.name}
+        else
+          error -> {:error, {conversion.name, error}}
         end
 
       stop_metadata =
@@ -164,47 +186,65 @@ defmodule PhxMediaLibrary.Conversions do
     end)
   end
 
-  defp save_image(processor, image, path, conversion) do
-    opts =
-      [
-        format: conversion.format,
-        quality: conversion.quality
-      ]
-      |> Enum.reject(fn {_, v} -> is_nil(v) end)
-
-    processor.save(image, path, opts)
+  # The resized image, saved in each format to its path. A format's own
+  # quality wins over the conversion's.
+  defp store_formats(image, formats_and_paths, conversion, processor, storage) do
+    Enum.reduce_while(formats_and_paths, :ok, fn {{format, opts}, path}, :ok ->
+      case store_format(
+             image,
+             format,
+             opts[:quality] || conversion.quality,
+             path,
+             processor,
+             storage
+           ) do
+        :ok -> {:cont, :ok}
+        error -> {:halt, error}
+      end
+    end)
   end
 
-  # Without its own format:, a conversion is saved in the collection's
-  # served format (ADR-024).
-  defp in_served_format(media, %Conversion{format: nil} = conversion) do
-    format = Model.conversion_format(media, media.collection_name, media.mime_type)
-    %{conversion | format: format}
-  end
+  defp store_format(image, format, quality, path, processor, storage) do
+    temp_path = temp_file_path(path)
+    opts = Enum.reject([format: format, quality: quality], fn {_, v} -> is_nil(v) end)
 
-  defp in_served_format(_media, conversion), do: conversion
+    try do
+      with {:ok, _} <- processor.save(image, temp_path, opts),
+           {:ok, content} <- File.read(temp_path) do
+        StorageWrapper.put(storage, path, content)
+      end
+    after
+      File.rm(temp_path)
+    end
+  end
 
   # Where the conversion was stored before, if it was generated already.
-  defp previous_path(media, conversion) do
+  defp previous_paths(media, conversion) do
     if Map.has_key?(media.generated_conversions || %{}, to_string(conversion.name)),
-      do: PathGenerator.relative_path(media, conversion.name)
+      do: PathGenerator.conversion_paths(media, conversion.name),
+      else: []
   end
 
-  # What generated_conversions records for a conversion: the extension of
-  # its format, which PathGenerator puts on its file, or `true` when it
-  # keeps the original's (no format, or `:original`).
-  defp recorded(%Conversion{format: format}) when format in [nil, :original], do: true
-  defp recorded(%Conversion{format: :jpeg}), do: "jpg"
-  defp recorded(%Conversion{format: format}), do: Atom.to_string(format)
+  # What generated_conversions records for a conversion, which
+  # PathGenerator turns into its files' extensions: for one format, its
+  # extension, or `true` for the original's (as before 0.10); for several,
+  # their extensions in priority order.
+  defp recorded(_media, [{format, _opts}]), do: extension(format)
 
-  defp with_recorded(%Media{} = media, %Conversion{} = conversion) do
-    recorded =
-      Map.put(
-        media.generated_conversions || %{},
-        to_string(conversion.name),
-        recorded(conversion)
-      )
+  defp recorded(media, formats) do
+    original =
+      media |> PathGenerator.relative_path(nil) |> Path.extname() |> String.trim_leading(".")
 
+    Enum.map(formats, fn {format, _opts} ->
+      if format == :original, do: original, else: extension(format)
+    end)
+  end
+
+  defp extension(:original), do: true
+  defp extension(format), do: Atom.to_string(format)
+
+  defp with_recorded(%Media{} = media, %Conversion{} = conversion, recorded) do
+    recorded = Map.put(media.generated_conversions || %{}, to_string(conversion.name), recorded)
     %{media | generated_conversions: recorded}
   end
 

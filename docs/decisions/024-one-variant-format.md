@@ -37,8 +37,20 @@ your own `<img>` tags), so:
 - An ordered, per-collection and per-conversion `formats:` list (AVIF and
   WebP side by side, quality per format) is planned for 0.10.0 (backlog).
 
+## Amendment 2 (2026-10-08, spec 02 F1)
+The `formats:` list replaces the fixed rules for conversions and, from
+0.10.0, variants:
+- Each conversion is made in every listed format, in priority order. The
+  last format is the safe one: plain URLs and the `<img>` use it, so a
+  plain URL is still never AVIF unless the list ends with AVIF.
+- The default is `[:webp]`, so 0.9's behaviour is unchanged.
+  `avif: true` is short for `[:avif, :webp]`.
+- Responsive variants follow the same list (spec 02, task 11). This
+  reverses "Variants in both AVIF and WebP" below, but only for apps that
+  list both: storing each size twice is then their choice.
+
 The rules below are the original decision; where they conflict, the
-amendment wins.
+amendments win, the later one first.
 
 ## Decision
 - Responsive variants are generated only in the best format that is on:

@@ -127,7 +127,8 @@ The image components do the page-speed work for you:
 - **The right size.** With `responsive: true`, `srcset` lists every
   variant, and lazy images default to `sizes="auto, 100vw"`, so supporting
   browsers measure the slot instead of assuming the full screen.
-- **Small formats.** Conversions are WebP by default. `webp: true` also
+- **Small formats.** Conversions are WebP by default, or every format in
+  `formats: [:avif, :webp]`, with the last one in plain URLs. `webp: true` also
   serves the original as WebP; `avif: true` adds an AVIF of the original
   and its sizes, which `<.picture>` and `<.responsive_img>` offer first,
   with WebP or the original as the fallback. A plain URL is never AVIF,

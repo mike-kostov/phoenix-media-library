@@ -393,7 +393,7 @@ defmodule PhxMediaLibrary.Media do
     conversions =
       (media.generated_conversions || %{})
       |> Map.keys()
-      |> Enum.map(&PathGenerator.relative_path(media, &1))
+      |> Enum.flat_map(&PathGenerator.conversion_paths(media, &1))
 
     # The served WebP and the AVIF beside the original.
     siblings =

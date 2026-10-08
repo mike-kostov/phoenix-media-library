@@ -75,10 +75,11 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
     assert html =~ "srcset="
   end
 
-  test "no conversion, conversion variant or plain URL is AVIF", %{jpeg: jpeg} do
+  test "no conversion variant or plain URL is AVIF", %{jpeg: jpeg} do
     media = add(jpeg, :avif_responsive)
 
-    assert media.generated_conversions |> Map.values() |> Enum.all?(&(&1 == "webp"))
+    # Conversions are AVIF and WebP (spec 02, F1); their URLs are the WebP.
+    assert media.generated_conversions |> Map.values() |> Enum.all?(&(&1 == ["avif", "webp"]))
 
     for {key, %{"variants" => variants}} <- media.responsive_images,
         key != "original",

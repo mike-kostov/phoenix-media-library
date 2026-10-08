@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default). To keep them, set `responsive: true` on the collection.
 
 ### Changed
+- `avif: true` is now short for `formats: [:avif, :webp]`, so conversions
+  in AVIF collections are also made as AVIF. Their URLs are still the WebP.
+  Existing conversions get the AVIF with
+  `mix phx_media_library.doctor --rebuild --only conversions`.
 - New installs get a leaner media table: `mix phx_media_library.install`
   no longer creates the (mediable_type, mediable_id), (collection_name)
   and (checksum) indexes, which no library query needs, and makes
@@ -44,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- `formats:` on conversions, collections and globally: each conversion is
+  made in every listed format, in priority order, with quality per format
+  (`formats: [avif: [quality: 50], webp: [quality: 80]]`). The last format
+  is the one `url/2` and other plain URLs return. Delete, rename, `clean`
+  and the doctor handle every format. `PathGenerator.conversion_paths/2`
+  lists a conversion's files.
 - `PhxMediaLibrary.Doctor.check/1` and `repair/1`: the doctor's checks and
   repairs as plain functions, without Mix, for releases, scheduled jobs
   and admin pages. Media is read in batches (`:batch_size`, `:pause`), and

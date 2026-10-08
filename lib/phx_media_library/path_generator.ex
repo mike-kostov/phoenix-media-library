@@ -162,18 +162,46 @@ defmodule PhxMediaLibrary.PathGenerator do
     with_recorded_extension(path, media, conversion)
   end
 
+  @doc """
+  The paths of a conversion's files, one per format it was made in, in
+  priority order (see `PhxMediaLibrary.Model.formats/4`). The last is the
+  safe one, which `relative_path/2` returns.
+
+  ## Examples
+
+      PhxMediaLibrary.PathGenerator.conversion_paths(media, :thumb)
+      #=> ["posts/abc-123/uuid/photo_thumb.avif", "posts/abc-123/uuid/photo_thumb.webp"]
+
+  """
+  @spec conversion_paths(Media.t(), atom() | String.t()) :: [String.t()]
+  def conversion_paths(%Media{} = media, conversion) do
+    path = Config.path_generator().relative_path(media, conversion)
+
+    media
+    |> recorded_extensions(conversion)
+    |> Enum.map(&with_extension(path, &1))
+  end
+
   # Generators name a conversion after the original, extension included. A
-  # conversion stored in another format has that format's extension recorded
-  # in generated_conversions (e.g. "thumb" => "webp"); `true` keeps the
-  # original's, as for media recorded before 0.9.
+  # conversion stored in other formats has their extensions recorded in
+  # generated_conversions: "thumb" => "webp" for one, ["avif", "webp"] for
+  # several, in priority order; `true` keeps the original's, as for media
+  # recorded before 0.9. The last format is the one served.
   defp with_recorded_extension(path, _media, nil), do: path
 
-  defp with_recorded_extension(path, %Media{generated_conversions: conversions}, conversion) do
+  defp with_recorded_extension(path, media, conversion),
+    do: with_extension(path, media |> recorded_extensions(conversion) |> List.last())
+
+  defp recorded_extensions(%Media{generated_conversions: conversions}, conversion) do
     case (conversions || %{})[to_string(conversion)] do
-      extension when is_binary(extension) -> Path.rootname(path) <> "." <> extension
-      _ -> path
+      [_ | _] = extensions -> extensions
+      extension when is_binary(extension) -> [extension]
+      _ -> [nil]
     end
   end
+
+  defp with_extension(path, nil), do: path
+  defp with_extension(path, extension), do: Path.rootname(path) <> "." <> extension
 
   @doc """
   Generate a storage path for new media (before it has been persisted).

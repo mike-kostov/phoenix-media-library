@@ -254,9 +254,9 @@ tests; `mix precommit`.
 `relative_path/2` and `url/2` return; owned paths, delete, clean, rename
 and the doctor cover all of them; records from 0.9 still resolve.
 **Acceptance criteria:**
-- [ ] `formats: [:avif, :webp]` stores `_thumb.avif` and `_thumb.webp`;
+- [x] `formats: [:avif, :webp]` stores `_thumb.avif` and `_thumb.webp`;
       `url(media, :thumb)` is the WebP.
-- [ ] Delete, rename and the doctor handle both files; 0.9 records work.
+- [x] Delete, rename and the doctor handle both files; 0.9 records work.
 **Verification:** conversion, doctor and path tests; `mix precommit`.
 **Dependencies:** Task 9
 **Scope:** M

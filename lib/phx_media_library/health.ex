@@ -214,7 +214,9 @@ defmodule PhxMediaLibrary.Health do
         media
         |> Model.conversions(media.collection_name)
         |> Enum.map(&to_string(&1.name))
-        |> Enum.reject(&(PathGenerator.relative_path(media, &1) in present))
+        |> Enum.reject(
+          &Enum.all?(PathGenerator.conversion_paths(media, &1), fn p -> p in present end)
+        )
 
       if missing != [], do: {:missing_conversions, missing}
     end

@@ -69,12 +69,15 @@ defmodule PhxMediaLibrary.AvifTest do
              {20, 15}
   end
 
-  # AVIF can't be read by AI APIs and most link previews (ADR-024 amendment).
-  test "conversions in an AVIF collection are WebP, never AVIF", %{jpeg: jpeg} do
+  # avif: true is formats: [:avif, :webp] (spec 02, F1). Plain URLs carry
+  # the WebP: AI APIs and most link previews can't read AVIF (ADR-024).
+  test "conversions in an AVIF collection are AVIF and WebP; URLs are WebP", %{jpeg: jpeg} do
     media = add(jpeg, :avif_webp)
 
-    assert media.generated_conversions["thumb"] == "webp"
-    refute PhxMediaLibrary.url(media, :thumb) =~ ".avif"
+    assert media.generated_conversions["thumb"] == ["avif", "webp"]
+    assert PhxMediaLibrary.url(media, :thumb) =~ ~r/_thumb\.webp$/
+    assert [avif, _webp] = PathGenerator.conversion_paths(media, :thumb)
+    assert avif =~ ~r/_thumb\.avif$/
   end
 
   test "off by default", %{jpeg: jpeg} do

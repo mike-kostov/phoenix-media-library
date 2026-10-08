@@ -173,12 +173,8 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
-  The format conversions without their own `format:` are saved in: WebP
-  for images libvips can convert, in every collection; else `nil`, the
-  original's format. Never AVIF: conversions are what plain URLs carry
-  (`og:image`, emails, your own `<img>` tags), and AI tools and most link
-  previews can't read AVIF (ADR-024, amended). `format: :original` on a
-  conversion keeps the original's format.
+  The format plain URLs of a collection's conversions carry: the last, safe
+  one of `formats/4`, or `nil` for the original's format.
 
   ## Examples
 
@@ -186,9 +182,13 @@ defmodule PhxMediaLibrary.Model do
       #=> :webp
 
   """
-  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) :: :webp | nil
-  def conversion_format(_target, _collection_name, mime_type) do
-    if PhxMediaLibrary.Webp.convertible?(mime_type), do: :webp
+  @spec conversion_format(target(), atom() | String.t(), String.t() | nil) ::
+          Conversion.format() | nil
+  def conversion_format(target, collection_name, mime_type) do
+    case target |> formats(collection_name, mime_type) |> List.last() do
+      {:original, _} -> nil
+      {format, _} -> format
+    end
   end
 
   @doc """
@@ -220,9 +220,18 @@ defmodule PhxMediaLibrary.Model do
           Config.formats()
   def formats(target, collection_name, mime_type, conversion \\ nil) do
     cond do
-      match?(%Conversion{formats: [_ | _]}, conversion) -> conversion.formats
-      not convertible?(mime_type) -> [original: []]
-      true -> collection_formats(collection(target, collection_name))
+      match?(%Conversion{formats: [_ | _]}, conversion) ->
+        conversion.formats
+
+      # A struct built without Conversion.new/2.
+      match?(%Conversion{format: f} when f != nil, conversion) ->
+        Config.normalize_formats!([conversion.format])
+
+      not convertible?(mime_type) ->
+        [original: []]
+
+      true ->
+        collection_formats(collection(target, collection_name))
     end
   end
 

@@ -74,6 +74,7 @@ stored under other names moves with
 | `:avif` | `boolean() \| keyword()` | inherits global, off | Add an AVIF beside each image ([AVIF](#avif)) |
 | `:placeholder` | `:blur \| :color \| false \| keyword()` | global, else `:blur` | What images show while they load ([Placeholders](#placeholders)) |
 | `:responsive` | `boolean() \| keyword()` | inherits global | Generate multi-width `srcset` variants on add ([Responsive Images](#responsive-images)) |
+| `:formats` | `[atom() \| {atom(), keyword()}]` | global, else `[:webp]` | Formats of conversions, in priority order ([Formats](#formats)) |
 
 ### Content-Type verification
 
@@ -228,16 +229,43 @@ convert :name,
   fit: :cover,             # Resize strategy (see table below)
   quality: 85,             # JPEG/WebP quality (1-100)
   format: :webp,           # Output format (:jpg, :png, :webp, :avif, or :original)
+  formats: [:avif, :webp], # Or several, in priority order (see Formats)
   collections: [:images]   # Only apply to these collections
 ```
 
 A conversion with `format:` is stored with that format's extension:
 `photo_name.webp` for a JPEG original. Without `format:`, conversions are
 WebP, in every collection; `format: :original` keeps the original's format.
-Conversions are never AVIF unless they ask: their URLs end up in
-`og:image`, emails and JSON, read by tools that can't decode AVIF.
 Outlook for Windows can't show WebP, so use `format: :original` for
 conversions sent in emails.
+
+### Formats
+
+`formats:` makes each conversion in several formats, in priority order.
+Set it on a conversion, a collection, or globally with
+`config :phx_media_library, formats: [...]`; the most specific wins.
+Quality can be set per format:
+
+```elixir
+media_collections do
+  collection :photos, formats: [avif: [quality: 50], webp: [quality: 80]]
+end
+
+media_conversions do
+  convert :thumb, width: 300, fit: :cover                # the collection's formats
+  convert :og, width: 1200, height: 630, format: :jpg    # one format: formats: [:jpg]
+end
+```
+
+The last format is the safe one: `url(media, :thumb)`, `og:image` and
+emails get it, since AI tools and most link previews can't read AVIF.
+The earlier formats are offered through `<picture>`. The default is
+`[:webp]`; `:original` is the uploaded file's format, and `avif: true` is
+short for `[:avif, :webp]`. SVGs, PDFs and other files libvips can't
+convert keep their own format.
+
+Conversions made before you change `formats:` keep their files until
+`mix phx_media_library.doctor --rebuild --only conversions`.
 
 ### Fit options
 
@@ -374,7 +402,8 @@ end
   WebP's `max_dimension`, when set). Without `quality:`, libvips uses its
   default.
 - The original's responsive variants come in AVIF only: no size is stored
-  twice. Conversions stay WebP, so a plain URL is never AVIF.
+  twice. Conversions come in AVIF and WebP (`formats: [:avif, :webp]`);
+  their plain URLs are the WebP, so a plain URL is never AVIF.
 - `<.picture>` and `<.responsive_img>` offer AVIF first, then WebP, then
   the `<img>`, so browsers without AVIF still get an image.
   `<.responsive_img>` wraps it in `<picture style="display: contents">`,
