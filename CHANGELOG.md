@@ -66,6 +66,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- `copy_media/4` and `move_media/4` copy or move a media item to another
+  record or collection. Both add the original again under the target
+  collection's rules (types, limits, naming, formats, conversions) and
+  make its derivatives again; a move keeps the record's `id`, changes its
+  `uuid` and URLs, and deletes the old files. See `PhxMediaLibrary.Transfer`.
+  `LocalSource.with_stored_path/3` and `Media.original_file_name/1` are
+  new helpers they use.
 - Image dimension limits per collection: `min_width:`, `min_height:`,
   `max_width:` and `max_height:`. Images outside them are refused with
   `{:error, {:image_too_narrow | :image_too_short | :image_too_wide | :image_too_tall, actual, limit}}`.

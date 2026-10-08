@@ -30,16 +30,34 @@ defmodule PhxMediaLibrary.LocalSource do
           result | {:error, term()}
         when result: term()
   def with_path(%Media{} = media, conversion, fun) when is_function(fun, 1) do
-    case PathGenerator.full_path(media, conversion) do
-      path when is_binary(path) -> fun.(path)
-      nil -> with_fetched_copy(media, conversion, fun)
-    end
+    with_stored_path(media, PathGenerator.relative_path(media, conversion), fun)
   end
 
-  defp with_fetched_copy(media, conversion, fun) do
-    storage = Config.storage_adapter(media.disk)
-    relative = PathGenerator.relative_path(media, conversion)
+  @doc """
+  Like `with_path/3`, for any file the media stores, by its storage path
+  (its WebP, a responsive variant, ...).
 
+  ## Examples
+
+      PhxMediaLibrary.LocalSource.with_stored_path(media, media.custom_properties["webp"], &File.stat/1)
+
+  """
+  @spec with_stored_path(Media.t(), String.t(), (String.t() -> result)) ::
+          result | {:error, term()}
+        when result: term()
+  def with_stored_path(%Media{} = media, relative, fun) when is_function(fun, 1) do
+    storage = Config.storage_adapter(media.disk)
+    Code.ensure_loaded(storage.adapter)
+
+    # Adapters without local files (S3) may still define path/2, as nil.
+    local =
+      if function_exported?(storage.adapter, :path, 2),
+        do: storage.adapter.path(relative, storage.config)
+
+    if is_binary(local), do: fun.(local), else: with_fetched_copy(storage, relative, fun)
+  end
+
+  defp with_fetched_copy(storage, relative, fun) do
     with {:ok, content} <- StorageWrapper.get(storage, relative) do
       temp_path =
         Path.join(

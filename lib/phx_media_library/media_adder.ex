@@ -526,9 +526,9 @@ defmodule PhxMediaLibrary.MediaAdder do
     # This avoids loading the entire file into memory.
     with {:ok, checksum} <- stream_and_checksum(storage, storage_path, file_info.path),
          attrs = Map.merge(attrs, %{checksum: checksum, checksum_algorithm: "sha256"}),
-         media = struct(Media, Map.put(attrs, :id, PhxMediaLibrary.UUIDv7.generate())),
+         media = struct(Media, Map.put(attrs, :id, record_id(opts))),
          derived = derive(media, adder, file_info),
-         {:ok, media} <- insert_or_remove_files(derived) do
+         {:ok, media} <- insert_or_remove_files(derived, opts[:replacing]) do
       # Handle single file collections
       Model.enforce_collection_limits(adder.model, collection_name, media)
       {:ok, media}
@@ -705,14 +705,31 @@ defmodule PhxMediaLibrary.MediaAdder do
     defp maybe_generate_blurhash(media, _file_path), do: media
   end
 
+  # PhxMediaLibrary.Transfer moves media by adding its original again in
+  # place of the record (`replacing:`), which keeps its id.
+  defp record_id(opts) do
+    case opts[:replacing] do
+      %Media{id: id} -> id
+      nil -> PhxMediaLibrary.UUIDv7.generate()
+    end
+  end
+
   # Every file is already stored (original and derivatives); don't leave
-  # them behind if the insert fails.
-  defp insert_or_remove_files(%Media{} = derived) do
+  # them behind if the write fails, but never remove a file the replaced
+  # record still owns.
+  defp insert_or_remove_files(%Media{} = derived, replacing) do
     attrs = derived |> Map.from_struct() |> Map.take(Media.__schema__(:fields))
-    result = %Media{id: derived.id} |> Media.changeset(attrs) |> Config.repo().insert()
+
+    result =
+      case replacing do
+        nil -> %Media{id: derived.id} |> Media.changeset(attrs) |> Config.repo().insert()
+        %Media{} -> replacing |> Media.changeset(attrs) |> Config.repo().update()
+      end
 
     with {:error, _} <- result do
-      Media.delete_files(derived)
+      storage = Config.storage_adapter(derived.disk)
+      kept = if replacing, do: Media.owned_paths(replacing), else: []
+      Enum.each(Media.owned_paths(derived) -- kept, &StorageWrapper.delete(storage, &1))
       result
     end
   end

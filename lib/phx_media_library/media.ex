@@ -651,6 +651,20 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @doc """
+  The name the file was uploaded with: `metadata["original_file_name"]`,
+  or for media from before file naming, its `file_name`.
+
+  ## Examples
+
+      PhxMediaLibrary.Media.original_file_name(media)
+      #=> "Summer dress.jpg"
+
+  """
+  @spec original_file_name(t()) :: String.t()
+  def original_file_name(%__MODULE__{} = media),
+    do: (media.metadata || %{})["original_file_name"] || media.file_name
+
+  @doc """
   Check if a conversion has been generated.
   """
   @spec has_conversion?(t(), atom()) :: boolean()

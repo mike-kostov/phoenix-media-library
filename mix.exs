@@ -214,6 +214,7 @@ defmodule PhxMediaLibrary.MixProject do
           PhxMediaLibrary.Model,
           PhxMediaLibrary.ModelRegistry,
           PhxMediaLibrary.MediaAdder,
+          PhxMediaLibrary.Transfer,
           PhxMediaLibrary.Conversions,
           PhxMediaLibrary.LocalSource,
           PhxMediaLibrary.Webp,

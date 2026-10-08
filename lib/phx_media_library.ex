@@ -806,6 +806,54 @@ defmodule PhxMediaLibrary do
   end
 
   @doc """
+  Copy a media item to another record or collection, as a new record with
+  its own files.
+
+  The original is added again as an upload would be: the target
+  collection's checks, file naming, formats and conversions apply, and its
+  derivatives are made again. Your `custom_properties` (alt text, captions)
+  carry over. Deleting either media item leaves the other whole. See
+  `PhxMediaLibrary.Transfer`.
+
+  ## Options
+
+  - `:disk`: store the copy on this disk (default: the target collection's)
+
+  ## Examples
+
+      {:ok, copy} = PhxMediaLibrary.copy_media(media, other_post, :images)
+
+  """
+  @spec copy_media(Media.t(), Ecto.Schema.t(), atom(), keyword()) ::
+          {:ok, Media.t()} | {:error, term()}
+  defdelegate copy_media(media, model, collection_name, opts \\ []),
+    to: PhxMediaLibrary.Transfer,
+    as: :copy
+
+  @doc """
+  Move a media item to another record or collection. The record keeps its
+  `id`; its original is added again under the target collection's rules
+  (checks, file naming, formats, conversions, limits), and its old files are
+  deleted. Its `uuid` and URLs change. A move the target's rules refuse
+  returns the error and changes nothing. See `PhxMediaLibrary.Transfer`.
+
+  ## Options
+
+  - `:disk`: move it to this disk (default: the target collection's)
+
+  ## Examples
+
+      {:ok, moved} = PhxMediaLibrary.move_media(media, other_post, :gallery)
+      {:error, {:image_too_narrow, 120, 200}} = PhxMediaLibrary.move_media(media, user, :avatar)
+
+  """
+  @spec move_media(Media.t(), Ecto.Schema.t(), atom(), keyword()) ::
+          {:ok, Media.t()} | {:error, term()}
+  defdelegate move_media(media, model, collection_name, opts \\ []),
+    to: PhxMediaLibrary.Transfer,
+    as: :move
+
+  @doc """
   Move a single media item to a specific position within its collection.
 
   Shifts other items' `order_column` values to make room, then sets the

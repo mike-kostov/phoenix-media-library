@@ -474,7 +474,7 @@ defmodule PhxMediaLibrary.Pipeline do
 
   defp upload_info(media) do
     %{
-      original: original_name(media),
+      original: Media.original_file_name(media),
       mime_type: media.mime_type,
       mediable_type: media.mediable_type,
       mediable_id: media.mediable_id,
@@ -482,8 +482,6 @@ defmodule PhxMediaLibrary.Pipeline do
       uuid: media.uuid
     }
   end
-
-  defp original_name(media), do: (media.metadata || %{})["original_file_name"] || media.file_name
 
   defp move_files(media, new_name) do
     renamed = %{media | file_name: new_name}
@@ -497,7 +495,11 @@ defmodule PhxMediaLibrary.Pipeline do
              custom_properties: rewrite_paths(media.custom_properties || %{}, moves),
              responsive_images: rewrite_paths(media.responsive_images || %{}, moves),
              metadata:
-               Map.put_new(media.metadata || %{}, "original_file_name", original_name(media))
+               Map.put_new(
+                 media.metadata || %{},
+                 "original_file_name",
+                 Media.original_file_name(media)
+               )
            ) do
       Enum.each(Map.keys(moves), &StorageWrapper.delete(storage, &1))
       {:ok, updated}

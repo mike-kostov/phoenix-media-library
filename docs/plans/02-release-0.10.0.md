@@ -322,8 +322,8 @@ limit.
 (same record, files follow) to another record or collection; the target
 collection's rules apply; a move that breaks them is refused.
 **Acceptance criteria:**
-- [ ] A copy owns new files; deleting the original leaves the copy whole.
-- [ ] A move keeps the record; files and URLs follow; limits enforced.
+- [x] A copy owns new files; deleting the original leaves the copy whole.
+- [x] A move keeps the record; files and URLs follow; limits enforced.
 **Verification:** copy and move tests on disk and S3 (container);
 `mix precommit`.
 **Dependencies:** none

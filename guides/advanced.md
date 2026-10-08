@@ -66,6 +66,26 @@ Both `clear_collection/2` and `clear_media/1` delete files from storage for
 each item, then remove all matching database records in a single `DELETE` query
 (avoiding N+1).
 
+## Copying and moving media
+
+```elixir
+# A new record on another post, with its own files
+{:ok, copy} = PhxMediaLibrary.copy_media(media, other_post, :images)
+
+# The same record (same id), now on another post or collection
+{:ok, moved} = PhxMediaLibrary.move_media(media, other_post, :gallery)
+{:ok, moved} = PhxMediaLibrary.move_media(media, post, :archive, disk: :s3)
+```
+
+Both add the original again, as an upload would: the target collection's
+accepted types, size, pixel and dimension limits, file naming, disk,
+formats and conversions apply, and its derivatives are made again
+(conversions in the background). Your `custom_properties` carry over. A
+copy or move the target refuses returns the upload's error, such as
+`{:error, {:invalid_mime_type, ...}}`, and changes nothing. A move keeps
+the record's `id` but gets a new `uuid`, so its URLs change; its old files
+are deleted once the record is updated.
+
 ## Mix tasks
 
 ### Install
