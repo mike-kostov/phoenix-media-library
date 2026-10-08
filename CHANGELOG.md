@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-08
+
 Upgrading from 0.9: run a migration and rename one function; see
 [Upgrading to 0.10](guides/upgrading-to-0.10.md).
 
@@ -1199,7 +1201,8 @@ explicitly before upgrading to 0.8.
   - `mix phx_media_library.clean` finds and removes orphaned files
   - `mix phx_media_library.gen.migration` generates custom migrations
 
-[Unreleased]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.3...v0.8.4
 [0.8.3]: https://github.com/mike-kostov/phoenix-media-library/compare/v0.8.2...v0.8.3

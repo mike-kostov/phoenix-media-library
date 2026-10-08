@@ -1,7 +1,7 @@
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
-  @version "0.9.0"
+  @version "0.10.0"
   @source_url "https://github.com/mike-kostov/phoenix-media-library"
 
   def project do
@@ -89,8 +89,9 @@ defmodule PhxMediaLibrary.MixProject do
   defp description do
     """
     Attach files to Ecto schemas: collections, image conversions, WebP and
-    AVIF, responsive images, placeholders, LiveView components, and local,
-    S3 or R2 storage. Inspired by Spatie's Laravel Media Library.
+    AVIF, responsive images, placeholders, PDF thumbnails, LiveView
+    components, and local, S3, R2 or Google Cloud storage. Inspired by
+    Spatie's Laravel Media Library.
     """
   end
 

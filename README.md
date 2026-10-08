@@ -211,7 +211,7 @@ uploader.
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.9"},
+    {:phx_media_library, "~> 0.10"},
 
     # Optional: image processing (requires libvips)
     {:image, "~> 0.54"},

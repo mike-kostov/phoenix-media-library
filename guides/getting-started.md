@@ -9,7 +9,7 @@ Add `phx_media_library` to your dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phx_media_library, "~> 0.9"},
+    {:phx_media_library, "~> 0.10"},
 
     # Optional: Image processing (requires libvips)
     {:image, "~> 0.54"},

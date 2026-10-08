@@ -411,7 +411,7 @@ derived in the background.
 **Scope:** M to L (split when specced)
 
 ### Checkpoint: Database features
-- [ ] The spike's measurements rerun with the changes; reviewed with Mike.
+- [x] The spike's measurements rerun with the changes; reviewed with Mike (100k, 2026-10-08).
 
 ### Phase 7: Docs and release
 
@@ -433,13 +433,14 @@ complete.
 P5), `mix hex.build --unpack` check. Tag, push and publish only when
 asked.
 **Acceptance criteria:**
-- [ ] `mix precommit` green; package contents checked.
+- [x] `mix precommit` green; package contents checked.
 **Verification:** the commands; Mike's go-ahead.
 **Dependencies:** Task 20
 **Scope:** S
 
 ### Checkpoint: Complete
-- [ ] Every acceptance criterion in spec 02 is met.
+- [x] Every acceptance criterion in spec 02 is met, except F8's trial on
+      GCS itself (no emulator, no bucket; in the backlog).
 - [ ] Ready for Mike to tag, push and publish.
 
 ## Risks and Mitigations

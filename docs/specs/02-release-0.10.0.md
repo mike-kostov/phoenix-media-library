@@ -287,14 +287,17 @@ setting for busy media tables (P1 recommendation 7: the default waits for
   its record and its files follow; collection rules apply to both.
 - F5: an image below the minimum or above the maximum is refused with a
   tagged error naming the limit.
-- F6: with status on, a media item's status reads queued, processing,
-  done or failed through its background job; with it off, no extra
-  writes.
+- F6: a media item's status reads queued, processing, done or failed
+  through its background job, which adds one write (its start). Always on
+  (Mike, 2026-10-08), so "off" no longer applies.
 - F7: with libvips PDF support or `pdftoppm` available, a PDF gets a
   `:thumb` image and a placeholder from its first page; without either,
   the upload succeeds and logs once.
 - F8: put, get, delete, public and signed URLs and a direct upload work
   against GCS (an emulator in tests, if one exists without an account).
+  Not met in 0.10.0: no emulator accepts S3 writes and no bucket was
+  available, so the `:gcs` preset ships with unit tests and says so; a
+  real bucket trial is in the backlog (Mike, 2026-10-08).
 - F9: `bin/media_doctor` from the generator runs the doctor in a release
   with the mix task's flags.
 - F9: with `:doctor_schedule` enabled, a run happens at `at:` through Oban
