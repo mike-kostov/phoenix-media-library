@@ -198,7 +198,7 @@ uploader.
 | **Security** | Content-based MIME detection, SHA-256 checksums, safe stored names, SVGs served sandboxed (`Plug.StaticHeaders`) |
 | **Doctor** | `mix phx_media_library.doctor` checks files, metadata, names and checksums, and repairs what it can; in releases too, and daily from config |
 | **Soft deletes** | Opt-in `deleted_at` with `restore/1`, `purge_trashed/2` and a purge task |
-| **Batch ops** | `clear_collection/2`, `clear_media/1`, `reorder/3`, `move_to/2` |
+| **Batch ops** | `clear_collection/2`, `clear_media/1`, `reorder/3`, `set_position/2` |
 | **Copy and move** | `copy_media/4` and `move_media/4` to another record or collection, under the target collection's rules |
 | **Telemetry** | `:start`/`:stop`/`:exception` spans for add, delete, conversion, storage, batch, download |
 | **Errors** | Tagged tuples and structured exceptions (`Error`, `StorageError`, `ValidationError`) |

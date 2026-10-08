@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only when their collection sets `responsive:`, like originals; before,
   they got them whenever the global `responsive_images` switch was on (its
   default). To keep them, set `responsive: true` on the collection.
+- `PhxMediaLibrary.move_to/2` is now `set_position/2`, with the same
+  arguments, so it isn't confused with `move_media/4`. Rename the calls.
 - **Compact responsive data.** `responsive_images` now stores each
   source's variant widths, full size and format
   (`%{"widths" => [320, 640], "width" => 1600, "height" => 1200, "formats" => ["webp"]}`)

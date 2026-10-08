@@ -173,6 +173,10 @@ preload p95 -18%, TOAST -25%, the heaviest row's value -74%. Done together
 with F1, which changes the same data; old rows keep reading, and the
 doctor rewrites them.
 
+**C7. `move_to/2` is `set_position/2`.** (Mike, 2026-10-08) The name
+read like `move_media/4` (F4). Renamed, with no deprecated alias
+(ADR-027).
+
 ### Bugs
 
 **B1. The library compiles without its optional dependencies.** (Found

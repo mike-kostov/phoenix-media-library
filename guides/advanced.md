@@ -21,13 +21,13 @@ IDs not present in the collection are silently ignored. Items whose IDs are not
 in the provided list keep their current order but are shifted after the
 explicitly ordered items.
 
-### Move a single item
+### Set one item's position
 
-Move one media item to a specific 1-based position within its collection:
+Put one media item at a 1-based position within its collection:
 
 ```elixir
-{:ok, updated_media} = PhxMediaLibrary.move_to(media, 1)   # move to first
-{:ok, updated_media} = PhxMediaLibrary.move_to(media, 3)   # move to third
+{:ok, updated_media} = PhxMediaLibrary.set_position(media, 1)   # first
+{:ok, updated_media} = PhxMediaLibrary.set_position(media, 3)   # third
 ```
 
 The position is clamped to the valid range. Passing a position larger than the

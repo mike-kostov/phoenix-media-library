@@ -330,7 +330,7 @@ collection's rules apply; a move that breaks them is refused.
 **Scope:** M
 
 ### Checkpoint: Bringing media in
-- [ ] `mix precommit` green; API names reviewed with Mike.
+- [x] `mix precommit` green; API names reviewed with Mike.
 
 ### Phase 5: PDFs and Google Cloud Storage
 

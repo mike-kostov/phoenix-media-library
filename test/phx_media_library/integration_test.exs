@@ -1479,7 +1479,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
     end
   end
 
-  describe "move_to/2" do
+  describe "set_position/2" do
     test "moves a media item to the first position" do
       post = create_post!()
 
@@ -1500,7 +1500,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
       # Move the last item to position 1
       last_media = TestRepo.get!(Media, id3)
-      assert {:ok, updated} = PhxMediaLibrary.move_to(last_media, 1)
+      assert {:ok, updated} = PhxMediaLibrary.set_position(last_media, 1)
       assert updated.order_column == 1
 
       # Verify ordering
@@ -1528,7 +1528,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
       # Move the first item to position 3
       first_media = TestRepo.get!(Media, id1)
-      assert {:ok, updated} = PhxMediaLibrary.move_to(first_media, 3)
+      assert {:ok, updated} = PhxMediaLibrary.set_position(first_media, 3)
       assert updated.order_column == 3
 
       # Verify it's last
@@ -1547,7 +1547,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
         |> PhxMediaLibrary.to_collection(:images)
 
       # Position 999 should clamp to 1 (only 1 item)
-      assert {:ok, updated} = PhxMediaLibrary.move_to(media, 999)
+      assert {:ok, updated} = PhxMediaLibrary.set_position(media, 999)
       assert updated.order_column == 1
     end
 
@@ -1571,7 +1571,7 @@ defmodule PhxMediaLibrary.IntegrationTest do
 
       # Move id4 (last) to position 2
       last_media = TestRepo.get!(Media, id4)
-      assert {:ok, _updated} = PhxMediaLibrary.move_to(last_media, 2)
+      assert {:ok, _updated} = PhxMediaLibrary.set_position(last_media, 2)
 
       reordered = PhxMediaLibrary.get_media(post, :images)
       reordered_ids = Enum.map(reordered, & &1.id)

@@ -854,19 +854,19 @@ defmodule PhxMediaLibrary do
     as: :move
 
   @doc """
-  Move a single media item to a specific position within its collection.
+  Set a media item's position within its collection.
 
   Shifts other items' `order_column` values to make room, then sets the
   target item's position. Position is 1-based.
 
   ## Examples
 
-      PhxMediaLibrary.move_to(media, 1)   # move to first position
-      PhxMediaLibrary.move_to(media, 3)   # move to third position
+      PhxMediaLibrary.set_position(media, 1)   # first
+      PhxMediaLibrary.set_position(media, 3)   # third
 
   """
-  @spec move_to(Media.t(), pos_integer()) :: {:ok, Media.t()} | {:error, term()}
-  def move_to(%Media{} = media, position) when is_integer(position) and position >= 1 do
+  @spec set_position(Media.t(), pos_integer()) :: {:ok, Media.t()} | {:error, term()}
+  def set_position(%Media{} = media, position) when is_integer(position) and position >= 1 do
     # Get all items in the same collection, ordered
     siblings =
       from(m in Media,
