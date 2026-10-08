@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Media.responsive_variants/2`, which read both shapes.
 
 ### Changed
+- The background job also makes the original's WebP, AVIF and responsive
+  variants when the record lacks them (an upload makes them already;
+  imports leave them to the job), in the job's one final update.
 - `avif: true` is now short for `formats: [:avif, :webp]`, so conversions
   in AVIF collections are also made as AVIF. Their URLs are still the WebP.
   Existing conversions get the AVIF with

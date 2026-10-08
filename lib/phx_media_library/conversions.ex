@@ -15,6 +15,7 @@ defmodule PhxMediaLibrary.Conversions do
     Model,
     PathGenerator,
     Pipeline,
+    ResponsiveImages,
     StorageWrapper,
     Telemetry
   }
@@ -74,21 +75,58 @@ defmodule PhxMediaLibrary.Conversions do
   # Files that aren't images (or PDFs with a renderer) have nothing to make;
   # placeholders alone never fail the job.
   defp run(media, conversions) do
-    cond do
-      not DocumentRenderer.image_source?(media.mime_type) ->
-        {[], :ok}
-
-      conversions == [] ->
-        derived = derive(media, &generate_placeholders(&1, [], write: false))
-        {[responsive_images: derived.responsive_images], :ok}
-
-      true ->
-        case LocalSource.with_image(media, &convert(media, conversions, &1)) do
-          {changes, result} when is_list(changes) -> {changes, result}
-          {:error, _reason} = error -> {[], error}
-        end
+    if DocumentRenderer.image_source?(media.mime_type) do
+      case LocalSource.with_image(media, &run(media, conversions, &1)) do
+        {changes, result} when is_list(changes) -> {changes, result}
+        {:error, reason} -> unreadable(media, conversions, reason)
+      end
+    else
+      {[], :ok}
     end
   end
+
+  # Without conversions there is nothing to retry for: log it and finish.
+  defp unreadable(media, [], reason) do
+    Logger.warning(
+      "[PhxMediaLibrary] placeholder failed for media #{inspect(media.id)}: #{inspect(reason)}"
+    )
+
+    {[], :ok}
+  end
+
+  defp unreadable(_media, _conversions, reason), do: {[], {:error, reason}}
+
+  defp run(media, conversions, source) do
+    media = derive_original(media, source)
+
+    {derived, result} =
+      if conversions == [],
+        do: {derive(media, &generate_placeholders(&1, [], write: false)), :ok},
+        else: convert(media, conversions, source)
+
+    changes =
+      derived
+      |> Map.take([:custom_properties, :generated_conversions, :responsive_images])
+      |> Enum.to_list()
+
+    {changes, result}
+  end
+
+  # The original's WebP, AVIF and variants the record doesn't have yet:
+  # an upload made them already; an import (PhxMediaLibrary.import_media/2)
+  # leaves them to this job. Each step skips what its settings turn off.
+  defp derive_original(media, source) do
+    steps = [source: source, write: false]
+    props = media.custom_properties || %{}
+
+    media
+    |> derive_unless(is_binary(props["webp"]), &Pipeline.webp(&1, steps))
+    |> derive_unless(is_binary(props["avif"]), &Pipeline.avif(&1, steps))
+    |> derive_unless(ResponsiveImages.formats(media, nil) != [], &Pipeline.responsive(&1, steps))
+  end
+
+  defp derive_unless(media, true, _step), do: media
+  defp derive_unless(media, false, step), do: derive(media, step)
 
   defp finish(media, changes, result) do
     status =
@@ -104,6 +142,7 @@ defmodule PhxMediaLibrary.Conversions do
 
   defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
 
+  # Returns the media with what it made, and how the conversions went.
   defp convert(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
@@ -125,13 +164,10 @@ defmodule PhxMediaLibrary.Conversions do
           |> derive(&maybe_generate_responsive_for_conversions(&1, results, write: false))
           |> derive(&generate_placeholders(&1, results, write: false))
 
-        changes =
-          derived |> Map.take([:generated_conversions, :responsive_images]) |> Enum.to_list()
-
-        {changes, conversion_failures(media, results)}
+        {derived, conversion_failures(media, results)}
 
       {:error, _reason} = error ->
-        {[], error}
+        {media, error}
     end
   end
 
