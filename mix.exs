@@ -57,7 +57,7 @@ defmodule PhxMediaLibrary.MixProject do
       {:oban, "~> 2.18", optional: true},
 
       # === Optional: Phoenix view helpers ===
-      {:phoenix_live_view, "~> 1.0", optional: true},
+      {:phoenix_live_view, "~> 1.1", optional: true},
 
       # === Dev/Test ===
       {:postgrex, ">= 0.0.0", only: [:dev, :test]},

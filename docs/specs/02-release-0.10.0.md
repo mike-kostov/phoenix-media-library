@@ -244,6 +244,13 @@ upload to a collection with conversions queued a job that always failed
 - Without an image processor, uploads queue no conversions and are done
   at once.
 
+**B6. The LiveView requirement matches the components.** (Found
+2026-10-08 in Task 21's audit.) The components use
+`Phoenix.LiveView.ColocatedHook`, added in LiveView 1.1.0, while
+`mix.exs` accepted `phoenix_live_view ~> 1.0`: an app on 1.0 resolved the
+library and then failed to compile its components. Present in 0.9.0.
+- The library requires `phoenix_live_view ~> 1.1`.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

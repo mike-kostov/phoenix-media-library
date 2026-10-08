@@ -142,6 +142,9 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- The components use colocated hooks, which arrived in Phoenix LiveView
+  1.1, but the library accepted LiveView 1.0, where they don't compile.
+  It now asks for `phoenix_live_view ~> 1.1`.
 - In an app without `:image`, image uploads to a collection with
   conversions queued a job that always failed (`:no_image_processor`),
   and Oban retried it. They now queue none and are done at once.
