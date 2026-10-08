@@ -75,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- `import_media/2` imports many media at once: a list or stream of
+  `%{model:, collection:, source:}` entries across any records and
+  collections. Files are checked and stored like uploads, rows go in with
+  `insert_all` in batches of 1,000, and every derivative is made by one
+  background job per row. Failed entries are returned with their errors.
+  See `PhxMediaLibrary.Import`.
 - `Media.processing_status/1`: `:queued`, `:processing`, `:done` or
   `:failed` (with `processing_error`), from `processing_started_at`,
   `processing_finished_at` and `processing_failed_at`. A job adds one

@@ -806,6 +806,26 @@ defmodule PhxMediaLibrary do
   end
 
   @doc """
+  Import many media at once: a list or stream of
+  `%{model:, collection:, source:}` entries, across any records and
+  collections. Each file is checked and stored like an upload; rows are
+  written in batches, and every derivative is made in the background, one
+  job per row. See `PhxMediaLibrary.Import` for the options.
+
+  ## Examples
+
+      {:ok, %{inserted: inserted, failed: failed}} =
+        PhxMediaLibrary.import_media(
+          Enum.map(products, &%{model: &1, collection: :images, source: {:url, &1.image_url}}),
+          max_concurrency: 8
+        )
+
+  """
+  @spec import_media(Enumerable.t(), keyword()) ::
+          {:ok, %{inserted: non_neg_integer(), failed: [{map(), term()}]}}
+  defdelegate import_media(entries, opts \\ []), to: PhxMediaLibrary.Import, as: :run
+
+  @doc """
   Copy a media item to another record or collection, as a new record with
   its own files.
 

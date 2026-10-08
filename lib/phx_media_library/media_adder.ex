@@ -172,6 +172,40 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
+  @doc false
+  # For PhxMediaLibrary.import_media/2: the source checked like an upload
+  # and its original stored, as a record not yet inserted. The derivatives
+  # are left to the background job (enqueue_background/2).
+  @spec prepare(t(), atom() | String.t(), keyword()) :: {:ok, Media.t()} | {:error, term()}
+  def prepare(%__MODULE__{} = adder, collection_name, opts \\ []) do
+    with {:ok, file_info} <- resolve_source(adder, collection_name) do
+      try do
+        with {:ok, file_info, header} <- read_and_detect_mime(file_info),
+             :ok <- validate_file(adder.model, collection_name, file_info, header),
+             :ok <- validate_image_size(adder, collection_name, file_info),
+             {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
+             do: store(adder, collection_name, file_info, metadata, opts)
+      after
+        if file_info.temp, do: File.rm(file_info.path)
+      end
+    end
+  end
+
+  @doc false
+  # The background job of an inserted record, if it has work.
+  @spec enqueue_background(Ecto.Schema.t(), Media.t()) :: :ok | {:error, term()}
+  def enqueue_background(model, %Media{} = media) do
+    adder = %__MODULE__{model: model}
+
+    if background_work?(adder, media.mime_type, media.collection_name),
+      do:
+        Config.async_processor().process_async(
+          media,
+          conversions(adder, media.mime_type, media.collection_name)
+        ),
+      else: :ok
+  end
+
   # Private functions
 
   defp add_file(adder, collection_name, file_info, opts) do
@@ -469,13 +503,18 @@ defmodule PhxMediaLibrary.MediaAdder do
     MetadataExtractor.extract_metadata(file_info.path, file_info.mime_type)
   end
 
-  defp store_and_persist(
-         %__MODULE__{} = adder,
-         collection_name,
-         file_info,
-         metadata,
-         opts
-       ) do
+  defp store_and_persist(adder, collection_name, file_info, metadata, opts) do
+    with {:ok, media} <- store(adder, collection_name, file_info, metadata, opts),
+         derived = derive(media, adder, file_info),
+         {:ok, media} <- insert_or_remove_files(derived, opts[:replacing]) do
+      # Handle single file collections
+      Model.enforce_collection_limits(adder.model, collection_name, media)
+      {:ok, media}
+    end
+  end
+
+  # The original in storage and the record to insert, not yet inserted.
+  defp store(%__MODULE__{} = adder, collection_name, file_info, metadata, opts) do
     uuid = generate_uuid()
     disk = opts[:disk] || adder.disk || Model.default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
@@ -530,14 +569,9 @@ defmodule PhxMediaLibrary.MediaAdder do
 
     # Stream file to storage while computing checksum in a single pass.
     # This avoids loading the entire file into memory.
-    with {:ok, checksum} <- stream_and_checksum(storage, storage_path, file_info.path),
-         attrs = Map.merge(attrs, %{checksum: checksum, checksum_algorithm: "sha256"}),
-         media = struct(Media, Map.put(attrs, :id, record_id(opts))),
-         derived = derive(media, adder, file_info),
-         {:ok, media} <- insert_or_remove_files(derived, opts[:replacing]) do
-      # Handle single file collections
-      Model.enforce_collection_limits(adder.model, collection_name, media)
-      {:ok, media}
+    with {:ok, checksum} <- stream_and_checksum(storage, storage_path, file_info.path) do
+      attrs = Map.merge(attrs, %{checksum: checksum, checksum_algorithm: "sha256"})
+      {:ok, struct(Media, Map.put(attrs, :id, record_id(opts)))}
     end
   end
 

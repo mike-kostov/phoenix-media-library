@@ -401,12 +401,12 @@ and a required migration.
 Decided 2026-10-08 (spec F2): `import_media(entries, opts)`, everything
 derived in the background.
 **Acceptance criteria:**
-- [ ] Entries across models and collections are checked like uploads,
+- [x] Entries across models and collections are checked like uploads,
       stored, and inserted with `insert_all` in batches; failures are
       returned per entry and leave no files.
-- [ ] Each imported row gets its WebP, AVIF, variants, conversions and
+- [x] Each imported row gets its WebP, AVIF, variants, conversions and
       placeholders from one background job with one update.
-- [ ] Collection limits hold after an import.
+- [x] Collection limits hold after an import.
 **Dependencies:** Task 1 checkpoint, Task 12
 **Scope:** M to L (split when specced)
 

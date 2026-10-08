@@ -66,6 +66,33 @@ Both `clear_collection/2` and `clear_media/1` delete files from storage for
 each item, then remove all matching database records in a single `DELETE` query
 (avoiding N+1).
 
+## Importing many media
+
+`import_media/2` loads thousands of files at once: a migration from
+another system, a catalogue, a backfill. It takes a list or a stream of
+entries, across any records and collections:
+
+```elixir
+{:ok, %{inserted: inserted, failed: failed}} =
+  products
+  |> Stream.map(&%{model: &1, collection: :images, source: {:url, &1.image_url}})
+  |> PhxMediaLibrary.import_media(max_concurrency: 8)
+
+for {entry, reason} <- failed, do: Logger.warning("not imported: #{inspect(entry.source)}: #{inspect(reason)}")
+```
+
+Each file is checked like an upload (type, size, pixels, dimensions) and
+stored, several at a time. The rows are written with `insert_all` in
+batches of 1,000 (`batch_size:`), and everything derived (WebP, AVIF,
+variants, conversions, placeholders) is made afterwards by one background
+job per row, which writes its row once. Imported media reads `:queued`
+in `Media.processing_status/1` until its job ran. Entries take the
+sources of `add/2`, plus `filename:`, `custom_properties:` and `disk:`.
+A failed entry is returned with its error and leaves no files; the import
+goes on. Collection limits hold, the last entries winning. Originals are
+kept even under WebP `keep_original: false`; run
+`mix phx_media_library.doctor --drop-originals` once the jobs are done.
+
 ## Copying and moving media
 
 ```elixir
