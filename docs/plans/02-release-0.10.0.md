@@ -374,7 +374,7 @@ adapter, or a native adapter.
 **Scope:** M
 
 ### Checkpoint: PDFs and GCS
-- [ ] `mix precommit` green; a PDF gallery checked in a browser.
+- [x] `mix precommit` green; a PDF gallery checked in a browser.
 
 ### Phase 6: Waiting on the database numbers
 
@@ -383,13 +383,30 @@ adapter, or a native adapter.
 per media job (`processing_started_at`, `processing_finished_at`,
 `processing_failed_at` with the error), an optional migration, the status
 derived; off without the columns or config.
-**Acceptance criteria:** decided at the Measure checkpoint.
+Decided 2026-10-08 (spec F6): always on, with a `processing_error` column
+and a required migration.
+**Acceptance criteria:**
+- [ ] An upload with background work reads `:queued`, then `:processing`
+      while its job runs, then `:done` or `:failed` with the error; one
+      without reads `:done` at once.
+- [ ] The job adds one write (its start); the finish rides on its final
+      update.
+- [ ] The upgrade migration marks existing rows done without rewriting
+      them; new installs get the columns.
 **Dependencies:** Task 1 checkpoint
 **Scope:** M
 
 #### Task 19: Bulk ingestion (F2)
 **Description:** As the spike and Mike decide; builds on Task 12.
-**Acceptance criteria:** decided at the Measure checkpoint.
+Decided 2026-10-08 (spec F2): `import_media(entries, opts)`, everything
+derived in the background.
+**Acceptance criteria:**
+- [ ] Entries across models and collections are checked like uploads,
+      stored, and inserted with `insert_all` in batches; failures are
+      returned per entry and leave no files.
+- [ ] Each imported row gets its WebP, AVIF, variants, conversions and
+      placeholders from one background job with one update.
+- [ ] Collection limits hold after an import.
 **Dependencies:** Task 1 checkpoint, Task 12
 **Scope:** M to L (split when specced)
 

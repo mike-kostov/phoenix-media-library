@@ -57,8 +57,18 @@ of 1,000 (Postgres caps one call at 3,449 media rows), and conversions,
 variants and placeholders run later in the background with one update
 per row; indexes are not dropped and rebuilt for imports smaller than the
 table. Measured: 4,000 to 6,000 rows/s on one connection, 3 to 5 kB of
-WAL per row against 20 to 26 kB per upload. The API is decided in its
-task.
+WAL per row against 20 to 26 kB per upload.
+
+Decided (Mike, 2026-10-08):
+- `PhxMediaLibrary.import_media(entries, opts)` takes a list or stream of
+  `%{model:, collection:, source:}` entries (with optional
+  `custom_properties:` and `filename:`), across any models and
+  collections. Each file is checked and stored like an upload; rows go in
+  with `insert_all` in batches; it returns the count and each failed
+  entry with its error.
+- Everything derived (WebP, AVIF, the original's variants, conversions,
+  placeholders) is made in the background, one job and one update per
+  row.
 
 **F3. Media from a binary, base64 or a stream.** (backlog; Mike
 2026-10-05) `add/2` accepts in-memory content and streams as sources, not
@@ -80,8 +90,20 @@ failed. Proposed (Mike): three timestamps on the media row,
 `processing_started_at`, `processing_finished_at` and
 `processing_failed_at` (with the error), from which the status is
 derived; two writes per job instead of a status column rewritten at each
-step. Off unless the app adds the columns (an optional migration) or turns
-it on in config. P1 measures the cost before the design is final.
+step. P1 measured the cost: the finish rides on the job's one update, the
+start is one extra write.
+
+Decided (Mike, 2026-10-08):
+- Always on: four columns, `processing_started_at`,
+  `processing_finished_at`, `processing_failed_at` and `processing_error`
+  (text), in every media table. Upgrading apps run a migration
+  (`mix phx_media_library.gen.migration --processing-status`), a breaking
+  step listed in the changelog; new installs get the columns.
+- The migration marks existing rows done without rewriting them (a
+  default of the migration's time, then dropped), so nothing from before
+  0.10 reads as queued.
+- `Media.processing_status/1` returns `:queued`, `:processing`, `:done`
+  or `:failed`. Media with no background work is done when inserted.
 
 **F7. PDF thumbnails.** (backlog; Mike 2026-10-05) A PDF's first page
 becomes its image: conversions (`:thumb`, `:preview`) and the placeholder
