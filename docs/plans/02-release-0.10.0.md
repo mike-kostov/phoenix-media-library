@@ -355,7 +355,7 @@ absent, like the S3 container tests); `mix precommit`.
 URLs and direct uploads (POST policy or signed PUT)? Is there an emulator
 usable without an account? Result in `docs/ideas/gcs.md` with sources.
 **Acceptance criteria:**
-- [ ] A sourced capability table and a recommendation (preset or native
+- [x] A sourced capability table and a recommendation (preset or native
       adapter, and any new dependency).
 **Verification:** review with Mike.
 **Dependencies:** none
