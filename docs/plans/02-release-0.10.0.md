@@ -66,9 +66,9 @@ upload; latency of preloads, `get_media` and joins from app tables while
 uploads run; the levers ranked by measured effect; what SQLite support
 would take. Scripts under `tmp/`, results in `docs/ideas/db-performance.md`.
 **Acceptance criteria:**
-- [ ] Measured numbers at both scales, with the method to rerun them.
-- [ ] A ranked list of recommendations, each with its measured effect.
-- [ ] A SQLite assessment (what is Postgres-specific, rough effort).
+- [x] Measured numbers at both scales, with the method to rerun them.
+- [x] A ranked list of recommendations, each with its measured effect.
+- [x] A SQLite assessment (what is Postgres-specific, rough effort).
 **Verification:** review with Mike.
 **Dependencies:** none
 **Files:** `docs/ideas/db-performance.md`, `tmp/` scripts

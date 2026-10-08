@@ -148,6 +148,13 @@ matched `%Plug.Upload{}`, which needs Plug. Without `:image` it warned
 - An app with none of the optional dependencies compiles the library
   with no errors and no warnings.
 
+**B2. Conversion records aren't silently lost.** (Found 2026-10-08 by the
+database spike.) `Conversions.update_generated_conversions/2` ignores the
+result of its database update and always returns `:ok`, so a failed write
+leaves files on storage that the record doesn't know about, and the
+caller reports success.
+- A failed update is returned (or at least logged) and the job can retry.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
