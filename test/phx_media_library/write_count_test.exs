@@ -57,7 +57,9 @@ defmodule PhxMediaLibrary.WriteCountTest do
     end
   end
 
-  test "the heaviest upload writes its row twice: on upload and after its job", %{jpeg: jpeg} do
+  # The insert, the job's start (spec 02, F6) and its one final update.
+  test "the heaviest upload writes its row three times: on upload, and at its job's start and end",
+       %{jpeg: jpeg} do
     # WebP + AVIF + responsive + conversions (:thumb, :preview) + placeholders.
     {{:ok, media}, writes} =
       count_writes(fn ->
@@ -67,7 +69,7 @@ defmodule PhxMediaLibrary.WriteCountTest do
       end)
 
     on_exit(fn -> Media.delete_files(TestRepo.get(Media, media.id) || media) end)
-    assert writes == ["INSERT", "UPDATE"]
+    assert writes == ["INSERT", "UPDATE", "UPDATE"]
 
     # Nothing lost: the record knows every derivative.
     media = TestRepo.get!(Media, media.id)

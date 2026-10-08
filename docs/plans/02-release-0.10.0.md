@@ -386,12 +386,12 @@ derived; off without the columns or config.
 Decided 2026-10-08 (spec F6): always on, with a `processing_error` column
 and a required migration.
 **Acceptance criteria:**
-- [ ] An upload with background work reads `:queued`, then `:processing`
+- [x] An upload with background work reads `:queued`, then `:processing`
       while its job runs, then `:done` or `:failed` with the error; one
       without reads `:done` at once.
-- [ ] The job adds one write (its start); the finish rides on its final
+- [x] The job adds one write (its start); the finish rides on its final
       update.
-- [ ] The upgrade migration marks existing rows done without rewriting
+- [x] The upgrade migration marks existing rows done without rewriting
       them; new installs get the columns.
 **Dependencies:** Task 1 checkpoint
 **Scope:** M

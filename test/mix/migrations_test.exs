@@ -39,6 +39,27 @@ defmodule Mix.Tasks.PhxMediaLibrary.MigrationsTest do
     assert content =~ ~s|where: "deleted_at IS NOT NULL"|
   end
 
+  # Spec 02, F6.
+  @tag :tmp_dir
+  test "new installs get the processing columns", %{tmp_dir: tmp} do
+    File.cd!(tmp, fn -> Install.run([]) end)
+    content = migration(tmp, "*_create_media_table.exs")
+
+    for column <- ~w(processing_started_at processing_finished_at processing_failed_at),
+        do: assert(content =~ "add :#{column}, :utc_datetime")
+
+    assert content =~ "add :processing_error, :text"
+  end
+
+  @tag :tmp_dir
+  test "gen.migration --processing-status writes the 0.10 upgrade", %{tmp_dir: tmp} do
+    File.cd!(tmp, fn -> Gen.Migration.run(["--processing-status", "--table", "attachments"]) end)
+    content = migration(tmp, "*_add_media_processing_status.exs")
+
+    assert content =~ "alter table(:attachments)"
+    assert content =~ "ALTER TABLE attachments ALTER COLUMN processing_finished_at DROP DEFAULT"
+  end
+
   @tag :tmp_dir
   test "--table names the table", %{tmp_dir: tmp} do
     File.cd!(tmp, fn -> Gen.Migration.run(["--indexes", "--table", "attachments"]) end)

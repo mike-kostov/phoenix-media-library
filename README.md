@@ -193,7 +193,7 @@ uploader.
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, Google Cloud Storage, MinIO), in-memory for tests, or your own adapter |
 | **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4`, POST or PUT per provider, limits checked on completion |
 | **Streaming** | Files go to storage in 64 KB chunks, never whole in memory; downloads stream with `send_file` |
-| **Async processing** | Task (default), Oban or inline; conversions and placeholders run in the background |
+| **Async processing** | Task (default), Oban or inline; conversions and placeholders run in the background, and `Media.processing_status/1` says whether they are queued, running, done or failed |
 | **LiveView** | `<.media_upload>` and `<.media_gallery>` components, `LiveUpload` helpers with partial-failure results |
 | **View helpers** | `<.media_img>`, `<.responsive_img>`, `<.picture>` and `<.media_figure>` (image with caption) |
 | **Security** | Content-based MIME detection, SHA-256 checksums, safe stored names, SVGs served sandboxed (`Plug.StaticHeaders`) |

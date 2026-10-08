@@ -48,44 +48,90 @@ defmodule PhxMediaLibrary.Conversions do
 
         :ok
 
-      # Placeholders only: they never fail the job. Files that aren't
-      # images have no conversions (and no placeholders).
-      fresh when conversions == [] ->
-        generate_placeholders(fresh, [])
-        :ok
-
+      # The job's start is its one extra write; what it makes and how it
+      # ended go into one final update (spec 02, C4 and F6).
       fresh ->
-        if DocumentRenderer.image_source?(fresh.mime_type),
-          do: LocalSource.with_image(fresh, &process(fresh, conversions, &1)),
-          else: :ok
+        with {:ok, media} <- start(fresh) do
+          {changes, result} = run(media, conversions)
+          finish(media, changes, result)
+        end
     end
   end
 
-  defp process(%Media{} = media, conversions, original_path) do
+  defp start(media) do
+    case Media.save_changes(media,
+           processing_started_at: now(),
+           processing_finished_at: nil,
+           processing_failed_at: nil,
+           processing_error: nil
+         ) do
+      {:ok, media} -> {:ok, media}
+      {:error, reason} -> {:error, {:record_update_failed, reason}}
+    end
+  end
+
+  # What the job makes, as changes for the final update, and how it ended.
+  # Files that aren't images (or PDFs with a renderer) have nothing to make;
+  # placeholders alone never fail the job.
+  defp run(media, conversions) do
+    cond do
+      not DocumentRenderer.image_source?(media.mime_type) ->
+        {[], :ok}
+
+      conversions == [] ->
+        derived = derive(media, &generate_placeholders(&1, [], write: false))
+        {[responsive_images: derived.responsive_images], :ok}
+
+      true ->
+        case LocalSource.with_image(media, &convert(media, conversions, &1)) do
+          {changes, result} when is_list(changes) -> {changes, result}
+          {:error, _reason} = error -> {[], error}
+        end
+    end
+  end
+
+  defp finish(media, changes, result) do
+    status =
+      case result do
+        :ok -> [processing_finished_at: now()]
+        {:error, reason} -> [processing_failed_at: now(), processing_error: describe(reason)]
+      end
+
+    with :ok <- record(media, changes ++ status), do: result
+  end
+
+  defp describe(reason), do: reason |> inspect(limit: 20) |> String.slice(0, 1_000)
+
+  defp now, do: DateTime.utc_now() |> DateTime.truncate(:second)
+
+  defp convert(%Media{} = media, conversions, original_path) do
     processor = Config.image_processor()
     storage = Config.storage_adapter(media.disk)
     plans = Enum.map(conversions, &plan(media, &1, processor))
 
-    with {:ok, image} <- processor.open(original_path) do
-      results = Enum.map(plans, &process_conversion(media, image, &1, processor, storage))
+    case processor.open(original_path) do
+      {:ok, image} ->
+        results = Enum.map(plans, &process_conversion(media, image, &1, processor, storage))
 
-      generated =
-        for {{conversion, _formats, recorded}, {:ok, _name}} <- Enum.zip(plans, results),
-            into: %{},
-            do: {to_string(conversion.name), recorded}
+        generated =
+          for {{conversion, _formats, recorded}, {:ok, _name}} <- Enum.zip(plans, results),
+              into: %{},
+              do: {to_string(conversion.name), recorded}
 
-      # The responsive variants and placeholders go into the same struct
-      # (`write: false`), so the job writes the row once (spec 02, C4).
-      derived =
-        %{media | generated_conversions: Map.merge(media.generated_conversions, generated)}
-        |> derive(&maybe_generate_responsive_for_conversions(&1, results, write: false))
-        |> derive(&generate_placeholders(&1, results, write: false))
+        # The responsive variants and placeholders go into the same struct
+        # (`write: false`), so the job writes the row once (spec 02, C4).
+        derived =
+          %{media | generated_conversions: Map.merge(media.generated_conversions, generated)}
+          |> derive(&maybe_generate_responsive_for_conversions(&1, results, write: false))
+          |> derive(&generate_placeholders(&1, results, write: false))
 
-      changes = Map.take(derived, [:generated_conversions, :responsive_images])
+        changes =
+          derived |> Map.take([:generated_conversions, :responsive_images]) |> Enum.to_list()
 
-      with :ok <- record(media, changes) do
-        conversion_failures(media, results)
-      end
+        {changes, conversion_failures(media, results)}
+
+      {:error, _reason} = error ->
+        {[], error}
     end
   end
 
@@ -279,7 +325,7 @@ defmodule PhxMediaLibrary.Conversions do
   end
 
   # Placeholders for the original and the new conversions (crops).
-  defp generate_placeholders(media, results, opts \\ []) do
+  defp generate_placeholders(media, results, opts) do
     Pipeline.placeholder(media, [of: [nil | successful_conversion_names(results)]] ++ opts)
   end
 

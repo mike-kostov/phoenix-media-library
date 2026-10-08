@@ -13,6 +13,12 @@ defmodule Mix.Tasks.PhxMediaLibrary.Gen.Migration do
 
       $ mix phx_media_library.gen.migration --indexes
 
+      $ mix phx_media_library.gen.migration --processing-status
+
+  `--processing-status` generates the required 0.10 upgrade: the columns
+  of `PhxMediaLibrary.Media.processing_status/1`. Existing rows read as
+  done; Postgres stores that once, without rewriting the table.
+
   `--indexes` generates the optional 0.10 upgrade of the media table's
   indexes: it drops (mediable_type, mediable_id), (collection_name) and
   (checksum), which no library query needs, and makes (deleted_at) a
@@ -32,16 +38,24 @@ defmodule Mix.Tasks.PhxMediaLibrary.Gen.Migration do
 
   @impl Mix.Task
   def run(args) do
-    {opts, rest, _} = OptionParser.parse(args, strict: [indexes: :boolean, table: :string])
+    {opts, rest, _} =
+      OptionParser.parse(args,
+        strict: [indexes: :boolean, processing_status: :boolean, table: :string]
+      )
 
-    case {opts[:indexes], rest} do
-      {true, _} ->
-        generate_indexes_migration(opts[:table] || "media")
+    table = opts[:table] || "media"
 
-      {_, [name | _]} ->
+    case {opts[:indexes], opts[:processing_status], rest} do
+      {true, _, _} ->
+        generate_upgrade("lean_media_indexes", lean_indexes_template(table))
+
+      {_, true, _} ->
+        generate_upgrade("add_media_processing_status", processing_status_template(table))
+
+      {_, _, [name | _]} ->
         generate_migration(name)
 
-      {_, []} ->
+      {_, _, []} ->
         Mix.shell().error("Usage: mix phx_media_library.gen.migration <name>")
         exit(:shutdown)
     end
@@ -78,13 +92,46 @@ defmodule Mix.Tasks.PhxMediaLibrary.Gen.Migration do
     Mix.shell().info("Created #{path}")
   end
 
-  defp generate_indexes_migration(table) do
+  defp generate_upgrade(name, content) do
     migrations_path = Path.join(["priv", "repo", "migrations"])
     File.mkdir_p!(migrations_path)
-    path = Path.join(migrations_path, "#{generate_timestamp()}_lean_media_indexes.exs")
+    path = Path.join(migrations_path, "#{generate_timestamp()}_#{name}.exs")
 
-    create_file(path, lean_indexes_template(table))
+    create_file(path, content)
     Mix.shell().info("Created #{path}")
+  end
+
+  @doc false
+  def processing_status_template(table) do
+    """
+    defmodule #{inspect(repo_module())}.Migrations.AddMediaProcessingStatus do
+      use Ecto.Migration
+
+      # PhxMediaLibrary 0.10: Media.processing_status/1. Existing rows read
+      # as done: processing_finished_at gets this migration's time as a
+      # default, which Postgres stores once instead of rewriting the table,
+      # and the default is dropped, so new rows start empty.
+      def up do
+        alter table(:#{table}) do
+          add :processing_started_at, :utc_datetime
+          add :processing_finished_at, :utc_datetime, default: fragment("timezone('UTC', now())")
+          add :processing_failed_at, :utc_datetime
+          add :processing_error, :text
+        end
+
+        execute "ALTER TABLE #{table} ALTER COLUMN processing_finished_at DROP DEFAULT"
+      end
+
+      def down do
+        alter table(:#{table}) do
+          remove :processing_started_at
+          remove :processing_finished_at
+          remove :processing_failed_at
+          remove :processing_error
+        end
+      end
+    end
+    """
   end
 
   @doc false

@@ -29,6 +29,9 @@ defmodule PhxMediaLibrary.Media do
   - `checksum` - SHA-256 (or other algorithm) hash of the file contents
   - `checksum_algorithm` - Algorithm used for the checksum (e.g., "sha256")
   - `metadata` - Automatically extracted file metadata (dimensions, duration, EXIF, etc.)
+  - `processing_started_at`, `processing_finished_at`,
+    `processing_failed_at`, `processing_error` - the state of its
+    background work (see `processing_status/1`)
 
   """
 
@@ -68,6 +71,10 @@ defmodule PhxMediaLibrary.Media do
     field(:checksum_algorithm, :string, default: "sha256")
     field(:metadata, :map, default: %{})
     field(:deleted_at, :utc_datetime)
+    field(:processing_started_at, :utc_datetime)
+    field(:processing_finished_at, :utc_datetime)
+    field(:processing_failed_at, :utc_datetime)
+    field(:processing_error, :string)
 
     # Polymorphic association
     field(:mediable_type, :string)
@@ -77,7 +84,7 @@ defmodule PhxMediaLibrary.Media do
   end
 
   @required_fields ~w(uuid collection_name name file_name mime_type disk size mediable_type mediable_id)a
-  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm metadata deleted_at)a
+  @optional_fields ~w(custom_properties generated_conversions responsive_images order_column checksum checksum_algorithm metadata deleted_at processing_started_at processing_finished_at processing_failed_at processing_error)a
 
   @doc false
   def changeset(media, attrs) do
@@ -648,6 +655,31 @@ defmodule PhxMediaLibrary.Media do
     if Keyword.get(opts, :write, true),
       do: Config.repo().update(changeset),
       else: {:ok, Ecto.Changeset.apply_changes(changeset)}
+  end
+
+  @doc """
+  The state of the media's background work (conversions, placeholders):
+
+  - `:queued`: waiting for its job
+  - `:processing`: its job is running
+  - `:done`: finished, or there was nothing to do
+  - `:failed`: its job failed; `processing_error` says why, and a retry
+    starts it again
+
+  ## Examples
+
+      PhxMediaLibrary.Media.processing_status(media)
+      #=> :done
+
+  """
+  @spec processing_status(t()) :: :queued | :processing | :done | :failed
+  def processing_status(%__MODULE__{} = media) do
+    cond do
+      media.processing_failed_at -> :failed
+      media.processing_finished_at -> :done
+      media.processing_started_at -> :processing
+      true -> :queued
+    end
   end
 
   @doc """

@@ -534,6 +534,22 @@ def handle_info({:media_removed, media}, socket) do
 end
 ```
 
+### Processing status
+
+Conversions and placeholders are made in the background after an upload.
+`Media.processing_status/1` says where that work is: `:queued`,
+`:processing`, `:done`, or `:failed` with the reason in
+`media.processing_error`. Show it while the thumbnail isn't there yet:
+
+```heex
+<span :if={Media.processing_status(media) in [:queued, :processing]}>Processing…</span>
+<span :if={Media.processing_status(media) == :failed} title={media.processing_error}>Failed</span>
+```
+
+The status is read from the row, so reload the media (or poll) to see it
+change. Files with no background work, such as PDFs without a renderer or
+text files, are `:done` as soon as they are saved.
+
 ---
 
 ## View helpers

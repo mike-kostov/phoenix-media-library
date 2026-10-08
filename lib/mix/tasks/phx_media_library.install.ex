@@ -133,6 +133,12 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
           add :metadata, :map, default: %{}
           add :deleted_at, :utc_datetime
 
+          # Background work (Media.processing_status/1)
+          add :processing_started_at, :utc_datetime
+          add :processing_finished_at, :utc_datetime
+          add :processing_failed_at, :utc_datetime
+          add :processing_error, :text
+
           # Polymorphic association
           add :mediable_type, :string, null: false
           add :mediable_id, #{mediable_id_column_type}, null: false

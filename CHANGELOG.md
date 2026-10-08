@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking changes
+- **Run a migration.** The media table gets four columns for
+  `Media.processing_status/1`: `mix phx_media_library.gen.migration --processing-status`,
+  then `mix ecto.migrate`. Existing rows read as done; Postgres adds the
+  columns without rewriting the table.
 - Removed what 0.9.0 deprecated:
   - `PhxMediaLibrary.presigned_upload_url/3`: use `presigned_upload/3`,
     which returns the method, URL, fields, headers and key.
@@ -68,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- `Media.processing_status/1`: `:queued`, `:processing`, `:done` or
+  `:failed` (with `processing_error`), from `processing_started_at`,
+  `processing_finished_at` and `processing_failed_at`. A job adds one
+  write, its start; the end rides on its final update.
 - Google Cloud Storage: `provider: :gcs` on an S3 disk, through Google's
   XML API with HMAC keys (endpoint, `region: "auto"` and PUT direct
   uploads by default). Built from Google's documentation

@@ -515,6 +515,11 @@ defmodule PhxMediaLibrary.MediaAdder do
       size: file_info.size,
       custom_properties: custom_props,
       metadata: Map.put(metadata, "original_file_name", file_info.filename),
+      # Done at once when no background job will run (spec 02, F6).
+      processing_finished_at:
+        if(!background_work?(adder, file_info.mime_type, collection_name),
+          do: DateTime.truncate(DateTime.utc_now(), :second)
+        ),
       mediable_type: mediable_type,
       mediable_id: adder.model.id,
       order_column: Model.next_order(adder.model, collection_name)
@@ -743,9 +748,8 @@ defmodule PhxMediaLibrary.MediaAdder do
   # can be retried. Otherwise the job stays async and the original is
   # retained.
   defp process_conversions_and_finalize_webp(adder, media, collection_name) do
-    conversions = conversions(adder, media, collection_name)
-
-    background? = conversions != [] or placeholder?(adder, media, collection_name)
+    conversions = conversions(adder, media.mime_type, collection_name)
+    background? = background_work?(adder, media.mime_type, collection_name)
 
     drop_original? =
       Pipeline.webp_served?(media) and
@@ -771,16 +775,18 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   # Only images (and PDFs with a renderer) are converted; a job for
   # anything else would fail.
-  defp conversions(adder, media, collection_name) do
-    if DocumentRenderer.image_source?(media.mime_type),
+  defp conversions(adder, mime_type, collection_name) do
+    if DocumentRenderer.image_source?(mime_type),
       do: Model.conversions(adder.model, collection_name),
       else: []
   end
 
-  defp placeholder?(adder, media, collection_name),
-    do:
-      DocumentRenderer.image_source?(media.mime_type) and
-        Model.placeholder(adder.model, collection_name) != false
+  # A job runs for conversions or placeholders.
+  defp background_work?(adder, mime_type, collection_name) do
+    conversions(adder, mime_type, collection_name) != [] or
+      (DocumentRenderer.image_source?(mime_type) and
+         Model.placeholder(adder.model, collection_name) != false)
+  end
 
   # file_name keeps naming the (now absent) source; URL helpers serve the WebP.
   defp drop_original(media, adder) do
