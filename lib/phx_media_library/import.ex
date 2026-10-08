@@ -108,7 +108,9 @@ defmodule PhxMediaLibrary.Import do
         else: adder
 
     disk = entry[:disk] || disk
-    {entry, MediaAdder.prepare(adder, collection, if(disk, do: [disk: disk], else: []))}
+    # Positions are given at insert (ordered/1), not looked up per file.
+    opts = if disk, do: [disk: disk, order_column: nil], else: [order_column: nil]
+    {entry, MediaAdder.prepare(adder, collection, opts)}
   rescue
     e -> {entry, {:error, {:exception, Exception.message(e)}}}
   end

@@ -127,6 +127,38 @@ defmodule PhxMediaLibrary.ImportTest do
     assert writes == ["INSERT", "INSERT", "INSERT"]
   end
 
+  test "positions are looked up once per collection and batch", %{jpeg: jpeg} do
+    post = create_test_post()
+
+    entries =
+      for i <- 1..4,
+          do: %{
+            model: post,
+            collection: :images,
+            source: {:binary, File.read!(jpeg), "p#{i}.jpg"}
+          }
+
+    test = self()
+    id = "order-#{System.unique_integer([:positive])}"
+
+    :telemetry.attach(
+      id,
+      [:phx_media_library, :test_repo, :query],
+      fn _, _, meta, _ ->
+        if meta.query =~ ~r/max\(.*order_column/i, do: send(test, :order_query)
+      end,
+      nil
+    )
+
+    {:ok, %{inserted: 4}} = PhxMediaLibrary.import_media(entries, batch_size: 2, disk: :local)
+    :telemetry.detach(id)
+
+    assert Enum.count(
+             Stream.repeatedly(fn -> receive do: (:order_query -> 1), after: (0 -> nil) end)
+             |> Stream.take_while(& &1)
+           ) == 2
+  end
+
   test "failures are per entry and leave no files", %{jpeg: jpeg, txt: txt} do
     post = create_test_post()
     before = stored_files()

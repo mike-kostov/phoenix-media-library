@@ -561,7 +561,11 @@ defmodule PhxMediaLibrary.MediaAdder do
         ),
       mediable_type: mediable_type,
       mediable_id: adder.model.id,
-      order_column: Model.next_order(adder.model, collection_name)
+      # Imports give positions per batch instead (PhxMediaLibrary.Import).
+      order_column:
+        Keyword.get_lazy(opts, :order_column, fn ->
+          Model.next_order(adder.model, collection_name)
+        end)
     }
 
     # Determine storage path
