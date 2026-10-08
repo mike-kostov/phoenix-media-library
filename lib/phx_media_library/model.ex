@@ -20,7 +20,7 @@ defmodule PhxMediaLibrary.Model do
 
   import Ecto.Query, only: [from: 2]
 
-  alias PhxMediaLibrary.{Collection, Config, Conversion, Media, ModelRegistry}
+  alias PhxMediaLibrary.{Collection, Config, Conversion, DocumentRenderer, Media, ModelRegistry}
 
   @typedoc "A model struct, a model module, or a media record."
   @type target :: struct() | module()
@@ -237,8 +237,9 @@ defmodule PhxMediaLibrary.Model do
   3. `config :phx_media_library, formats:`, else the global `avif:`
   4. `[:webp]`
 
-  Files libvips can't convert (SVG, PDF, video) keep their own format,
-  `[original: []]`, unless the conversion lists formats itself.
+  Files libvips can't convert (SVG, video) keep their own format,
+  `[original: []]`, unless the conversion lists formats itself. A PDF with
+  a renderer counts as its first page, a PNG: `:original` is `:png`.
 
   ## Examples
 
@@ -252,24 +253,35 @@ defmodule PhxMediaLibrary.Model do
   @spec formats(target(), atom() | String.t(), String.t() | nil, Conversion.t() | nil) ::
           Config.formats()
   def formats(target, collection_name, mime_type, conversion \\ nil) do
-    cond do
-      match?(%Conversion{formats: [_ | _]}, conversion) ->
-        conversion.formats
+    formats =
+      cond do
+        match?(%Conversion{formats: [_ | _]}, conversion) ->
+          conversion.formats
 
-      # A struct built without Conversion.new/2.
-      match?(%Conversion{format: f} when f != nil, conversion) ->
-        Config.normalize_formats!([conversion.format])
+        # A struct built without Conversion.new/2.
+        match?(%Conversion{format: f} when f != nil, conversion) ->
+          Config.normalize_formats!([conversion.format])
 
-      not convertible?(mime_type) ->
-        [original: []]
+        not convertible?(mime_type) ->
+          [original: []]
 
-      true ->
-        collection_formats(collection(target, collection_name))
-    end
+        true ->
+          collection_formats(collection(target, collection_name))
+      end
+
+    # A PDF's conversions are made from its first page, a PNG.
+    if DocumentRenderer.renderable?(mime_type),
+      do: Enum.map(formats, &page_format/1),
+      else: formats
   end
 
+  defp page_format({:original, opts}), do: {:png, opts}
+  defp page_format(format), do: format
+
   defp convertible?(mime_type),
-    do: PhxMediaLibrary.Webp.convertible?(mime_type) or mime_type == "image/webp"
+    do:
+      PhxMediaLibrary.Webp.convertible?(mime_type) or mime_type == "image/webp" or
+        DocumentRenderer.renderable?(mime_type)
 
   defp collection_formats(%Collection{formats: [_ | _] = formats}), do: formats
 

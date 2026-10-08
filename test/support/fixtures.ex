@@ -26,6 +26,43 @@ defmodule PhxMediaLibrary.Fixtures do
   end
 
   @doc """
+  Creates a one-page PDF (a red rectangle on a 600x400 page) and returns
+  its path.
+  """
+  def create_temp_pdf(filename \\ "report.pdf") do
+    content = "1 0 0 rg 50 50 500 300 re f"
+
+    objects = [
+      "<< /Type /Catalog /Pages 2 0 R >>",
+      "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+      "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 400] /Contents 4 0 R >>",
+      "<< /Length #{byte_size(content)} >>\nstream\n#{content}\nendstream"
+    ]
+
+    header = "%PDF-1.4\n"
+
+    {body, offsets} =
+      objects
+      |> Enum.with_index(1)
+      |> Enum.reduce({header, []}, fn {object, n}, {acc, offsets} ->
+        {acc <> "#{n} 0 obj\n#{object}\nendobj\n", [byte_size(acc) | offsets]}
+      end)
+
+    xref =
+      "xref\n0 #{length(objects) + 1}\n0000000000 65535 f \n" <>
+        Enum.map_join(
+          Enum.reverse(offsets),
+          "",
+          &(String.pad_leading("#{&1}", 10, "0") <> " 00000 n \n")
+        )
+
+    trailer =
+      "trailer\n<< /Size #{length(objects) + 1} /Root 1 0 R >>\nstartxref\n#{byte_size(body)}\n%%EOF\n"
+
+    create_temp_file(body <> xref <> trailer, filename)
+  end
+
+  @doc """
   Creates a temporary image file.
   Returns the path to the temporary file.
   """

@@ -302,6 +302,32 @@ mix phx_media_library.doctor --rebuild --only conversions --collection images
 mix phx_media_library.doctor --rebuild --only conversions --dry-run
 ```
 
+### PDF thumbnails
+
+A PDF's first page becomes its image: its conversions (`:thumb`,
+`:preview`) and placeholder are made from it, so PDFs show in galleries
+like images, and the PDF itself is what `url/2` returns and users
+download.
+
+```elixir
+media_collections do
+  collection :documents, accepts: ~w(application/pdf)
+end
+```
+
+```heex
+<.media_gallery id="docs" media={@streams.documents} conversion={:thumb} />
+<img src={PhxMediaLibrary.url(document, :thumb)} alt={document.name} />
+```
+
+Rendering needs poppler's `pdftoppm` (`brew install poppler`,
+`apt-get install poppler-utils`) or a libvips built with PDF support; the
+precompiled libvips of `:image` can't read PDFs. The library uses the
+first one it finds (`PhxMediaLibrary.DocumentRenderer`). Without either,
+PDFs are stored as before, without conversions, and a warning is logged
+once. A PDF's conversions follow `formats:` like an image's, with
+`:original` meaning PNG. The PDF itself gets no responsive variants.
+
 ## Checksum & integrity verification
 
 PhxMediaLibrary computes a SHA-256 checksum during upload and stores it alongside

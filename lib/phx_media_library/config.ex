@@ -35,6 +35,7 @@ defmodule PhxMediaLibrary.Config do
   | `:async_processor` | `PhxMediaLibrary.AsyncProcessor.Task` | Background work: `Task`, `Oban` or `Inline` |
   | `:image_processor` | `PhxMediaLibrary.ImageProcessor.Image` when `:image` is installed | Image backend |
   | `:video_processor` | FFmpeg when installed | Poster frames for videos |
+  | `:document_renderer` | `pdftoppm` or libvips when they read PDFs | PDF thumbnails (`PhxMediaLibrary.DocumentRenderer`) |
   | `:path_generator` | `PhxMediaLibrary.PathGenerator.Default` | Storage path layout |
   | `:mime_detector` | `PhxMediaLibrary.MimeDetector.Default` | Content-based type detection |
   | `:extract_metadata` | `true` | Dimensions and EXIF on upload |
@@ -193,6 +194,29 @@ defmodule PhxMediaLibrary.Config do
       :video_processor,
       default_video_processor()
     )
+  end
+
+  @doc """
+  The document renderer for PDF thumbnails: `config :phx_media_library,
+  document_renderer:`, else the first available of
+  `PhxMediaLibrary.DocumentRenderer.Vips` and
+  `PhxMediaLibrary.DocumentRenderer.Pdftoppm`, else
+  `PhxMediaLibrary.DocumentRenderer.Null`.
+
+  ## Examples
+
+      PhxMediaLibrary.Config.document_renderer()
+      #=> PhxMediaLibrary.DocumentRenderer.Pdftoppm
+
+  """
+  @spec document_renderer() :: module()
+  def document_renderer do
+    Application.get_env(:phx_media_library, :document_renderer) ||
+      Enum.find(
+        [PhxMediaLibrary.DocumentRenderer.Vips, PhxMediaLibrary.DocumentRenderer.Pdftoppm],
+        PhxMediaLibrary.DocumentRenderer.Null,
+        &(Code.ensure_loaded?(&1) and &1.available?())
+      )
   end
 
   defp default_video_processor do

@@ -33,6 +33,7 @@ defmodule PhxMediaLibrary.Pipeline do
     Avif,
     Config,
     Conversions,
+    DocumentRenderer,
     FileName,
     LocalSource,
     Media,
@@ -177,7 +178,7 @@ defmodule PhxMediaLibrary.Pipeline do
       kind == false ->
         {:skip, :disabled}
 
-      not String.starts_with?(media.mime_type || "", "image/") ->
+      not DocumentRenderer.image_source?(media.mime_type) ->
         {:skip, :not_image}
 
       true ->
@@ -331,8 +332,12 @@ defmodule PhxMediaLibrary.Pipeline do
     end
   end
 
+  # The original's variants need a full-size image to end its srcset: a
+  # PDF's conversions get variants, the PDF itself doesn't.
   defp responsive_for?(target, media, nil, requested?),
-    do: Model.responsive?(target, media.collection_name, requested?)
+    do:
+      String.starts_with?(media.mime_type || "", "image/") and
+        Model.responsive?(target, media.collection_name, requested?)
 
   defp responsive_for?(target, media, _conversion, _requested?),
     do: Model.conversion_responsive?(target, media.collection_name)
@@ -603,10 +608,12 @@ defmodule PhxMediaLibrary.Pipeline do
 
   defp target(media, opts), do: Keyword.get(opts, :model) || media
 
+  # The original as an image (a PDF's first page), from the upload's file
+  # or from storage.
   defp with_source(media, opts, fun) do
     case Keyword.fetch(opts, :source) do
-      {:ok, path} -> fun.(path)
-      :error -> LocalSource.with_path(media, nil, fun)
+      {:ok, path} -> LocalSource.as_image(path, media.mime_type, fun)
+      :error -> LocalSource.with_image(media, fun)
     end
   end
 

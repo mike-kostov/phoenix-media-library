@@ -181,6 +181,7 @@ uploader.
 | **Schema integration** | Polymorphic `has_media()` macro, a DSL for collections and conversions |
 | **Collections** | MIME validation, file count and size limits, pixel and dimension limits (`min_width:`, `max_height:`, ...), single-file mode, fallback URLs |
 | **Image conversions** | Resizes and crops, WebP by default or every format of `formats: [:avif, :webp]` (`format: :original` keeps the upload's format), responsive `srcset`; same-shape conversions share the original's variants. Optional: works without libvips |
+| **PDF thumbnails** | A PDF's first page gives its conversions and placeholder, with `pdftoppm` or a libvips that reads PDFs; the PDF stays the download |
 | **Placeholders** | A 32px blurred WebP (or the average color) for every image, made in the background, shown by every image component |
 | **AVIF** | Opt-in `avif: true`: an AVIF of each image and its sizes, offered first through `<picture>` with WebP or the original as the fallback |
 | **WebP & HEIC** | Conversions are WebP; `webp: true` also transcodes raster and HEIC originals to WebP and serves them |

@@ -757,7 +757,11 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:confirm_message, :string, default: "Are you sure you want to delete this file?")
 
     defp _gallery_card(assigns) do
-      is_image = image_media?(assigns.media)
+      # A PDF shows its rendered thumbnail once the conversion exists.
+      is_image =
+        image_media?(assigns.media) or
+          (assigns.conversion != nil and Media.has_conversion?(assigns.media, assigns.conversion))
+
       assigns = assign(assigns, :is_image, is_image)
 
       ~H"""

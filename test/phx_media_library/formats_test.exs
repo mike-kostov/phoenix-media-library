@@ -2,9 +2,15 @@ defmodule PhxMediaLibrary.FormatsTest do
   # Spec 02, F1: the ordered `formats:` list and how it resolves.
   use ExUnit.Case, async: false
 
-  alias PhxMediaLibrary.{Collection, Config, Conversion, Model}
+  alias PhxMediaLibrary.{Collection, Config, Conversion, DocumentRenderer, Model}
 
   doctest Config, only: [normalize_formats: 1, normalize_formats!: 1]
+
+  defmodule AlwaysRenders do
+    @behaviour PhxMediaLibrary.DocumentRenderer
+    def available?, do: true
+    def render_first_page(_source, _destination, _opts), do: :ok
+  end
 
   defmodule Album do
     use Ecto.Schema
@@ -27,7 +33,7 @@ defmodule PhxMediaLibrary.FormatsTest do
 
   setup do
     previous =
-      for key <- [:formats, :avif, :webp],
+      for key <- [:formats, :avif, :webp, :document_renderer],
           do: {key, Application.fetch_env(:phx_media_library, key)}
 
     Enum.each(previous, fn {key, _} -> Application.delete_env(:phx_media_library, key) end)
@@ -101,11 +107,25 @@ defmodule PhxMediaLibrary.FormatsTest do
     end
 
     test "files libvips can't convert keep their format, unless a conversion lists one" do
+      Application.put_env(:phx_media_library, :document_renderer, DocumentRenderer.Null)
       assert formats(:listed, nil, "image/svg+xml") == [original: []]
       assert formats(:listed, nil, "application/pdf") == [original: []]
 
       cover = Conversion.new(:cover, width: 300, formats: [:jpg])
       assert formats(:listed, cover, "application/pdf") == [jpg: []]
+    end
+
+    # Spec 02, F7: its first page, rendered as a PNG.
+    test "a PDF with a renderer takes the list; :original is PNG" do
+      Application.put_env(:phx_media_library, :document_renderer, AlwaysRenders)
+
+      assert formats(:listed, nil, "application/pdf") == [
+               avif: [quality: 50],
+               webp: [quality: 80]
+             ]
+
+      page = Conversion.new(:page, width: 300, format: :original)
+      assert formats(:listed, page, "application/pdf") == [png: []]
     end
 
     test "WebP uploads take the list" do

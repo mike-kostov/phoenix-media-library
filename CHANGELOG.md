@@ -68,6 +68,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- PDF thumbnails: a PDF's first page gives its conversions (`:thumb`,
+  `:preview`) and placeholder, so PDFs show in galleries like images. It
+  renders with poppler's `pdftoppm` or a libvips that reads PDFs
+  (`PhxMediaLibrary.DocumentRenderer`, chosen like the video processor,
+  or `config :phx_media_library, document_renderer:`). Without one, PDFs
+  are stored as before and a warning is logged once.
 - `copy_media/4` and `move_media/4` copy or move a media item to another
   record or collection. Both add the original again under the target
   collection's rules (types, limits, naming, formats, conversions) and

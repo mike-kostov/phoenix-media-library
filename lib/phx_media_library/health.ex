@@ -36,6 +36,7 @@ defmodule PhxMediaLibrary.Health do
 
   alias PhxMediaLibrary.{
     Config,
+    DocumentRenderer,
     Media,
     Model,
     ModelRegistry,
@@ -210,7 +211,7 @@ defmodule PhxMediaLibrary.Health do
   end
 
   defp conversions_issue(media, present, true = _original?) do
-    if image?(media) do
+    if DocumentRenderer.image_source?(media.mime_type) do
       missing =
         media
         |> Model.conversions(media.collection_name)
@@ -252,7 +253,8 @@ defmodule PhxMediaLibrary.Health do
   defp avif_issue(_media, _present, false), do: nil
 
   defp placeholder_issue(media, true = _original?) do
-    if image?(media) and Model.placeholder(media, media.collection_name) != false do
+    if DocumentRenderer.image_source?(media.mime_type) and
+         Model.placeholder(media, media.collection_name) != false do
       case get_in(media.responsive_images || %{}, ["original", "placeholder"]) do
         nil -> :missing_placeholder
         %{"data_uri" => data_uri} when is_binary(data_uri) -> outdated_placeholder(data_uri)

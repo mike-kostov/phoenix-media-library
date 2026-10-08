@@ -341,9 +341,9 @@ detected at runtime like FFmpeg; a PDF's first page feeds its conversions,
 placeholder and variants; without a renderer, PDFs are stored as today
 and a warning is logged once.
 **Acceptance criteria:**
-- [ ] With a renderer, a PDF gets `:thumb` and a placeholder; the PDF
+- [x] With a renderer, a PDF gets `:thumb` and a placeholder; the PDF
       itself stays the download.
-- [ ] Without one, the upload succeeds and logs once.
+- [x] Without one, the upload succeeds and logs once.
 **Verification:** tests with and without `pdftoppm` (skipped when
 absent, like the S3 container tests); `mix precommit`.
 **Dependencies:** none

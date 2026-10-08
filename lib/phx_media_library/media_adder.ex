@@ -17,6 +17,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   alias PhxMediaLibrary.{
     Collection,
     Config,
+    DocumentRenderer,
     Downloader,
     FileName,
     Media,
@@ -768,13 +769,18 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  # Only images are converted; a job for anything else would fail.
+  # Only images (and PDFs with a renderer) are converted; a job for
+  # anything else would fail.
   defp conversions(adder, media, collection_name) do
-    if image?(media.mime_type), do: Model.conversions(adder.model, collection_name), else: []
+    if DocumentRenderer.image_source?(media.mime_type),
+      do: Model.conversions(adder.model, collection_name),
+      else: []
   end
 
   defp placeholder?(adder, media, collection_name),
-    do: image?(media.mime_type) and Model.placeholder(adder.model, collection_name) != false
+    do:
+      DocumentRenderer.image_source?(media.mime_type) and
+        Model.placeholder(adder.model, collection_name) != false
 
   # file_name keeps naming the (now absent) source; URL helpers serve the WebP.
   defp drop_original(media, adder) do

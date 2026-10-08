@@ -572,7 +572,7 @@ defmodule PhxMediaLibrary.Doctor do
   defp rebuild_steps(_media, [], _opts), do: []
 
   defp rebuild_steps(media, rebuild, opts) do
-    if image?(media) do
+    if PhxMediaLibrary.DocumentRenderer.image_source?(media.mime_type) do
       conversions = Keyword.get(opts, :conversions, [])
       for what <- @rebuild_targets, what in rebuild, do: {:rebuild, what, conversions}
     else

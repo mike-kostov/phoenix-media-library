@@ -95,7 +95,7 @@ defmodule PhxMediaLibrary.PlaceholderTest do
   end
 
   test "the step is skipped for files that aren't images" do
-    media = create_media(%{mime_type: "application/pdf", file_name: "a.pdf", disk: "memory"})
+    media = create_media(%{mime_type: "text/plain", file_name: "a.txt", disk: "memory"})
     assert {:skip, :not_image} = Pipeline.placeholder(media)
   end
 

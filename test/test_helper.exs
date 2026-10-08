@@ -83,7 +83,13 @@ s3_available? =
       false
   end
 
+# PDF thumbnails need poppler's pdftoppm (brew install poppler).
+pdftoppm_available? = System.find_executable("pdftoppm") != nil
+
 # Exclude integration tests whose service is not available
 ExUnit.configure(
-  exclude: if(db_available?, do: [], else: [:db]) ++ if(s3_available?, do: [], else: [:s3])
+  exclude:
+    if(db_available?, do: [], else: [:db]) ++
+      if(s3_available?, do: [], else: [:s3]) ++
+      if(pdftoppm_available?, do: [], else: [:pdftoppm])
 )

@@ -556,7 +556,11 @@ if Code.ensure_loaded?(Phoenix.LiveComponent) do
     attr(:myself, :any, required: true)
 
     defp _gallery_card(assigns) do
-      is_image = image_media?(assigns.media)
+      # A PDF shows its rendered thumbnail once the conversion exists.
+      is_image =
+        image_media?(assigns.media) or
+          (assigns.conversion != nil and Media.has_conversion?(assigns.media, assigns.conversion))
+
       assigns = assign(assigns, :is_image, is_image)
 
       ~H"""
