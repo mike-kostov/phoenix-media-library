@@ -13,6 +13,7 @@ defmodule PhxMediaLibrary.DocumentRenderer.Pdftoppm do
   @default_timeout :timer.seconds(30)
 
   @doc "Whether `pdftoppm` is on `$PATH`."
+  @spec available?() :: boolean()
   @impl true
   def available?, do: System.find_executable("pdftoppm") != nil
 
@@ -24,6 +25,7 @@ defmodule PhxMediaLibrary.DocumentRenderer.Pdftoppm do
       :ok = PhxMediaLibrary.DocumentRenderer.Pdftoppm.render_first_page("a.pdf", "/tmp/a.png", size: 2048)
 
   """
+  @spec render_first_page(Path.t(), Path.t(), keyword()) :: :ok | {:error, term()}
   @impl true
   def render_first_page(source, destination, opts) do
     size = Keyword.get(opts, :size, 2048)

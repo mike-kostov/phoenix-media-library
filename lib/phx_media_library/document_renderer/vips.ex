@@ -12,6 +12,7 @@ if Code.ensure_loaded?(Image) do
     alias Vix.Vips.Foreign
 
     @doc "Whether libvips can load PDFs."
+    @spec available?() :: boolean()
     @impl true
     def available?, do: match?({:ok, _loader}, Foreign.find_load("probe.pdf"))
 
@@ -23,6 +24,7 @@ if Code.ensure_loaded?(Image) do
         :ok = PhxMediaLibrary.DocumentRenderer.Vips.render_first_page("a.pdf", "/tmp/a.png", size: 2048)
 
     """
+    @spec render_first_page(Path.t(), Path.t(), keyword()) :: :ok | {:error, term()}
     @impl true
     def render_first_page(source, destination, opts) do
       with {:ok, page} <- Image.thumbnail(source, Keyword.get(opts, :size, 2048)),
