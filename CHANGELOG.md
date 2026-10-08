@@ -37,6 +37,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   task.
 
 ### Fixed
+- When the record of a media item's conversions couldn't be updated, the
+  error was ignored and the conversion reported success, leaving files the
+  record didn't know about. `Conversions.process/2` and `process_single/2`
+  now return `{:error, {:record_update_failed, reason}}`, so the job can
+  retry.
 - The library didn't compile in apps without Phoenix LiveView or Plug,
   although both are optional: the components, `MediaLive` and
   `LiveUpload` used LiveView unguarded, and uploads matched

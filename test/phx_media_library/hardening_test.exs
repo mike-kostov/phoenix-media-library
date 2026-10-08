@@ -378,6 +378,28 @@ defmodule PhxMediaLibrary.HardeningTest do
       File.rm(png)
     end
 
+    # Spec 02, B2.
+    test "a failed record update is an error, not success" do
+      media = create_media(disk: "memory", file_name: "photo.png", mime_type: "image/png")
+      png = create_temp_image(format: :png, width: 60, height: 60)
+      storage = Config.storage_adapter(:memory)
+      :ok = StorageWrapper.put(storage, PathGenerator.relative_path(media, nil), File.read!(png))
+
+      previous = Application.get_env(:phx_media_library, :repo)
+      Application.put_env(:phx_media_library, :repo, PhxMediaLibrary.RefusingRepo)
+      on_exit(fn -> Application.put_env(:phx_media_library, :repo, previous) end)
+
+      thumb = Conversion.new(:thumb, width: 20, height: 20)
+      assert {:error, {:record_update_failed, :refused}} = Conversions.process(media, [thumb])
+
+      assert {:error, {:record_update_failed, :refused}} =
+               Conversions.process_single(media, thumb)
+
+      Application.put_env(:phx_media_library, :repo, previous)
+      Media.delete_files(Repo.reload!(media))
+      File.rm(png)
+    end
+
     test "a width-only conversion keeps the aspect ratio" do
       media = create_media(disk: "memory", file_name: "photo.png", mime_type: "image/png")
       png = create_temp_image(format: :png, width: 400, height: 200)

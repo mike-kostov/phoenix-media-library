@@ -143,7 +143,7 @@ instead of writing them; the doctor's repairs still write per step.
 **Description:** `Conversions.update_generated_conversions/2` returns the
 update's error instead of `:ok`, so the job fails and can retry.
 **Acceptance criteria:**
-- [ ] A failing update makes `Conversions.process/2` return an error.
+- [x] A failing update makes `Conversions.process/2` return an error.
 **Verification:** conversion tests; `mix precommit`.
 **Dependencies:** none (done with or before Task 4a)
 **Scope:** S

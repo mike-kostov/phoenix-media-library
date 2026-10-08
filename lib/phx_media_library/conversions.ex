@@ -74,24 +74,28 @@ defmodule PhxMediaLibrary.Conversions do
             into: %{},
             do: {to_string(conversion.name), recorded(conversion)}
 
-      update_generated_conversions(media, generated)
-
-      # Generate responsive images for conversions if enabled
-      maybe_generate_responsive_for_conversions(media, results)
-      generate_placeholders(media, results)
-
-      case Enum.reject(results, &match?({:ok, _}, &1)) do
-        [] ->
-          :ok
-
-        failures ->
-          Logger.warning(
-            "[PhxMediaLibrary] conversions failed for media #{inspect(media.id)}: " <>
-              inspect(failures)
-          )
-
-          {:error, {:conversions_failed, failures}}
+      # The files exist only if the record says so: a failed write fails
+      # the job, so it can be retried.
+      with :ok <- update_generated_conversions(media, generated) do
+        maybe_generate_responsive_for_conversions(media, results)
+        generate_placeholders(media, results)
+        conversion_failures(media, results)
       end
+    end
+  end
+
+  defp conversion_failures(media, results) do
+    case Enum.reject(results, &match?({:ok, _}, &1)) do
+      [] ->
+        :ok
+
+      failures ->
+        Logger.warning(
+          "[PhxMediaLibrary] conversions failed for media #{inspect(media.id)}: " <>
+            inspect(failures)
+        )
+
+        {:error, {:conversions_failed, failures}}
     end
   end
 
@@ -111,7 +115,6 @@ defmodule PhxMediaLibrary.Conversions do
     with {:ok, image} <- processor.open(original_path),
          {:ok, _} <- process_conversion(media, image, conversion, processor, storage) do
       update_generated_conversions(media, %{to_string(conversion.name) => recorded(conversion)})
-      :ok
     end
   end
 
@@ -201,11 +204,20 @@ defmodule PhxMediaLibrary.Conversions do
   defp update_generated_conversions(%Media{} = media, new_conversions) do
     updated = Map.merge(media.generated_conversions, new_conversions)
 
-    media
-    |> Ecto.Changeset.change(generated_conversions: updated)
-    |> Config.repo().update()
+    case media
+         |> Ecto.Changeset.change(generated_conversions: updated)
+         |> Config.repo().update() do
+      {:ok, _media} ->
+        :ok
 
-    :ok
+      {:error, reason} ->
+        Logger.warning(
+          "[PhxMediaLibrary] could not record the conversions of media #{inspect(media.id)}: " <>
+            inspect(reason)
+        )
+
+        {:error, {:record_update_failed, reason}}
+    end
   end
 
   # Responsive variants of the new conversions (see
