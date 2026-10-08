@@ -37,6 +37,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in AVIF collections are also made as AVIF. Their URLs are still the WebP.
   Existing conversions get the AVIF with
   `mix phx_media_library.doctor --rebuild --only conversions`.
+- Responsive variants come in every listed format, each with its own
+  `srcset`: with `avif: true`, AVIF and WebP (0.9 made AVIF only). The
+  original's variants use the listed formats it has a full-size file in.
+  `<.picture>`, `<.responsive_img>` and `<.media_figure>` offer each format
+  as a typed `<source>`, best first, and the last on the `<img>`; conversions
+  get the same. They no longer add a `<source>` for a full-size WebP the
+  `<img>` already serves. `Media.srcset/3` and `ResponsiveImages.variants/3`
+  take a format.
 - New installs get a leaner media table: `mix phx_media_library.install`
   no longer creates the (mediable_type, mediable_id), (collection_name)
   and (checksum) indexes, which no library query needs, and makes

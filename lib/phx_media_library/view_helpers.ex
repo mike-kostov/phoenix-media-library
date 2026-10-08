@@ -24,7 +24,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     use Phoenix.Component
 
-    alias PhxMediaLibrary.{Media, UrlGenerator}
+    alias PhxMediaLibrary.{Media, PathGenerator, ResponsiveImages, UrlGenerator}
 
     @doc """
     Renders a simple img tag for a media item.
@@ -84,9 +84,10 @@ if Code.ensure_loaded?(Phoenix.Component) do
     Includes progressive loading with a tiny placeholder that's
     replaced when the full image loads.
 
-    When the media has an AVIF (`avif:` on), its variants are AVIF only, so
-    it renders a `<picture>` with an AVIF source holding the `srcset`, then
-    WebP, and the `<img>` for browsers without AVIF.
+    When the image comes in several formats (`formats: [:avif, :webp]`, or
+    `avif:` on), it renders a `<picture>` with a typed source per format,
+    best first, each with its own `srcset`; the `<img>` carries the last,
+    safe format, for browsers without the others.
 
     ## Attributes
 
@@ -130,14 +131,12 @@ if Code.ensure_loaded?(Phoenix.Component) do
       assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()
       %{media: media, conversion: conversion} = assigns
 
-      # Variants are AVIF-only when the media has an AVIF (ADR-024): offer them
-      # through <picture>, so browsers without AVIF still get the <img>.
-      sources = if avif?(media, conversion), do: format_sources(media, conversion), else: []
+      {sources, srcset} = format_sources(media, conversion)
 
       assigns =
         assigns
         |> assign(:sources, sources)
-        |> assign(:srcset, if(sources == [], do: PhxMediaLibrary.srcset(media, conversion)))
+        |> assign(:srcset, srcset)
         |> assign(:src, PhxMediaLibrary.url(media, conversion))
         |> assign(:placeholder_style, placeholder_style(media, conversion))
 
@@ -245,9 +244,9 @@ if Code.ensure_loaded?(Phoenix.Component) do
     @doc """
     Renders a picture element with multiple sources.
 
-    For the original, it offers the media's modern formats as typed sources,
-    best first: AVIF (with the responsive `srcset`), then WebP, then the
-    `<img>`. `sources` adds art-direction sources before them.
+    It offers each format of the image as a typed source, best first (AVIF,
+    then WebP, with their responsive `srcset`s), and the last, safe format
+    as the `<img>`. `sources` adds art-direction sources before them.
 
     ## Attributes
 
@@ -287,15 +286,12 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     def picture(assigns) do
       assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()
-      format_sources = format_sources(assigns.media, assigns.conversion)
+      {format_sources, srcset} = format_sources(assigns.media, assigns.conversion)
 
       assigns =
         assigns
         |> assign(:format_sources, format_sources)
-        |> assign(
-          :srcset,
-          if(format_sources == [], do: PhxMediaLibrary.srcset(assigns.media, assigns.conversion))
-        )
+        |> assign(:srcset, srcset)
 
       ~H"""
       <picture>
@@ -327,27 +323,46 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     # Private helpers
 
-    defp avif?(%Media{custom_properties: %{"avif" => avif}}, nil) when is_binary(avif), do: true
-    defp avif?(_media, _conversion), do: false
+    # Typed <source>s, best first, and the <img>'s srcset (spec 02, F1). The
+    # <img> serves the last, safe format; every other format the image has
+    # becomes a source, with its variants, or its full-size file when it has
+    # none. With one format there are no sources (0.9's markup).
+    defp format_sources(%Media{} = media, conversion) do
+      served = extension(UrlGenerator.served_path(media, conversion))
+      full_size = full_size_paths(media, conversion)
 
-    # Typed <source>s for the original's modern formats, best first (ADR-024).
-    # The srcset is in the best format; a second format offers its full-size
-    # file. Conversions have no siblings: they are already in the served
-    # format.
-    defp format_sources(%Media{} = media, nil) do
-      props = media.custom_properties || %{}
-      srcset = PhxMediaLibrary.srcset(media, nil)
+      sources =
+        for format <-
+              Enum.uniq(ResponsiveImages.formats(media, conversion) ++ Map.keys(full_size)),
+            format != served,
+            srcset =
+              Media.srcset(media, conversion, format) || full_size_url(media, full_size[format]),
+            do: %{type: MIME.type(format), srcset: srcset}
 
-      [{"image/avif", props["avif"]}, {"image/webp", props["webp"]}]
-      |> Enum.filter(fn {_type, path} -> is_binary(path) end)
-      |> Enum.with_index()
-      |> Enum.map(fn {{type, path}, index} ->
-        full_size = UrlGenerator.url_for_path(media, path)
-        %{type: type, srcset: if(index == 0, do: srcset || full_size, else: full_size)}
-      end)
+      {sources, Media.srcset(media, conversion, served)}
     end
 
-    defp format_sources(_media, _conversion), do: []
+    # The full-size file in each format: the original's AVIF and WebP, or a
+    # conversion's files.
+    defp full_size_paths(media, nil) do
+      props = media.custom_properties || %{}
+
+      for format <- ["avif", "webp"],
+          is_binary(props[format]),
+          into: %{},
+          do: {format, props[format]}
+    end
+
+    defp full_size_paths(media, conversion) do
+      media
+      |> PathGenerator.conversion_paths(conversion)
+      |> Map.new(&{extension(&1), &1})
+    end
+
+    defp full_size_url(_media, nil), do: nil
+    defp full_size_url(media, path), do: UrlGenerator.url_for_path(media, path)
+
+    defp extension(path), do: path |> Path.extname() |> String.trim_leading(".")
 
     # A priority image loads immediately and first; everything else decodes
     # off the main thread.

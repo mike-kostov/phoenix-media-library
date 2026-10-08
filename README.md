@@ -130,7 +130,7 @@ The image components do the page-speed work for you:
 - **Small formats.** Conversions are WebP by default, or every format in
   `formats: [:avif, :webp]`, with the last one in plain URLs. `webp: true` also
   serves the original as WebP; `avif: true` adds an AVIF of the original
-  and its sizes, which `<.picture>` and `<.responsive_img>` offer first,
+  and of every size, which `<.picture>` and `<.responsive_img>` offer first,
   with WebP or the original as the fallback. A plain URL is never AVIF,
   since AI tools and most link previews can't read it.
 - **Priority.** `priority` marks the page's main image `loading="eager"`

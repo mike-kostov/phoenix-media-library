@@ -292,7 +292,7 @@ defmodule PhxMediaLibrary.Health do
 
   defp responsive_issue(media, present, true = _original?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do
-      paths = for %{"path" => path} <- ResponsiveImages.variants(media, nil), do: path
+      paths = ResponsiveImages.paths(media, nil)
 
       if paths == [] or Enum.any?(paths, &(&1 not in present)), do: :missing_responsive
     end

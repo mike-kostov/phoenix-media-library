@@ -568,8 +568,9 @@ PhxMediaLibrary provides rendering components.
 > Requires the collection to opt into responsive variants (`responsive: true`,
 > see [Collections & Conversions](collections-and-conversions.md#responsive-images)).
 > When the collection also serves WebP (`webp: true`), the generated `srcset` is
-> WebP automatically. With `avif: true` it renders a `<picture>` with an AVIF
-> source first, so browsers without AVIF still get the WebP.
+> WebP automatically. With `avif: true` (or `formats: [:avif, :webp]`) it
+> renders a `<picture>` with an AVIF source first, so browsers without AVIF
+> still get the WebP.
 
 ### What the image components do for you
 

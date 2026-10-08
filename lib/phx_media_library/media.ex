@@ -408,8 +408,7 @@ defmodule PhxMediaLibrary.Media do
       for {key, entry} <- media.responsive_images || %{},
           path <-
             if(match?(%{"widths" => _}, entry),
-              do:
-                Enum.map(ResponsiveImages.variants(media, responsive_source(key)), & &1["path"]),
+              do: ResponsiveImages.paths(media, responsive_source(key)),
               else: paths_in(entry)
             ),
           do: path
@@ -446,11 +445,18 @@ defmodule PhxMediaLibrary.Media do
   Get the srcset attribute value for responsive images.
 
   A conversion with the original's shape lists the original's variants
-  narrower than itself, then itself (ADR-024).
+  narrower than itself, then itself (ADR-024). `format` (an extension)
+  picks one of several formats; by default the last, safe one.
+
+  ## Examples
+
+      Media.srcset(media, :preview)
+      Media.srcset(media, :preview, "avif")
+
   """
-  @spec srcset(t(), atom() | nil) :: String.t() | nil
-  def srcset(%__MODULE__{} = media, conversion \\ nil) do
-    case responsive_variants(media, conversion) do
+  @spec srcset(t(), atom() | nil, String.t() | nil) :: String.t() | nil
+  def srcset(%__MODULE__{} = media, conversion \\ nil, format \\ nil) do
+    case responsive_variants(media, conversion, format) do
       [] -> nil
       variants -> build_srcset(media, variants, conversion)
     end
@@ -460,7 +466,8 @@ defmodule PhxMediaLibrary.Media do
   The responsive variants of the original or a conversion, narrowest
   first, each a map with `"width"`, `"height"` and `"path"`. The last one
   is the full-size file. A conversion with the original's shape gets the
-  original's variants narrower than itself, then itself.
+  original's variants narrower than itself, then itself. `format` as for
+  `srcset/3`.
 
   ## Examples
 
@@ -468,9 +475,13 @@ defmodule PhxMediaLibrary.Media do
       #=> [%{"width" => 160, ...}, %{"width" => 320, ...}, %{"width" => 800, ...}]
 
   """
-  @spec responsive_variants(t(), atom() | String.t() | nil) :: [map()]
-  def responsive_variants(%__MODULE__{responsive_images: responsive} = media, conversion) do
-    own = ResponsiveImages.variants(media, conversion)
+  @spec responsive_variants(t(), atom() | String.t() | nil, String.t() | nil) :: [map()]
+  def responsive_variants(
+        %__MODULE__{responsive_images: responsive} = media,
+        conversion,
+        format \\ nil
+      ) do
+    own = ResponsiveImages.variants(media, conversion, format)
 
     case (responsive || %{})[conversion_key(conversion)] do
       %{"reuses" => "original"} ->
@@ -478,7 +489,7 @@ defmodule PhxMediaLibrary.Media do
 
         original =
           media
-          |> ResponsiveImages.variants(nil)
+          |> ResponsiveImages.variants(nil, format)
           |> Enum.filter(&(&1["width"] < width))
 
         Enum.sort_by(original ++ own, & &1["width"])

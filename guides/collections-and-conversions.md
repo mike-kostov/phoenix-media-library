@@ -401,19 +401,18 @@ end
 - The AVIF is stored beside the original, at the served file's size (inside
   WebP's `max_dimension`, when set). Without `quality:`, libvips uses its
   default.
-- The original's responsive variants come in AVIF only: no size is stored
-  twice. Conversions come in AVIF and WebP (`formats: [:avif, :webp]`);
-  their plain URLs are the WebP, so a plain URL is never AVIF.
-- `<.picture>` and `<.responsive_img>` offer AVIF first, then WebP, then
-  the `<img>`, so browsers without AVIF still get an image.
+- `avif: true` is short for `formats: [:avif, :webp]`: conversions and
+  responsive variants come in both. Plain URLs are the WebP, so a plain
+  URL is never AVIF.
+- `<.picture>` and `<.responsive_img>` offer the AVIF `srcset` first and
+  the WebP one on the `<img>`, so browsers without AVIF still get an image.
   `<.responsive_img>` wraps it in `<picture style="display: contents">`,
   so your layout sees only the `<img>`:
 
 ```html
 <picture>
   <source type="image/avif" srcset="…_160w.avif 160w, …_320w.avif 320w, ….avif 1200w">
-  <source type="image/webp" srcset="….webp">
-  <img src="….webp" width="1200" height="800" alt="…">
+  <img src="….webp" srcset="…_160w.webp 160w, …_320w.webp 320w, ….webp 1200w" width="1200" height="800" alt="…">
 </picture>
 ```
 
@@ -471,7 +470,10 @@ end
 When a collection also serves WebP, its responsive variants are WebP-encoded
 and the full-size `srcset` descriptor reuses the existing WebP sibling, so the
 whole `srcset` is WebP at no extra cost. Otherwise variants keep the source
-format. With `webp: [max_dimension: n]` the largest descriptor is the capped
+format. The original's variants come in each listed format
+([Formats](#formats)) it has a full-size file in: its AVIF, its WebP, or
+itself; a conversion's, in every format it was made in. Each format gets
+its own `srcset`. With `webp: [max_dimension: n]` the largest descriptor is the capped
 WebP at its real size, and widths above it are not generated.
 
 Conversions get variants too. One with the original's shape (a width-only
@@ -479,7 +481,7 @@ Conversions get variants too. One with the original's shape (a width-only
 the same format (WebP, in a `webp: true` collection): its `srcset` lists
 the original's variants narrower than it, then the conversion itself,
 since those files would be the same. Crops (`:thumb`, `:banner`) get their
-own, and so does a conversion whose format differs from the original's
+own, and so does a conversion whose formats differ from the original's
 variants, so a `srcset` never mixes formats.
 
 For a fixed-size slot (a cart thumbnail, a search result) ask for a single

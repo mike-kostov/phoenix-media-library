@@ -281,9 +281,9 @@ F8) only within the same format list; `<.picture>`, `<.responsive_img>`
 and `<.media_figure>` offer each format as a typed source, in order,
 with the last as the `<img>`.
 **Acceptance criteria:**
-- [ ] With `[:avif, :webp]`, the srcset of each format lists only that
+- [x] With `[:avif, :webp]`, the srcset of each format lists only that
       format, and the `<img>` is WebP.
-- [ ] With `[:webp]` (default), the markup is as in 0.9.
+- [x] With `[:webp]` (default), the markup is as in 0.9.
 **Verification:** responsive and component tests; `mix precommit`.
 **Dependencies:** Task 10
 **Scope:** M

@@ -167,12 +167,22 @@ defmodule PhxMediaLibrary.UrlGenerator do
     end
   end
 
-  # When a WebP derivative was generated for the original (keep_original: true),
-  # serve it instead of the source file. Named conversions resolve normally.
-  defp served_path(%Media{custom_properties: %{"webp" => webp}}, nil) when is_binary(webp),
+  @doc """
+  The storage path `url/3` serves for the original (`nil`) or a
+  conversion: the original's WebP when it has one, else the original; a
+  conversion's last, safe format.
+
+  ## Examples
+
+      PhxMediaLibrary.UrlGenerator.served_path(media, nil)
+      #=> "posts/42/<uuid>/posts_42_images_<uuid>.webp"
+
+  """
+  @spec served_path(Media.t(), atom() | String.t() | nil) :: String.t()
+  def served_path(%Media{custom_properties: %{"webp" => webp}}, nil) when is_binary(webp),
     do: webp
 
-  defp served_path(media, conversion), do: PathGenerator.relative_path(media, conversion)
+  def served_path(media, conversion), do: PathGenerator.relative_path(media, conversion)
 
   # `width:` picks the smallest responsive variant at least that wide, else the
   # widest one. `nil` when the media has no variants for the conversion, so the

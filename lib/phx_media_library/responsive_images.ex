@@ -40,7 +40,7 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   """
 
-  alias PhxMediaLibrary.{Config, LocalSource, Media, PathGenerator, UrlGenerator}
+  alias PhxMediaLibrary.{Config, LocalSource, Media, Model, PathGenerator, UrlGenerator}
 
   @typedoc """
   What `responsive_images` stores per source (`"original"` or a conversion
@@ -80,9 +80,11 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       # descriptor must carry the served size, not the source's.
       {orig_width, orig_height} = served_dimensions(media, conversion, orig_dims)
 
+      formats = variant_formats(media, conversion)
+
       reuses_original? =
         conversion != nil and same_shape_as_original?(media, orig_width, orig_height) and
-          same_format_as_original?(media, conversion)
+          formats(media, nil) == Enum.map(formats, &elem(&1, 0))
 
       variants =
         if reuses_original?,
@@ -91,15 +93,14 @@ defmodule PhxMediaLibrary.ResponsiveImages do
             generate_variants(
               media,
               image,
-              orig_width,
-              orig_height,
+              {orig_width, orig_height},
               conversion,
-              processor,
-              storage,
+              formats,
+              {processor, storage},
               widths
             )
 
-      data = build_responsive_data(media, variants, orig_width, orig_height, conversion)
+      data = build_responsive_data(variants, orig_width, orig_height, conversion, formats)
 
       {:ok, if(reuses_original?, do: mark_reuse(data, conversion), else: data)}
     end
@@ -117,7 +118,26 @@ defmodule PhxMediaLibrary.ResponsiveImages do
   end
 
   @doc """
-  The stored variants of the original (`nil`) or a conversion, each
+  The formats (extensions) the variants of the original (`nil`) or a
+  conversion come in, in priority order; `[]` when there are none.
+
+  ## Examples
+
+      PhxMediaLibrary.ResponsiveImages.formats(media, nil)
+      #=> ["avif", "webp"]
+
+  """
+  @spec formats(Media.t(), atom() | String.t() | nil) :: [String.t()]
+  def formats(%Media{responsive_images: responsive} = media, conversion) do
+    case (responsive || %{})[conversion_key(conversion)] do
+      %{"widths" => _, "formats" => formats} -> formats
+      _ -> media |> variants(conversion) |> Enum.map(&extension(&1["path"])) |> Enum.uniq()
+    end
+  end
+
+  @doc """
+  The stored variants of the original (`nil`) or a conversion in `format`
+  (an extension, default the last of `formats/2`), each
   `%{"width", "height", "path"}`, the full-size file last; `[]` when there
   are none. Reads both the compact shape and the one from before 0.10.
 
@@ -127,39 +147,66 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       #=> [%{"width" => 320, "height" => 240, "path" => ".../responsive/photo_320w.webp"},
       #=>  %{"width" => 1600, "height" => 1200, "path" => ".../photo.webp"}]
 
+      PhxMediaLibrary.ResponsiveImages.variants(media, :preview, "avif")
+
   """
-  @spec variants(Media.t(), atom() | String.t() | nil) :: [map()]
-  def variants(%Media{responsive_images: responsive} = media, conversion) do
+  @spec variants(Media.t(), atom() | String.t() | nil, String.t() | nil) :: [map()]
+  def variants(%Media{responsive_images: responsive} = media, conversion, format \\ nil) do
     case (responsive || %{})[conversion_key(conversion)] do
       %{"widths" => widths, "width" => width, "height" => height, "formats" => [_ | _] = formats} ->
-        ext = List.last(formats)
-
-        for(
-          w <- widths,
-          do: %{
-            "width" => w,
-            "height" => round(w * height / width),
-            "path" => responsive_variant_path(media, conversion, w, dot(ext))
-          }
-        ) ++
-          [
-            %{
-              "width" => width,
-              "height" => height,
-              "path" => full_size_path(media, conversion, ext)
-            }
-          ]
+        ext = format || List.last(formats)
+        if ext in formats, do: expand(media, conversion, widths, {width, height}, ext), else: []
 
       %{"variants" => variants} when is_list(variants) ->
-        Enum.filter(variants, &is_map/1)
+        legacy(media, conversion, variants, format)
 
       # The shape before 0.8: a bare list.
       variants when is_list(variants) ->
-        Enum.filter(variants, &is_map/1)
+        legacy(media, conversion, variants, format)
 
       _ ->
         []
     end
+  end
+
+  @doc """
+  The paths of every variant of the original (`nil`) or a conversion, in
+  every format, full-size files included.
+
+  ## Examples
+
+      PhxMediaLibrary.ResponsiveImages.paths(media, nil)
+
+  """
+  @spec paths(Media.t(), atom() | String.t() | nil) :: [String.t()]
+  def paths(%Media{} = media, conversion) do
+    for format <- formats(media, conversion),
+        %{"path" => path} <- variants(media, conversion, format),
+        do: path
+  end
+
+  defp legacy(media, conversion, variants, format) do
+    variants = Enum.filter(variants, &is_map/1)
+
+    if format == nil or format in formats(media, conversion), do: variants, else: []
+  end
+
+  defp expand(media, conversion, widths, {width, height}, ext) do
+    for(
+      w <- widths,
+      do: %{
+        "width" => w,
+        "height" => round(w * height / width),
+        "path" => responsive_variant_path(media, conversion, w, dot(ext))
+      }
+    ) ++
+      [
+        %{
+          "width" => width,
+          "height" => height,
+          "path" => full_size_path(media, conversion, ext)
+        }
+      ]
   end
 
   defp dot(""), do: ""
@@ -236,44 +283,68 @@ defmodule PhxMediaLibrary.ResponsiveImages do
 
   # Private functions
 
+  # One width, resized once and stored in every format. A width counts only
+  # when all its formats are stored; otherwise its files are removed.
   defp generate_variant(
          media,
          image,
-         target_width,
-         orig_width,
-         orig_height,
+         width,
+         {orig_width, orig_height},
          conversion,
-         processor,
-         storage
+         formats,
+         {processor, storage}
        ) do
-    # Calculate height maintaining aspect ratio
-    target_height = round(target_width * orig_height / orig_width)
+    height = round(width * orig_height / orig_width)
 
-    # Create a conversion struct for resizing
-    resize_conversion = %PhxMediaLibrary.Conversion{
+    resize = %PhxMediaLibrary.Conversion{
       name: :responsive,
-      width: target_width,
-      height: target_height,
+      width: width,
+      height: height,
       fit: :contain
     }
 
-    # Generate the resized image
-    with {:ok, resized} <- processor.apply_conversion(image, resize_conversion) do
-      # Build the storage path for this variant
-      variant_path =
-        responsive_variant_path(media, conversion, target_width, variant_ext(media, conversion))
+    with {:ok, resized} <- processor.apply_conversion(image, resize) do
+      paths =
+        for {ext, quality} <- formats,
+            do: {responsive_variant_path(media, conversion, width, dot(ext)), quality}
 
-      temp_path = temp_file_path(variant_path)
+      case store_variants(resized, paths, processor, storage) do
+        :ok ->
+          {:ok, width}
 
-      # Save and upload
-      with {:ok, _} <- processor.save(resized, temp_path, []),
-           {:ok, content} <- File.read(temp_path),
-           :ok <- StorageWrapper.put(storage, variant_path, content) do
-        # Cleanup temp file
-        File.rm(temp_path)
-
-        {:ok, target_width}
+        error ->
+          remove(storage, paths)
+          error
       end
+    end
+  end
+
+  defp store_variants(_image, [], _processor, _storage), do: :ok
+
+  defp store_variants(image, [{path, quality} | rest], processor, storage) do
+    with :ok <- store_variant(image, path, quality, processor, storage),
+         do: store_variants(image, rest, processor, storage)
+  end
+
+  defp remove(storage, paths),
+    do: Enum.each(paths, fn {path, _quality} -> StorageWrapper.delete(storage, path) end)
+
+  # The image processor picks its encoder from the extension.
+  defp store_variant(image, path, quality, processor, storage) do
+    temp_path = temp_file_path(path)
+
+    try do
+      with {:ok, _} <-
+             processor.save(
+               image,
+               temp_path,
+               Enum.reject([quality: quality], &is_nil(elem(&1, 1)))
+             ),
+           {:ok, content} <- File.read(temp_path) do
+        StorageWrapper.put(storage, path, content)
+      end
+    after
+      File.rm(temp_path)
     end
   end
 
@@ -288,8 +359,6 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       |> Path.dirname()
       |> Path.join("responsive")
 
-    # The image processor picks its encoder from the extension, so a .webp
-    # path yields a WebP-encoded variant (see variant_ext/2).
     base_name = Path.rootname(media.file_name)
 
     filename =
@@ -302,62 +371,79 @@ defmodule PhxMediaLibrary.ResponsiveImages do
     Path.join(base_path, filename)
   end
 
-  # A conversion's variants are in the conversion's own format (WebP by
-  # default, never AVIF unless it asks). The original's come in one format,
-  # the best it has (ADR-024): .avif, else .webp, else its own extension.
-  defp variant_ext(media, conversion) when not is_nil(conversion),
-    do: media |> PathGenerator.relative_path(conversion) |> Path.extname()
+  # The formats a source's variants come in, in priority order, each with
+  # its quality (spec 02, F1). A conversion's are the formats it was made
+  # in. The original's are the listed formats it has a full-size file in
+  # (its AVIF, its WebP or itself), so each format's srcset ends with the
+  # full size; with none, its best one: AVIF, else WebP, else its own
+  # (ADR-024).
+  defp variant_formats(media, nil) do
+    listed = with_extensions(media, Model.formats(media, media.collection_name, media.mime_type))
+    available = full_size_formats(media)
 
-  defp variant_ext(%Media{custom_properties: %{"avif" => avif}}, nil) when is_binary(avif),
-    do: ".avif"
-
-  defp variant_ext(%Media{custom_properties: %{"webp" => webp}}, nil) when is_binary(webp),
-    do: ".webp"
-
-  defp variant_ext(%Media{file_name: file_name}, nil), do: Path.extname(file_name)
-
-  defp generate_variants(
-         media,
-         image,
-         orig_width,
-         orig_height,
-         conversion,
-         processor,
-         storage,
-         widths
-       ) do
-    widths
-    |> Enum.filter(&(&1 < orig_width))
-    |> Enum.map(
-      &generate_variant(
-        media,
-        image,
-        &1,
-        orig_width,
-        orig_height,
-        conversion,
-        processor,
-        storage
-      )
-    )
-    |> Enum.filter(&match?({:ok, _}, &1))
-    |> Enum.map(fn {:ok, variant} -> variant end)
+    case Enum.filter(listed, fn {ext, _quality} -> ext in available end) do
+      [] -> [{hd(available), nil}]
+      formats -> formats
+    end
   end
 
-  # The compact shape (see responsive_data/0): the variants' widths, then
-  # the full-size file, in the variants' format: the AVIF or WebP sibling of
-  # the original when it has one, so the whole srcset is one format at no
-  # extra cost. Conversions are already in that format.
-  defp build_responsive_data(media, widths, orig_width, orig_height, conversion) do
-    ext = media |> variant_ext(conversion) |> String.trim_leading(".")
+  defp variant_formats(media, conversion) do
+    listed =
+      media
+      |> Model.conversions(media.collection_name)
+      |> Enum.find(&(to_string(&1.name) == to_string(conversion)))
+      |> then(
+        &with_extensions(
+          media,
+          Model.formats(media, media.collection_name, media.mime_type, &1),
+          &1
+        )
+      )
+      |> Map.new()
 
+    for path <- PathGenerator.conversion_paths(media, conversion),
+        ext = extension(path),
+        do: {ext, listed[ext]}
+  end
+
+  defp with_extensions(media, formats, conversion \\ nil) do
+    for {format, opts} <- formats do
+      ext =
+        if format == :original,
+          do: extension(PathGenerator.relative_path(media, nil)),
+          else: to_string(format)
+
+      {ext, opts[:quality] || (conversion && conversion.quality)}
+    end
+  end
+
+  defp full_size_formats(media) do
+    props = media.custom_properties || %{}
+    siblings = for ext <- ["avif", "webp"], is_binary(props[ext]), do: ext
+    siblings ++ [extension(PathGenerator.relative_path(media, nil))]
+  end
+
+  defp extension(path), do: path |> Path.extname() |> String.trim_leading(".")
+
+  defp generate_variants(media, image, {orig_width, _} = dims, conversion, formats, tools, widths) do
+    widths
+    |> Enum.filter(&(&1 < orig_width))
+    |> Enum.map(&generate_variant(media, image, &1, dims, conversion, formats, tools))
+    |> Enum.filter(&match?({:ok, _}, &1))
+    |> Enum.map(fn {:ok, width} -> width end)
+  end
+
+  # The compact shape (see responsive_data/0): the variants' widths and
+  # formats, and the full size, whose file in each format is the original's
+  # AVIF or WebP sibling, the original, or the conversion's file.
+  defp build_responsive_data(widths, orig_width, orig_height, conversion, formats) do
     # Placeholders are their own step (Pipeline.placeholder/2).
     %{
       conversion_key(conversion) => %{
         "widths" => widths,
         "width" => orig_width,
         "height" => orig_height,
-        "formats" => [ext]
+        "formats" => Enum.map(formats, &elem(&1, 0))
       }
     }
   end
@@ -389,15 +475,6 @@ defmodule PhxMediaLibrary.ResponsiveImages do
       _ ->
         false
     end
-  end
-
-  # Reused variants must be in the conversion's format: a srcset mixing
-  # formats could hand a browser an AVIF it can't read.
-  defp same_format_as_original?(media, conversion) do
-    variants = variants(media, nil)
-
-    variants != [] and
-      Enum.all?(variants, &(Path.extname(&1["path"] || "") == variant_ext(media, conversion)))
   end
 
   defp mark_reuse(data, conversion),

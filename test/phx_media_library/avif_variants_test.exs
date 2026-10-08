@@ -25,38 +25,35 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
     media
   end
 
-  defp variant_paths(media),
-    do: for(v <- ResponsiveImages.variants(media, nil), do: v["path"])
+  defp variant_paths(media, format),
+    do: for(v <- ResponsiveImages.variants(media, nil, format), do: v["path"])
 
-  test "with AVIF and WebP on, every variant is AVIF and no WebP variant exists", %{jpeg: jpeg} do
+  # avif: true is formats: [:avif, :webp] (spec 02, F1; ADR-024 amendment 2).
+  test "with AVIF and WebP on, each size comes in both, each list in one format", %{jpeg: jpeg} do
     media = add(jpeg, :avif_responsive)
-    paths = variant_paths(media)
+    assert ResponsiveImages.formats(media, nil) == ["avif", "webp"]
 
-    assert length(paths) == 3
-    assert Enum.all?(paths, &String.ends_with?(&1, ".avif"))
-    assert List.last(paths) == media.custom_properties["avif"]
+    avif = variant_paths(media, "avif")
+    webp = variant_paths(media, "webp")
 
-    # No size of the original exists twice (conversions' WebP variants live
-    # in the same folder).
-    responsive_dir = Path.join(["priv/static/uploads", Path.dirname(hd(paths))])
-    base = Path.rootname(media.file_name)
-
-    refute responsive_dir
-           |> File.ls!()
-           |> Enum.any?(&(&1 =~ ~r/^#{base}_\d+w\.webp$/))
+    assert length(avif) == 3 and Enum.all?(avif, &String.ends_with?(&1, ".avif"))
+    assert length(webp) == 3 and Enum.all?(webp, &String.ends_with?(&1, ".webp"))
+    assert List.last(avif) == media.custom_properties["avif"]
+    assert List.last(webp) == media.custom_properties["webp"]
+    assert Enum.all?(avif ++ webp, &File.exists?(Path.join("priv/static/uploads", &1)))
   end
 
-  test "<.picture> offers AVIF, then WebP, then the img", %{jpeg: jpeg} do
+  test "<.picture> offers AVIF, then the WebP img, each with its srcset", %{jpeg: jpeg} do
     media = add(jpeg, :avif_responsive)
     html = render_component(&ViewHelpers.picture/1, media: media)
 
-    assert [_, avif, webp, img] = String.split(html, ~r/<source|<img/)
+    assert [_, avif, img] = String.split(html, ~r/<source|<img/)
     assert avif =~ ~s(type="image/avif")
     assert avif =~ "_160w.avif 160w"
-    assert webp =~ ~s(type="image/webp")
-    assert webp =~ media.custom_properties["webp"]
-    assert img =~ ~s(src=")
-    refute img =~ "srcset"
+    refute avif =~ ".webp"
+    assert img =~ ~s(src="/uploads/#{media.custom_properties["webp"]}")
+    assert img =~ "_160w.webp 160w"
+    refute img =~ ".avif"
   end
 
   test "<.responsive_img> becomes a <picture> when the media has an AVIF", %{jpeg: jpeg} do
@@ -75,21 +72,32 @@ defmodule PhxMediaLibrary.AvifVariantsTest do
     assert html =~ "srcset="
   end
 
-  test "no conversion variant or plain URL is AVIF", %{jpeg: jpeg} do
+  test "no plain URL or <img> is AVIF; conversions offer it as a source", %{jpeg: jpeg} do
     media = add(jpeg, :avif_responsive)
 
     # Conversions are AVIF and WebP (spec 02, F1); their URLs are the WebP.
     assert media.generated_conversions |> Map.values() |> Enum.all?(&(&1 == ["avif", "webp"]))
 
-    for {key, _entry} <- media.responsive_images,
-        key != "original",
-        variant <- ResponsiveImages.variants(media, key),
-        do: refute(variant["path"] =~ ".avif", "#{key} has an AVIF variant")
-
     for conversion <- [nil, :thumb, :preview],
         do: refute(PhxMediaLibrary.url(media, conversion) =~ ".avif")
 
     html = render_component(&ViewHelpers.responsive_img/1, media: media, conversion: :preview)
-    refute html =~ ".avif"
+    assert [_, avif, img] = String.split(html, ~r/<source|<img/)
+    assert avif =~ ~s(type="image/avif")
+    refute avif =~ ".webp"
+    assert img =~ ~r/src="[^"]+_preview\.webp"/
+    refute img =~ ".avif"
+  end
+
+  test "a 0.9 AVIF row still renders: AVIF source, WebP img", %{jpeg: jpeg} do
+    media = add(jpeg, :avif_responsive)
+    avif = ResponsiveImages.variants(media, nil, "avif")
+    legacy = put_in(media.responsive_images["original"], %{"variants" => avif})
+
+    html = render_component(&ViewHelpers.responsive_img/1, media: legacy)
+    assert [_, source, img] = String.split(html, ~r/<source|<img/)
+    assert source =~ "_160w.avif 160w"
+    assert img =~ ~s(src="/uploads/#{media.custom_properties["webp"]}")
+    refute img =~ "srcset"
   end
 end
