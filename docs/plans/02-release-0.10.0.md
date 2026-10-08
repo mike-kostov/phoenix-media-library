@@ -117,9 +117,9 @@ mediable_id), the checksum index and, unless Task 1 shows a use,
 migration existing apps run (concurrent index builds noted). Adjusted by
 Task 1's findings.
 **Acceptance criteria:**
-- [ ] A fresh install has the new indexes; the optional migration turns a
+- [x] A fresh install has the new indexes; the optional migration turns a
       0.9 schema into the same one.
-- [ ] The library's queries still use an index (checked with `EXPLAIN`).
+- [x] The library's queries still use an index (checked with `EXPLAIN`).
 **Verification:** migration tests against Postgres; `mix precommit`.
 **Dependencies:** Task 1 checkpoint
 **Scope:** S

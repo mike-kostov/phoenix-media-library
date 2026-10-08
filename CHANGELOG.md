@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default). To keep them, set `responsive: true` on the collection.
 
 ### Changed
+- New installs get a leaner media table: `mix phx_media_library.install`
+  no longer creates the (mediable_type, mediable_id), (collection_name)
+  and (checksum) indexes, which no library query needs, and makes
+  (deleted_at) a partial index. Measured at 1M rows: a third less WAL per
+  upload, half the index space, no read slower. Existing apps can run the
+  same change with `mix phx_media_library.gen.migration --indexes`
+  (concurrent, so large tables keep taking writes); keep the checksum
+  index if your app looks media up by checksum.
 - New media get time-ordered ids: `id` and `uuid` are UUIDv7
   (`PhxMediaLibrary.UUIDv7`, no new dependency), so new rows land at the
   end of the indexes. Measured at 1M rows: bulk loads 26% faster, the

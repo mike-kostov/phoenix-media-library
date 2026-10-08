@@ -140,12 +140,15 @@ defmodule Mix.Tasks.PhxMediaLibrary.Install do
           timestamps(type: :utc_datetime)
         end
 
+        # The library's lookups and preloads use these; fewer indexes mean
+        # fewer writes per upload (docs/ideas/db-performance.md).
         create unique_index(:#{table}, [:uuid])
-        create index(:#{table}, [:mediable_type, :mediable_id])
-        create index(:#{table}, [:collection_name])
         create index(:#{table}, [:mediable_type, :mediable_id, :collection_name])
-        create index(:#{table}, [:checksum])
-        create index(:#{table}, [:deleted_at])
+
+        create index(:#{table}, [:deleted_at],
+                 where: "deleted_at IS NOT NULL",
+                 name: :#{table}_deleted_at_partial_index
+               )
       end
     end
     """
