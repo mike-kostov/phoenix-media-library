@@ -66,6 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- Image dimension limits per collection: `min_width:`, `min_height:`,
+  `max_width:` and `max_height:`. Images outside them are refused with
+  `{:error, {:image_too_narrow | :image_too_short | :image_too_wide | :image_too_tall, actual, limit}}`.
 - `add/2` takes content in memory and streams: `{:binary, data, filename}`,
   `{:base64, data, filename}` (a `data:` URI too) and
   `{:stream, enumerable, filename}`. The content is checked like any

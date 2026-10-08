@@ -176,7 +176,7 @@ defmodule PhxMediaLibrary.MediaAdder do
   defp add_file(adder, collection_name, file_info, opts) do
     with {:ok, file_info, header} <- read_and_detect_mime(file_info),
          :ok <- validate_file(adder.model, collection_name, file_info, header),
-         :ok <- validate_image_pixels(adder, collection_name, file_info),
+         :ok <- validate_image_size(adder, collection_name, file_info),
          {:ok, metadata} <- maybe_extract_metadata(adder, file_info),
          {:ok, media} <- store_and_persist(adder, collection_name, file_info, metadata, opts) do
       {:ok, process_conversions_and_finalize_webp(adder, media, collection_name)}
@@ -383,21 +383,36 @@ defmodule PhxMediaLibrary.MediaAdder do
   defp validate_file_size(_config, _file_info), do: :ok
 
   # Reject images that would need too much memory to decode ("pixel floods":
-  # a tiny PNG declaring 40000x40000). Opening reads only the header, so the
-  # check itself decodes nothing. Files the processor can't open pass through,
-  # as before; nothing will decode them either.
-  defp validate_image_pixels(%__MODULE__{model: model}, collection_name, file_info) do
+  # a tiny PNG declaring 40000x40000), then images outside the collection's
+  # dimension limits. Opening reads only the header, so the checks decode
+  # nothing. Files the processor can't open pass through, as before;
+  # nothing will decode them either.
+  defp validate_image_size(%__MODULE__{model: model}, collection_name, file_info) do
     max_pixels = Model.max_pixels(model, collection_name)
+    limits = Model.dimension_limits(model, collection_name)
     processor = Config.image_processor()
 
-    with true <- image?(file_info.mime_type) and is_integer(max_pixels),
+    with true <- image?(file_info.mime_type) and (is_integer(max_pixels) or limits != []),
          {:ok, image} <- processor.open(file_info.path),
-         {:ok, {width, height}} <- processor.dimensions(image),
-         true <- width * height > max_pixels do
-      {:error, {:image_too_large, width * height, max_pixels}}
+         {:ok, {width, height}} <- processor.dimensions(image) do
+      check_image_size(width, height, max_pixels, limits)
     else
       _ -> :ok
     end
+  end
+
+  defp check_image_size(width, height, max_pixels, _limits)
+       when is_integer(max_pixels) and width * height > max_pixels,
+       do: {:error, {:image_too_large, width * height, max_pixels}}
+
+  defp check_image_size(width, height, _max_pixels, limits) do
+    Enum.find_value(limits, :ok, fn
+      {:min_width, min} when width < min -> {:error, {:image_too_narrow, width, min}}
+      {:min_height, min} when height < min -> {:error, {:image_too_short, height, min}}
+      {:max_width, max} when width > max -> {:error, {:image_too_wide, width, max}}
+      {:max_height, max} when height > max -> {:error, {:image_too_tall, height, max}}
+      _within -> nil
+    end)
   end
 
   # How many bytes to read for magic-byte MIME detection.

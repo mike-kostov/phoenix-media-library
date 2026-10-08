@@ -310,7 +310,7 @@ shape decided in the task's tests), checked like any upload.
 height, validated with the other upload checks; tagged errors naming the
 limit.
 **Acceptance criteria:**
-- [ ] Images outside the limits are refused with
+- [x] Images outside the limits are refused with
       `{:error, {:image_too_small | :image_too_wide | ..., actual, limit}}`
       (names decided in the task).
 **Verification:** validation tests; `mix precommit`.

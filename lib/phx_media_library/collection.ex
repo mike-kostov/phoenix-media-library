@@ -23,6 +23,9 @@ defmodule PhxMediaLibrary.Collection do
   - `:max_pixels`: maximum image size in pixels (width × height), or
     `:infinity`. `nil` (default) uses `config :phx_media_library, :max_image_pixels`
     (100 megapixels unless configured).
+  - `:min_width`, `:min_height`, `:max_width`, `:max_height`: image
+    dimension limits in pixels, e.g. avatars at least 200 wide; uploads
+    outside them are refused (see `PhxMediaLibrary.Model.dimension_limits/2`)
   - `:file_naming`: how stored filenames are chosen: `:semantic`, `:slug`
     or `:random`. `nil` (default) uses `config :phx_media_library, :file_naming`
     (`:semantic` unless configured). See `PhxMediaLibrary.FileName`.
@@ -57,6 +60,10 @@ defmodule PhxMediaLibrary.Collection do
     :max_files,
     :max_size,
     :max_pixels,
+    :min_width,
+    :min_height,
+    :max_width,
+    :max_height,
     :file_naming,
     :fallback_url,
     :fallback_path,
@@ -78,6 +85,10 @@ defmodule PhxMediaLibrary.Collection do
           max_files: pos_integer() | nil,
           max_size: pos_integer() | nil,
           max_pixels: pos_integer() | :infinity | nil,
+          min_width: pos_integer() | nil,
+          min_height: pos_integer() | nil,
+          max_width: pos_integer() | nil,
+          max_height: pos_integer() | nil,
           file_naming: PhxMediaLibrary.FileName.strategy() | nil,
           fallback_url: String.t() | nil,
           fallback_path: String.t() | nil,
@@ -100,6 +111,7 @@ defmodule PhxMediaLibrary.Collection do
   - `:max_files` - Maximum number of files
   - `:max_size` - Maximum file size in bytes (e.g. `10_000_000` for 10 MB)
   - `:max_pixels` - Maximum image size in pixels, or `:infinity` (default: global `:max_image_pixels`)
+  - `:min_width`, `:min_height`, `:max_width`, `:max_height` - Image dimension limits in pixels (default: none)
   - `:file_naming` - `:semantic`, `:slug` or `:random` (default: global `:file_naming`)
   - `:fallback_url` - URL when collection is empty
   - `:fallback_path` - Path when collection is empty
@@ -118,7 +130,7 @@ defmodule PhxMediaLibrary.Collection do
 
       Collection.new(:hero, webp: [quality: 90, keep_original: false], responsive: [widths: [640, 1280]])
 
-      Collection.new(:avatar, single_file: true, max_size: 2_000_000)
+      Collection.new(:avatar, single_file: true, max_size: 2_000_000, min_width: 200, min_height: 200)
 
       Collection.new(:photos, formats: [avif: [quality: 50], webp: [quality: 80]])
 
@@ -140,6 +152,10 @@ defmodule PhxMediaLibrary.Collection do
       max_files: Keyword.get(opts, :max_files),
       max_size: Keyword.get(opts, :max_size),
       max_pixels: Keyword.get(opts, :max_pixels),
+      min_width: dimension(name, opts, :min_width),
+      min_height: dimension(name, opts, :min_height),
+      max_width: dimension(name, opts, :max_width),
+      max_height: dimension(name, opts, :max_height),
       file_naming: Keyword.get(opts, :file_naming),
       fallback_url: Keyword.get(opts, :fallback_url),
       fallback_path: Keyword.get(opts, :fallback_path),
@@ -159,6 +175,17 @@ defmodule PhxMediaLibrary.Collection do
     else
       {:ok, formats} -> formats
       :error -> nil
+    end
+  end
+
+  defp dimension(name, opts, key) do
+    case Keyword.get(opts, key) do
+      value when is_nil(value) or (is_integer(value) and value > 0) ->
+        value
+
+      other ->
+        raise ArgumentError,
+              "collection #{inspect(name)}: #{key} must be a positive integer, got #{inspect(other)}"
     end
   end
 end

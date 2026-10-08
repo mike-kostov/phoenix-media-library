@@ -396,6 +396,29 @@ defmodule PhxMediaLibrary.Model do
   end
 
   @doc """
+  A collection's image dimension limits, in pixels: the ones it sets of
+  `:min_width`, `:min_height`, `:max_width` and `:max_height`.
+
+  ## Examples
+
+      PhxMediaLibrary.Model.dimension_limits(user, :avatar)
+      #=> [min_width: 200, min_height: 200]
+
+  """
+  @spec dimension_limits(target(), atom() | String.t()) :: keyword(pos_integer())
+  def dimension_limits(target, collection_name) do
+    case collection(target, collection_name) do
+      %Collection{} = collection ->
+        for key <- [:min_width, :min_height, :max_width, :max_height],
+            value = Map.fetch!(collection, key),
+            do: {key, value}
+
+      nil ->
+        []
+    end
+  end
+
+  @doc """
   How stored filenames are chosen for a collection: its `file_naming:`, or
   the global `:file_naming` (see `PhxMediaLibrary.FileName`).
 

@@ -65,6 +65,7 @@ stored under other names moves with
 | `:max_files` | `pos_integer()` | `nil` (unlimited) | Maximum number of files; oldest excess is removed |
 | `:max_size` | `pos_integer()` | `nil` (unlimited) | Maximum file size in bytes |
 | `:max_pixels` | `pos_integer() \| :infinity` | global `:max_image_pixels` | Largest image accepted, in pixels |
+| `:min_width`, `:min_height`, `:max_width`, `:max_height` | `pos_integer()` | `nil` (no limit) | Image dimensions accepted, e.g. `collection :avatar, min_width: 200, min_height: 200`; outside them the upload returns `{:error, {:image_too_narrow \| :image_too_short \| :image_too_wide \| :image_too_tall, actual, limit}}` |
 | `:file_naming` | `:semantic \| :slug \| :random` | global `:file_naming`, else `:semantic` | How stored files are named ([File naming](#file-naming)) |
 | `:disk` | `atom()` | configured default | Storage disk override |
 | `:fallback_url` | `String.t()` | `nil` | URL returned when collection is empty |

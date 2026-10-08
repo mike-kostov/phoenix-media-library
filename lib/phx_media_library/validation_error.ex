@@ -90,6 +90,20 @@ defmodule PhxMediaLibrary.ValidationError do
       "#{format_megapixels(max_pixels)})"
   end
 
+  defp default_message(reason, _field, actual, limit)
+       when reason in [:image_too_narrow, :image_too_short, :image_too_wide, :image_too_tall] and
+              is_integer(actual) and is_integer(limit) do
+    {side, bound} =
+      case reason do
+        :image_too_narrow -> {"narrow", "minimum width"}
+        :image_too_short -> {"short", "minimum height"}
+        :image_too_wide -> {"wide", "maximum width"}
+        :image_too_tall -> {"tall", "maximum height"}
+      end
+
+    "Image is too #{side} (#{actual}px, #{bound} is #{limit}px)"
+  end
+
   defp default_message(:invalid_mime_type, _field, mime_type, accepted)
        when is_binary(mime_type) and is_list(accepted) do
     "MIME type #{inspect(mime_type)} is not accepted. Allowed types: #{Enum.join(accepted, ", ")}"

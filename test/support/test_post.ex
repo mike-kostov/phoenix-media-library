@@ -80,6 +80,8 @@ defmodule PhxMediaLibrary.TestPost do
         responsive: [widths: [160, 320]],
         accepts: ~w(image/jpeg image/png image/webp)
       ),
+      # Image dimension limits (spec 02, F5).
+      collection(:sized, min_width: 100, min_height: 80, max_width: 500, max_height: 400),
       # An explicit formats: list turns on the original's copies (spec 02, F1).
       collection(:listed_formats,
         formats: [:avif, :webp],
