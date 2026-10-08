@@ -421,9 +421,9 @@ how to adapt), README features, guides for every new feature, the
 autovacuum note for busy media tables, the CHANGELOG's 0.10.0 section
 complete.
 **Acceptance criteria:**
-- [ ] Every spec 02 item appears in the CHANGELOG, a guide and, for
+- [x] Every spec 02 item appears in the CHANGELOG, a guide and, for
       features, the README.
-- [ ] `mix docs` without warnings.
+- [x] `mix docs` without warnings.
 **Verification:** review with Mike.
 **Dependencies:** all feature tasks
 **Scope:** M

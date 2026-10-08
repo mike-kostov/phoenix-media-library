@@ -212,6 +212,33 @@ Add custom fields to the media table:
 mix phx_media_library.gen.migration add_blurhash_field
 ```
 
+## Busy media tables
+
+Every upload's background job updates its row, and each update leaves a
+dead row for autovacuum to clear. By default autovacuum starts when 20%
+of a table is dead rows: on a million-row media table that is 200,000
+dead rows, which 100 uploads a second reach in about 17 minutes, while
+the table and its indexes grow (`docs/ideas/db-performance.md` measured
+the heap 21% and the indexes 40% larger in 12.5 minutes). For a media
+table that takes many uploads, start autovacuum sooner:
+
+```elixir
+defmodule MyApp.Repo.Migrations.TuneMediaAutovacuum do
+  use Ecto.Migration
+
+  def up do
+    execute "ALTER TABLE media SET (autovacuum_vacuum_scale_factor = 0.02, autovacuum_analyze_scale_factor = 0.02)"
+  end
+
+  def down do
+    execute "ALTER TABLE media RESET (autovacuum_vacuum_scale_factor, autovacuum_analyze_scale_factor)"
+  end
+end
+```
+
+2% of a million rows is 20,000 dead rows. Tables that take few uploads
+don't need it.
+
 ## Oban setup for async conversions
 
 By default, PhxMediaLibrary uses `Task.Supervisor` for background conversion

@@ -274,6 +274,7 @@ conversions, WebP, AVIF and placeholders need it.
 | **[Telemetry](guides/telemetry.md)** | Events reference, attaching handlers, metrics examples |
 | **[Advanced Usage](guides/advanced.md)** | Reordering, mix tasks, testing strategies |
 | **[Multi-tenant](guides/multi-tenant.md)** | Per-tenant storage paths and scoping |
+| **[Upgrading to 0.10](guides/upgrading-to-0.10.md)** | The migration, the rename, the removals, and what changed |
 | **[Upgrading to 0.9](guides/upgrading-to-0.9.md)** | Every behaviour change, and how to keep the old one |
 
 Full API documentation is on [HexDocs](https://hexdocs.pm/phx_media_library).

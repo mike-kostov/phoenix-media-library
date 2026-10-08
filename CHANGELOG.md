@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Upgrading from 0.9: run a migration and rename one function; see
+[Upgrading to 0.10](guides/upgrading-to-0.10.md).
+
 ### Breaking changes
 - **Run a migration.** The media table gets four columns for
   `Media.processing_status/1`: `mix phx_media_library.gen.migration --processing-status`,
@@ -69,7 +72,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   change, and existing ids keep working.
 - Fewer writes per upload: the heaviest upload (WebP, AVIF, responsive
   variants, conversions and placeholders) wrote its media row 7 times;
-  now once when it is inserted and once at the end of its background job.
+  now three times: when it is inserted, and at the start and end of its
+  background job.
   The upload's derivatives go into the insert, and `Pipeline` steps take
   `write: false` to return their changes instead of saving them. A failed
   insert now removes the derivatives too, not only the original.

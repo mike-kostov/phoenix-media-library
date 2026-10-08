@@ -112,7 +112,7 @@ defmodule PhxMediaLibrary.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       # The CHANGELOG names functions that later releases removed.
-      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md", "guides/upgrading-to-0.10.md"],
       extras: [
         "README.md",
         "guides/getting-started.md",
@@ -123,6 +123,7 @@ defmodule PhxMediaLibrary.MixProject do
         "guides/telemetry.md",
         "guides/advanced.md",
         "guides/multi-tenant.md",
+        "guides/upgrading-to-0.10.md",
         "guides/upgrading-to-0.9.md",
         "CHANGELOG.md"
       ],
@@ -136,6 +137,7 @@ defmodule PhxMediaLibrary.MixProject do
           "guides/telemetry.md",
           "guides/advanced.md",
           "guides/multi-tenant.md",
+          "guides/upgrading-to-0.10.md",
           "guides/upgrading-to-0.9.md"
         ]
       ],
