@@ -36,6 +36,41 @@ defmodule PhxMediaLibrary.NonImageConversionsTest do
     refute_received {:process_async, _id, [_ | _]}
   end
 
+  # Spec 02, B5.
+  describe "without an image library" do
+    setup do
+      previous = Application.fetch_env(:phx_media_library, :image_processor)
+
+      Application.put_env(
+        :phx_media_library,
+        :image_processor,
+        PhxMediaLibrary.ImageProcessor.Null
+      )
+
+      on_exit(fn ->
+        case previous do
+          {:ok, value} -> Application.put_env(:phx_media_library, :image_processor, value)
+          :error -> Application.delete_env(:phx_media_library, :image_processor)
+        end
+      end)
+
+      png = create_temp_image(format: :png, width: 40, height: 30)
+      on_exit(fn -> File.rm(png) end)
+      %{png: png}
+    end
+
+    test "an image upload queues no conversions, and a job does nothing", %{png: png} do
+      {:ok, image} =
+        create_test_post() |> PhxMediaLibrary.add(png) |> PhxMediaLibrary.to_collection(:images)
+
+      on_exit(fn -> Media.delete_files(image) end)
+
+      refute_received {:process_async, _id, [_ | _]}
+      assert Media.processing_status(TestRepo.reload!(image)) == :done
+      assert :ok = Conversions.process(image, Model.conversions(image, :images))
+    end
+  end
+
   test "a conversions job for a text file succeeds without doing anything", %{media: media} do
     assert :ok = Conversions.process(media, Model.conversions(media, :documents))
     assert TestRepo.reload!(media).generated_conversions == %{}

@@ -50,7 +50,8 @@ defmodule PhxMediaLibrary.DocumentRenderer do
 
   @doc """
   Whether files of `mime_type` give an image to convert: images, and PDFs
-  when a renderer is available.
+  when a renderer is available. Never without an image processor (an app
+  without `:image`), since nothing could convert them.
 
   ## Examples
 
@@ -62,8 +63,10 @@ defmodule PhxMediaLibrary.DocumentRenderer do
 
   """
   @spec image_source?(String.t() | nil) :: boolean()
-  def image_source?("image/" <> _), do: true
-  def image_source?(mime_type), do: renderable?(mime_type)
+  def image_source?(mime_type) do
+    Config.image_processor() != PhxMediaLibrary.ImageProcessor.Null and
+      (match?("image/" <> _, mime_type) or renderable?(mime_type))
+  end
 
   @doc """
   Whether files of `mime_type` are documents the configured renderer can

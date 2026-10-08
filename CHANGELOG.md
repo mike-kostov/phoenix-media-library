@@ -142,6 +142,9 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- In an app without `:image`, image uploads to a collection with
+  conversions queued a job that always failed (`:no_image_processor`),
+  and Oban retried it. They now queue none and are done at once.
 - In a collection with conversions, uploads of files that aren't images
   (PDFs, text) queued a conversions job that always failed, and Oban
   retried it. They now queue none.

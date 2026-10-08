@@ -237,6 +237,13 @@ and before.
 - Files that aren't images queue no conversions, and a job for one
   succeeds without doing anything.
 
+**B5. No failing conversion jobs without an image library.** (Found
+2026-10-08 in Task 21's audit.) In an app without `:image`, every image
+upload to a collection with conversions queued a job that always failed
+(`:no_image_processor`), and Oban retried it. Present in 0.9.0 and before.
+- Without an image processor, uploads queue no conversions and are done
+  at once.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
