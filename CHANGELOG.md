@@ -66,6 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- `add/2` takes content in memory and streams: `{:binary, data, filename}`,
+  `{:base64, data, filename}` (a `data:` URI too) and
+  `{:stream, enumerable, filename}`. The content is checked like any
+  upload; a stream stops at the collection's `max_size`.
 - `formats:` on conversions, collections and globally: each conversion is
   made in every listed format, in priority order, with quality per format
   (`formats: [avif: [quality: 50], webp: [quality: 80]]`). The last format

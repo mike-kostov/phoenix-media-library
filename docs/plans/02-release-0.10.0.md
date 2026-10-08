@@ -299,8 +299,8 @@ with the last as the `<img>`.
 `{:base64, data, filename}` and `{:stream, enumerable, filename}` (exact
 shape decided in the task's tests), checked like any upload.
 **Acceptance criteria:**
-- [ ] Each source stores the same media as the same file from a path.
-- [ ] Wrong content is refused as for uploads (type, size, pixels).
+- [x] Each source stores the same media as the same file from a path.
+- [x] Wrong content is refused as for uploads (type, size, pixels).
 **Verification:** media adder tests; `mix precommit`.
 **Dependencies:** none
 **Scope:** S

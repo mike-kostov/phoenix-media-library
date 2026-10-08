@@ -348,9 +348,19 @@ Collection-scoped variants like `has_media(:images)` add a scoped `has_many` fil
        timeout: 15_000)
   |> PhxMediaLibrary.to_collection(:documents)
 
+# From content in memory, base64 (or a data: URI) or a stream. The
+# filename names the file; the content is checked like any upload.
+post |> PhxMediaLibrary.add({:binary, png_bytes, "chart.png"}) |> PhxMediaLibrary.to_collection(:images)
+post |> PhxMediaLibrary.add({:base64, params["image"], "signature.png"}) |> PhxMediaLibrary.to_collection(:images)
+post |> PhxMediaLibrary.add({:stream, File.stream!(path, 65_536), "report.pdf"}) |> PhxMediaLibrary.to_collection(:documents)
+
 # Bang version raises on error
 media = PhxMediaLibrary.to_collection!(adder, :images)
 ```
+
+A stream is written to a temporary file and stops at the collection's
+`max_size`, so an endless or oversized stream returns
+`{:error, {:file_too_large, size, max_size}}` instead of filling the disk.
 
 > URL downloads validate the scheme (`http`/`https` only), reject `ftp://` and
 > `file://` URLs, and automatically store the source URL in

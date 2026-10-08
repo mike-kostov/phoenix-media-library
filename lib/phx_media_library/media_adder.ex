@@ -40,7 +40,14 @@ defmodule PhxMediaLibrary.MediaAdder do
     :disk
   ]
 
-  @type source :: Path.t() | {:url, String.t()} | {:url, String.t(), keyword()} | map()
+  @type source ::
+          Path.t()
+          | {:url, String.t()}
+          | {:url, String.t(), keyword()}
+          | {:binary, binary(), String.t()}
+          | {:base64, String.t(), String.t()}
+          | {:stream, Enumerable.t(), String.t()}
+          | map()
 
   @type t :: %__MODULE__{
           model: Ecto.Schema.t(),
@@ -176,43 +183,43 @@ defmodule PhxMediaLibrary.MediaAdder do
     end
   end
 
-  defp resolve_source(
-         %__MODULE__{source: source, custom_filename: custom_filename} = adder,
-         collection_name
-       ) do
-    case source do
-      {:url, url, url_opts} ->
-        download_from_url(url, adder, collection_name, url_opts)
+  defp resolve_source(%__MODULE__{source: source} = adder, collection_name),
+    do: resolve_source(source, adder, collection_name)
 
-      {:url, url} ->
-        download_from_url(url, adder, collection_name, [])
+  defp resolve_source({:url, url, url_opts}, adder, collection_name),
+    do: download_from_url(url, adder, collection_name, url_opts)
 
-      path when is_binary(path) ->
-        resolve_file_path(path, custom_filename)
+  defp resolve_source({:url, url}, adder, collection_name),
+    do: download_from_url(url, adder, collection_name, [])
 
-      # Plug.Upload must come before generic map pattern
-      # A map pattern, not %Plug.Upload{}: Plug is optional (apps without it
-      # still compile).
-      %{__struct__: Plug.Upload, path: path, filename: original_filename} ->
-        resolve_file_path(path, custom_filename || original_filename)
+  defp resolve_source(path, adder, _collection_name) when is_binary(path),
+    do: resolve_file_path(path, adder.custom_filename)
 
-      # Phoenix.LiveView.UploadEntry or similar map with path/filename
-      %{path: path, filename: original_filename} ->
-        resolve_file_path(path, custom_filename || original_filename)
+  defp resolve_source({kind, data, filename}, adder, collection_name)
+       when kind in [:binary, :base64, :stream] and is_binary(filename) do
+    max_size = collection_max_size(adder, collection_name)
 
-      _ ->
-        {:error, :invalid_source}
-    end
+    with {:ok, chunks} <- chunks(kind, data),
+         do: write_temp(chunks, adder.custom_filename || filename, max_size)
   end
+
+  # Plug.Upload must come before generic map pattern
+  # A map pattern, not %Plug.Upload{}: Plug is optional (apps without it
+  # still compile).
+  defp resolve_source(%{__struct__: Plug.Upload, path: path, filename: name}, adder, _collection),
+    do: resolve_file_path(path, adder.custom_filename || name)
+
+  # Phoenix.LiveView.UploadEntry or similar map with path/filename
+  defp resolve_source(%{path: path, filename: name}, adder, _collection),
+    do: resolve_file_path(path, adder.custom_filename || name)
+
+  defp resolve_source(_source, _adder, _collection), do: {:error, :invalid_source}
 
   defp download_from_url(url, adder, collection_name, url_opts) do
     # Cap the download at the collection's max_size unless the caller set one.
     url_opts =
       Keyword.put_new_lazy(url_opts, :max_size, fn ->
-        case Model.collection(adder.model, collection_name) do
-          %Collection{max_size: max_size} -> max_size
-          _ -> nil
-        end
+        collection_max_size(adder, collection_name)
       end)
 
     Telemetry.span(
@@ -239,6 +246,88 @@ defmodule PhxMediaLibrary.MediaAdder do
       end
 
     {result, stop_metadata}
+  end
+
+  defp collection_max_size(adder, collection_name) do
+    case Model.collection(adder.model, collection_name) do
+      %Collection{max_size: max_size} -> max_size
+      _ -> nil
+    end
+  end
+
+  defp chunks(:binary, data) when is_binary(data), do: {:ok, [data]}
+  defp chunks(:stream, enumerable), do: {:ok, enumerable}
+
+  defp chunks(:base64, data) when is_binary(data) do
+    with {:ok, decoded} <- decode_base64(data), do: {:ok, [decoded]}
+  end
+
+  defp chunks(_kind, _data), do: {:error, :invalid_source}
+
+  # A data URI ("data:image/png;base64,...") or plain base64. The type comes
+  # from the bytes, as for any upload, not from the URI.
+  defp decode_base64("data:" <> uri) do
+    case String.split(uri, ";base64,", parts: 2) do
+      [_type, data] -> decode_base64(data)
+      _ -> {:error, :invalid_base64}
+    end
+  end
+
+  defp decode_base64(data) do
+    case Base.decode64(data, ignore: :whitespace) do
+      {:ok, decoded} -> {:ok, decoded}
+      :error -> {:error, :invalid_base64}
+    end
+  end
+
+  # In-memory content and streams go to a temporary file (removed after the
+  # add, like downloads), so the rest of the upload reads a path. A stream
+  # stops at the collection's max_size instead of filling the disk.
+  defp write_temp(chunks, filename, max_size) do
+    path = Path.join(System.tmp_dir!(), "phx_media_source_#{:erlang.unique_integer([:positive])}")
+
+    case open_and_write(path, chunks, max_size) do
+      {:ok, {:ok, size}} ->
+        filename = FileName.safe(filename)
+
+        {:ok,
+         %{
+           path: path,
+           filename: filename,
+           mime_type: MIME.from_path(filename),
+           size: size,
+           temp: true
+         }}
+
+      {:ok, error} ->
+        File.rm(path)
+        error
+
+      error ->
+        error
+    end
+  end
+
+  # A stream that raises leaves no temporary file behind.
+  defp open_and_write(path, chunks, max_size) do
+    File.open(path, [:write, :binary], &write_chunks(&1, chunks, max_size))
+  rescue
+    e ->
+      File.rm(path)
+      reraise e, __STACKTRACE__
+  end
+
+  defp write_chunks(file, chunks, max_size) do
+    Enum.reduce_while(chunks, {:ok, 0}, fn chunk, {:ok, size} ->
+      size = size + IO.iodata_length(chunk)
+
+      if is_integer(max_size) and size > max_size do
+        {:halt, {:error, {:file_too_large, size, max_size}}}
+      else
+        IO.binwrite(file, chunk)
+        {:cont, {:ok, size}}
+      end
+    end)
   end
 
   defp resolve_file_path(path, custom_filename) do
@@ -663,5 +752,6 @@ defmodule PhxMediaLibrary.MediaAdder do
   defp source_type(%{__struct__: Plug.Upload}), do: :upload
   defp source_type(%{path: _, filename: _}), do: :upload_entry
   defp source_type(path) when is_binary(path), do: :path
+  defp source_type({kind, _data, _filename}) when kind in [:binary, :base64, :stream], do: kind
   defp source_type(_), do: :unknown
 end

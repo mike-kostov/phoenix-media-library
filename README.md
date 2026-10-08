@@ -187,6 +187,7 @@ uploader.
 | **File naming** | `:semantic` (default), `:slug` or `:random` stored names; the uploaded name kept for alt text and downloads |
 | **Metadata** | Dimensions, EXIF, format and type stored in a `metadata` JSON field |
 | **Signed and download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded name, with a UTF-8 `filename*` |
+| **Any source** | Paths, uploads, `{:binary, ...}`, `{:base64, ...}` (data URIs too) and `{:stream, ...}`, all checked like uploads |
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits |
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO), in-memory for tests, or your own adapter |
 | **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4`, POST or PUT per provider, limits checked on completion |

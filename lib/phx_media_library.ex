@@ -71,10 +71,23 @@ defmodule PhxMediaLibrary do
   import Ecto.Query, only: [from: 2, where: 3, exclude: 2]
 
   @doc """
-  Start adding media to a model from a file path or upload.
+  Start adding media to a model from a file path, an upload, or content in
+  memory or in a stream.
 
-  Returns a `MediaAdder` struct that can be piped through configuration
-  functions before finalizing with `to_collection/2`.
+  Sources:
+
+  - a path, a `Plug.Upload`, or a map with `:path` and `:filename` (a
+    LiveView upload entry)
+  - `{:binary, data, filename}`: content in memory
+  - `{:base64, data, filename}`: base64, or a `data:` URI
+  - `{:stream, enumerable, filename}`: chunks of iodata, e.g. a
+    `File.stream!/2` or an S3 download stream; it stops at the
+    collection's `max_size`
+
+  The filename gives the stored name and the claimed type; the content is
+  checked like any upload (type from the bytes, size, pixels). Returns a
+  `MediaAdder` struct that can be piped through configuration functions
+  before finalizing with `to_collection/2`.
 
   ## Examples
 
@@ -82,8 +95,12 @@ defmodule PhxMediaLibrary do
       |> PhxMediaLibrary.add("/path/to/file.jpg")
       |> PhxMediaLibrary.to_collection(:images)
 
+      post
+      |> PhxMediaLibrary.add({:binary, png_bytes, "chart.png"})
+      |> PhxMediaLibrary.to_collection(:images)
+
   """
-  @spec add(Ecto.Schema.t(), Path.t() | map()) :: MediaAdder.t()
+  @spec add(Ecto.Schema.t(), MediaAdder.source()) :: MediaAdder.t()
   def add(model, source) do
     MediaAdder.new(model, source)
   end
