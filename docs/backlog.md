@@ -55,16 +55,10 @@ breaking changes are acceptable with a CHANGELOG entry and upgrade notes.
 ## After 0.9.0
 
 From the database spike (`docs/ideas/db-performance.md`, Mike 2026-10-08):
-- Monotonic UUIDv7 ids for `id` and `uuid` (recommendation 5): inserts
-  26% faster, primary key and uuid indexes 21% to 23% smaller; about 15
-  lines, no dependency. Mike: interesting; not scheduled yet.
 - SQLite support: the library code uses nothing Postgres-specific; about
   2 to 4 days, mostly a second test setup. Deferred; better after spec 02's
-  C4 (fewer writes per upload).
-- Compact `responsive_images` (recommendation 6): store widths, derive
-  paths; preload p95 -18%. Deferred until after spec 02's F1 (formats).
-- Autovacuum note in the guides for busy media tables (recommendation 7).
-
+  C4 (fewer writes per upload). (The spike's other recommendations are all
+  in spec 02: C3, C4, C5, C6, F2, F6, P2.)
 
 Found during 0.9.0 (Mike, 2026-10-04):
 - Try the S3 adapter on a real provider: Cloudflare R2's free tier with

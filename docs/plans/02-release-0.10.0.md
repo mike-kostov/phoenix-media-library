@@ -50,7 +50,7 @@ Task 5 (Doctor module) ─┬─> Task 6 (other maintenance tasks)
                         ├─> Task 7 (release generator)
                         └─> Task 8 (schedule)
 
-Task 9 (formats config) ─> Task 10 (conversions) ─> Task 11 (variants, components)
+Task 9 (formats config) ─> Task 10 (conversions) ─> Task 10a (compact data) ─> Task 11 (variants, components)
 
 Task 16 (GCS research) ─> Task 17 (GCS)
 ```
@@ -146,6 +146,18 @@ update's error instead of `:ok`, so the job fails and can retry.
 - [ ] A failing update makes `Conversions.process/2` return an error.
 **Verification:** conversion tests; `mix precommit`.
 **Dependencies:** none (done with or before Task 4a)
+**Scope:** S
+
+#### Task 4c: Time-ordered ids (C5)
+**Description:** An autogenerate function (or Ecto type) for monotonic
+UUIDv7 `id` and `uuid` values on new media, with a counter within each
+millisecond; no new dependency; existing rows untouched.
+**Acceptance criteria:**
+- [ ] New media ids are valid UUIDv7, strictly increasing within one
+      process, and sortable by creation time.
+- [ ] Existing v4 rows and their URLs keep working.
+**Verification:** id tests; the spike's bulk load rerun; `mix precommit`.
+**Dependencies:** none
 **Scope:** S
 
 ### Checkpoint: Small changes
@@ -247,6 +259,19 @@ and the doctor cover all of them; records from 0.9 still resolve.
 - [ ] Delete, rename and the doctor handle both files; 0.9 records work.
 **Verification:** conversion, doctor and path tests; `mix precommit`.
 **Dependencies:** Task 9
+**Scope:** M
+
+#### Task 10a: Compact responsive data (C6)
+**Description:** `responsive_images` stores widths (and formats) per
+variant, not paths; paths derived like conversion paths; readers accept
+the old shape; the doctor rewrites old rows. Done before Task 11, which
+builds on the new shape.
+**Acceptance criteria:**
+- [ ] New media stores the compact shape; `srcset`, URLs, owned paths,
+      rename and the doctor work for both shapes.
+- [ ] `doctor --rebuild` (or a dedicated repair) converts old rows.
+**Verification:** responsive, URL and doctor tests; `mix precommit`.
+**Dependencies:** Task 10
 **Scope:** M
 
 #### Task 11: Variants and components in every listed format
@@ -374,7 +399,8 @@ derived; off without the columns or config.
 #### Task 20: Upgrade notes, README and guides (P2)
 **Description:** `guides/upgrading-to-0.10.md` (each change from 0.9 and
 how to adapt), README features, guides for every new feature, the
-CHANGELOG's 0.10.0 section complete.
+autovacuum note for busy media tables, the CHANGELOG's 0.10.0 section
+complete.
 **Acceptance criteria:**
 - [ ] Every spec 02 item appears in the CHANGELOG, a guide and, for
       features, the README.
