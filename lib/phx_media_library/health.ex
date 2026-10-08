@@ -41,6 +41,7 @@ defmodule PhxMediaLibrary.Health do
     ModelRegistry,
     PathGenerator,
     Pipeline,
+    ResponsiveImages,
     StorageWrapper
   }
 
@@ -291,8 +292,7 @@ defmodule PhxMediaLibrary.Health do
 
   defp responsive_issue(media, present, true = _original?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do
-      variants = get_in(media.responsive_images || %{}, ["original", "variants"]) || []
-      paths = for %{"path" => path} <- variants, do: path
+      paths = for %{"path" => path} <- ResponsiveImages.variants(media, nil), do: path
 
       if paths == [] or Enum.any?(paths, &(&1 not in present)), do: :missing_responsive
     end

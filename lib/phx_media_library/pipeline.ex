@@ -337,11 +337,11 @@ defmodule PhxMediaLibrary.Pipeline do
   defp responsive_for?(target, media, _conversion, _requested?),
     do: Model.conversion_responsive?(target, media.collection_name)
 
-  # New variants replace old ones; other keys of an entry (its placeholder)
-  # stay.
+  # New variants replace old ones, of either shape; other keys of an entry
+  # (its placeholder) stay.
   defp merge_responsive(existing, data) do
     Map.merge(existing, data, fn
-      _key, %{} = old, %{} = new -> Map.merge(old, new)
+      _key, %{} = old, %{} = new -> old |> Map.drop(["variants", "reuses"]) |> Map.merge(new)
       _key, _old, new -> new
     end)
   end

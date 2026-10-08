@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.Media
+  alias PhxMediaLibrary.{Media, ResponsiveImages}
 
   @moduletag :db
 
@@ -83,8 +83,9 @@ defmodule PhxMediaLibrary.SharedVariantsTest do
 
     refute media.responsive_images["preview"]["reuses"]
 
-    assert media.responsive_images["preview"]["variants"]
-           |> Enum.map(&Path.extname(&1["path"]))
-           |> Enum.all?(&(&1 == ".webp"))
+    assert ResponsiveImages.variants(media, :preview) !=
+             []
+             |> Enum.map(&Path.extname(&1["path"]))
+             |> Enum.all?(&(&1 == ".webp"))
   end
 end

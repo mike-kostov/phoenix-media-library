@@ -132,12 +132,16 @@ defmodule PhxMediaLibrary.WebpTest do
                |> PhxMediaLibrary.to_collection(:webp_capped, disk: :local)
 
       widths =
-        media.responsive_images["original"]["variants"] |> Enum.map(& &1["width"]) |> Enum.sort()
+        PhxMediaLibrary.ResponsiveImages.variants(media, nil)
+        |> Enum.map(& &1["width"])
+        |> Enum.sort()
 
       # 50 and 80 are below the 100px served width; 200 would upscale; 100 is the WebP itself
       assert widths == [50, 80, 100]
 
-      largest = Enum.find(media.responsive_images["original"]["variants"], &(&1["width"] == 100))
+      largest =
+        Enum.find(PhxMediaLibrary.ResponsiveImages.variants(media, nil), &(&1["width"] == 100))
+
       assert largest["path"] == media.custom_properties["webp"]
       assert largest["height"] == 50
 
@@ -217,7 +221,7 @@ defmodule PhxMediaLibrary.WebpTest do
       assert PhxMediaLibrary.PathGenerator.relative_path(media, nil) in paths
       assert media.custom_properties["webp"] in paths
 
-      for %{"path" => p} <- media.responsive_images["original"]["variants"],
+      for %{"path" => p} <- PhxMediaLibrary.ResponsiveImages.variants(media, nil),
           do: assert(p in paths)
 
       refute Enum.any?(paths, &is_nil/1)

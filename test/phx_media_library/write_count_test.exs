@@ -5,7 +5,7 @@ defmodule PhxMediaLibrary.WriteCountTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.{Media, PathGenerator}
+  alias PhxMediaLibrary.{Media, PathGenerator, ResponsiveImages}
 
   @moduletag :db
 
@@ -73,7 +73,7 @@ defmodule PhxMediaLibrary.WriteCountTest do
     media = TestRepo.get!(Media, media.id)
     assert media.custom_properties["webp"]
     assert media.custom_properties["avif"]
-    assert get_in(media.responsive_images, ["original", "variants"])
+    assert ResponsiveImages.variants(media, nil) != []
     assert get_in(media.responsive_images, ["original", "placeholder"])
     assert media.generated_conversions["thumb"] == ["avif", "webp"]
     assert File.exists?(PathGenerator.full_path(media, :thumb))

@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only when their collection sets `responsive:`, like originals; before,
   they got them whenever the global `responsive_images` switch was on (its
   default). To keep them, set `responsive: true` on the collection.
+- **Compact responsive data.** `responsive_images` now stores each
+  source's variant widths, full size and format
+  (`%{"widths" => [320, 640], "width" => 1600, "height" => 1200, "formats" => ["webp"]}`)
+  instead of a path per variant; paths are derived like conversion paths.
+  Measured at 1M rows: the heaviest value 74% smaller, preloads 18%
+  faster at p95. Rows from 0.9 keep working, and
+  `mix phx_media_library.doctor --rebuild --only responsive` rewrites
+  them. Code that read `responsive_images[...]["variants"]` should call
+  `PhxMediaLibrary.ResponsiveImages.variants/2` or
+  `Media.responsive_variants/2`, which read both shapes.
 
 ### Changed
 - `avif: true` is now short for `formats: [:avif, :webp]`, so conversions

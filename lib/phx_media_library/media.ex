@@ -342,10 +342,10 @@ defmodule PhxMediaLibrary.Media do
 
   def dimensions(%__MODULE__{}, nil), do: nil
 
-  def dimensions(%__MODULE__{responsive_images: responsive}, conversion) do
-    variants = get_in(responsive || %{}, [to_string(conversion), "variants"]) || []
-
-    case Enum.max_by(variants, &(&1["width"] || 0), fn -> nil end) do
+  def dimensions(%__MODULE__{} = media, conversion) do
+    case media
+         |> ResponsiveImages.variants(conversion)
+         |> Enum.max_by(& &1["width"], fn -> nil end) do
       %{"width" => w, "height" => h} when is_integer(w) and is_integer(h) -> {w, h}
       _ -> nil
     end
@@ -402,10 +402,17 @@ defmodule PhxMediaLibrary.Media do
           is_binary(path),
           do: path
 
+    # Compact entries (0.10) derive their paths; older ones list them. The
+    # poster and anything else stored with a "path" count too.
     responsive =
-      (media.responsive_images || %{})
-      |> Map.values()
-      |> Enum.flat_map(&paths_in/1)
+      for {key, entry} <- media.responsive_images || %{},
+          path <-
+            if(match?(%{"widths" => _}, entry),
+              do:
+                Enum.map(ResponsiveImages.variants(media, responsive_source(key)), & &1["path"]),
+              else: paths_in(entry)
+            ),
+          do: path
 
     Enum.uniq([original | conversions ++ siblings ++ responsive])
   end
@@ -424,6 +431,9 @@ defmodule PhxMediaLibrary.Media do
     storage = Config.storage_adapter(disk)
     media |> owned_paths() |> Enum.each(&StorageWrapper.delete(storage, &1))
   end
+
+  defp responsive_source("original"), do: nil
+  defp responsive_source(conversion), do: conversion
 
   defp paths_in(%{"variants" => variants} = entry) when is_list(variants),
     do: Enum.flat_map(variants, &paths_in/1) ++ paths_in(Map.delete(entry, "variants"))
@@ -459,20 +469,17 @@ defmodule PhxMediaLibrary.Media do
 
   """
   @spec responsive_variants(t(), atom() | String.t() | nil) :: [map()]
-  def responsive_variants(%__MODULE__{responsive_images: responsive}, conversion) do
-    responsive = responsive || %{}
-    entry = Map.get(responsive, conversion_key(conversion))
-    own = entry |> variants_in() |> Enum.filter(&is_map/1)
+  def responsive_variants(%__MODULE__{responsive_images: responsive} = media, conversion) do
+    own = ResponsiveImages.variants(media, conversion)
 
-    case entry do
+    case (responsive || %{})[conversion_key(conversion)] do
       %{"reuses" => "original"} ->
         width = own |> Enum.map(& &1["width"]) |> Enum.max(fn -> 0 end)
 
         original =
-          responsive
-          |> Map.get("original")
-          |> variants_in()
-          |> Enum.filter(&(is_map(&1) and &1["width"] < width))
+          media
+          |> ResponsiveImages.variants(nil)
+          |> Enum.filter(&(&1["width"] < width))
 
         Enum.sort_by(original ++ own, & &1["width"])
 
@@ -480,11 +487,6 @@ defmodule PhxMediaLibrary.Media do
         Enum.sort_by(own, & &1["width"])
     end
   end
-
-  # Responsive data is either %{"variants" => [...]} or a legacy bare list.
-  defp variants_in(%{"variants" => variants}) when is_list(variants), do: variants
-  defp variants_in(variants) when is_list(variants), do: variants
-  defp variants_in(_), do: []
 
   @doc """
   Check whether a media item has been soft-deleted.

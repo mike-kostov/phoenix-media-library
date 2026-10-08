@@ -267,9 +267,9 @@ variant, not paths; paths derived like conversion paths; readers accept
 the old shape; the doctor rewrites old rows. Done before Task 11, which
 builds on the new shape.
 **Acceptance criteria:**
-- [ ] New media stores the compact shape; `srcset`, URLs, owned paths,
+- [x] New media stores the compact shape; `srcset`, URLs, owned paths,
       rename and the doctor work for both shapes.
-- [ ] `doctor --rebuild` (or a dedicated repair) converts old rows.
+- [x] `doctor --rebuild` (or a dedicated repair) converts old rows.
 **Verification:** responsive, URL and doctor tests; `mix precommit`.
 **Dependencies:** Task 10
 **Scope:** M

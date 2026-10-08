@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.CustomProcessorTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.Media
+  alias PhxMediaLibrary.{Media, ResponsiveImages}
 
   @moduletag :db
 
@@ -38,7 +38,7 @@ defmodule PhxMediaLibrary.CustomProcessorTest do
     media = TestRepo.get!(Media, media.id)
     on_exit(fn -> Media.delete_files(media) end)
 
-    widths = for v <- media.responsive_images["original"]["variants"], do: v["width"]
+    widths = for v <- ResponsiveImages.variants(media, nil), do: v["width"]
     assert 160 in widths and 320 in widths
   end
 end

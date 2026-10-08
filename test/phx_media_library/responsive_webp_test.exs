@@ -3,7 +3,7 @@ defmodule PhxMediaLibrary.ResponsiveWebpTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.{Config, Media, StorageWrapper}
+  alias PhxMediaLibrary.{Config, Media, ResponsiveImages, StorageWrapper}
 
   @moduletag :image
 
@@ -26,7 +26,7 @@ defmodule PhxMediaLibrary.ResponsiveWebpTest do
                |> PhxMediaLibrary.add(jpg)
                |> PhxMediaLibrary.to_collection(:responsive_webp, disk: :local)
 
-      variants = media.responsive_images["original"]["variants"]
+      variants = ResponsiveImages.variants(media, nil)
 
       # widths [160, 320] both < 400 → 2 responsive variants + the full-size one
       resized = Enum.reject(variants, &(&1["width"] == 400))
@@ -63,7 +63,7 @@ defmodule PhxMediaLibrary.ResponsiveWebpTest do
 
       refute match?(%{"webp" => _}, media.custom_properties)
 
-      variants = media.responsive_images["original"]["variants"]
+      variants = ResponsiveImages.variants(media, nil)
       resized = Enum.reject(variants, &(&1["width"] == 400))
       assert length(resized) == 2
 

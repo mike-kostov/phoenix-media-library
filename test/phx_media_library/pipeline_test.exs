@@ -9,7 +9,16 @@ defmodule PhxMediaLibrary.PipelineTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.{Config, Conversion, Conversions, Media, PathGenerator, Pipeline}
+  alias PhxMediaLibrary.{
+    Config,
+    Conversion,
+    Conversions,
+    Media,
+    PathGenerator,
+    Pipeline,
+    ResponsiveImages
+  }
+
   alias PhxMediaLibrary.TestRepo, as: Repo
 
   @moduletag :db
@@ -102,7 +111,7 @@ defmodule PhxMediaLibrary.PipelineTest do
 
       # The full-size image (400) is always listed; 160 comes only from the
       # collection (the global widths start at 320).
-      widths = Enum.map(media.responsive_images["original"]["variants"], & &1["width"])
+      widths = Enum.map(ResponsiveImages.variants(media, nil), & &1["width"])
       assert Enum.sort(widths) == [160, 320, 400]
     end
 
@@ -113,7 +122,7 @@ defmodule PhxMediaLibrary.PipelineTest do
       assert :ok = Conversions.process(media, [big])
 
       widths =
-        Repo.reload!(media).responsive_images["big"]["variants"] |> Enum.map(& &1["width"])
+        ResponsiveImages.variants(Repo.reload!(media), :big) |> Enum.map(& &1["width"])
 
       assert Enum.sort(widths) == [160, 320, 360]
     end
@@ -127,7 +136,7 @@ defmodule PhxMediaLibrary.PipelineTest do
       wide = Conversion.new(:wide, width: 360, height: 100, fit: :crop)
       assert :ok = Conversions.process(media, [wide])
 
-      refute get_in(Repo.reload!(media).responsive_images, ["wide", "variants"])
+      assert ResponsiveImages.variants(Repo.reload!(media), :wide) == []
     end
 
     test "conversions get no variants when the global switch is off", %{png: png} do
@@ -157,19 +166,19 @@ defmodule PhxMediaLibrary.PipelineTest do
         |> PhxMediaLibrary.to_collection(:images, disk: :local)
 
       on_exit(fn -> Media.delete_files(Repo.reload!(media)) end)
-      assert %{"original" => %{"variants" => [_ | _]}} = media.responsive_images
+      assert [_ | _] = ResponsiveImages.variants(media, nil)
     end
 
     test "originals of collections that don't opt in get no variants", %{png: png} do
       media = add(png, :images)
-      refute get_in(media.responsive_images, ["original", "variants"])
+      assert ResponsiveImages.variants(media, nil) == []
     end
 
     test "conversions get no variants unless their collection opts in", %{png: png} do
       media = add(png, :images)
       wide = Conversion.new(:wide, width: 360, height: 100, fit: :crop)
       assert :ok = Conversions.process(media, [wide])
-      refute get_in(Repo.reload!(media).responsive_images, ["wide", "variants"])
+      assert ResponsiveImages.variants(Repo.reload!(media), :wide) == []
     end
 
     test "a global enabled: false blocks with_responsive_images/1", %{png: png} do
@@ -182,7 +191,7 @@ defmodule PhxMediaLibrary.PipelineTest do
         |> PhxMediaLibrary.to_collection(:images, disk: :local)
 
       on_exit(fn -> Media.delete_files(Repo.reload!(media)) end)
-      refute get_in(media.responsive_images, ["original", "variants"])
+      assert ResponsiveImages.variants(media, nil) == []
     end
   end
 
