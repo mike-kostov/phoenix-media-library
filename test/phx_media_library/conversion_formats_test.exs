@@ -117,6 +117,18 @@ defmodule PhxMediaLibrary.ConversionFormatsTest do
     assert media.generated_conversions["card"] == "webp"
   end
 
+  # Mike, 2026-10-08: formats: alone makes the original's copies too, so its
+  # variants come in every listed format.
+  test "formats: [:avif, :webp] alone: copies, variants and conversions in both", %{jpeg: jpeg} do
+    media = add(jpeg, :listed_formats)
+
+    assert is_binary(media.custom_properties["avif"])
+    assert is_binary(media.custom_properties["webp"])
+    assert PhxMediaLibrary.ResponsiveImages.formats(media, nil) == ["avif", "webp"]
+    assert media.generated_conversions["thumb"] == ["avif", "webp"]
+    assert PhxMediaLibrary.url(media) =~ ~r/\.webp$/
+  end
+
   test "media recorded in 0.9 keeps resolving" do
     media = %Media{
       uuid: Ecto.UUID.generate(),

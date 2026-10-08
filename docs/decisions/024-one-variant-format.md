@@ -45,6 +45,9 @@ The `formats:` list replaces the fixed rules for conversions and, from
   plain URL is still never AVIF unless the list ends with AVIF.
 - The default is `[:webp]`, so 0.9's behaviour is unchanged.
   `avif: true` is short for `[:avif, :webp]`.
+- An explicit `formats:` list also turns on the original's AVIF and WebP
+  copies in the formats it lists, so the original's variants can come in
+  them; the default `[:webp]` turns nothing on.
 - Responsive variants follow the same list (spec 02, task 11). This
   reverses "Variants in both AVIF and WebP" below, but only for apps that
   list both: storing each size twice is then their choice.

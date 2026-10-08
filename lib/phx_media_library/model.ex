@@ -115,6 +115,9 @@ defmodule PhxMediaLibrary.Model do
   @doc """
   Resolved WebP settings for a collection: its `webp:` override merged over
   the global `:webp` config (see `PhxMediaLibrary.Config.resolve_webp/1`).
+  A `formats:` list that includes `:webp`, set on the collection or
+  globally, turns it on too, unless `webp:` is off at that level or a more
+  specific one.
 
   ## Examples
 
@@ -124,12 +127,14 @@ defmodule PhxMediaLibrary.Model do
   """
   @spec webp_settings(target(), atom() | String.t()) :: keyword()
   def webp_settings(target, collection_name) do
-    Config.resolve_webp(override(target, collection_name, :webp))
+    copy_settings(target, collection_name, :webp, &Config.resolve_webp/1)
   end
 
   @doc """
   Resolved AVIF settings for a collection: its `avif:` override merged over
-  the global config (see `PhxMediaLibrary.Config.resolve_avif/1`).
+  the global config (see `PhxMediaLibrary.Config.resolve_avif/1`). A
+  `formats:` list that includes `:avif` turns it on too, as for
+  `webp_settings/2`.
 
   ## Examples
 
@@ -139,7 +144,35 @@ defmodule PhxMediaLibrary.Model do
   """
   @spec avif_settings(target(), atom() | String.t()) :: keyword()
   def avif_settings(target, collection_name) do
-    Config.resolve_avif(override(target, collection_name, :avif))
+    copy_settings(target, collection_name, :avif, &Config.resolve_avif/1)
+  end
+
+  # The original's WebP and AVIF copies: an explicit formats: list (the
+  # collection's, else the global one) turns on the copy in each format it
+  # lists, so the original's variants come in those formats too (spec 02,
+  # F1; Mike, 2026-10-08). webp:/avif: off at the same or a more specific
+  # level wins. The library's default [:webp] turns nothing on.
+  defp copy_settings(target, collection_name, format, resolve) do
+    override = override(target, collection_name, format)
+    settings = resolve.(override)
+
+    if not settings[:enabled] and not explicitly_off?(override) and
+         listed?(target, collection_name, format),
+       do: resolve.(true),
+       else: settings
+  end
+
+  defp listed?(target, collection_name, format) do
+    case collection(target, collection_name) do
+      %Collection{formats: [_ | _] = formats} ->
+        Keyword.has_key?(formats, format)
+
+      _ ->
+        formats = Config.formats()
+
+        formats != nil and Keyword.has_key?(formats, format) and
+          not explicitly_off?(Application.get_env(:phx_media_library, format))
+    end
   end
 
   @doc """

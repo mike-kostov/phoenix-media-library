@@ -71,7 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`formats: [avif: [quality: 50], webp: [quality: 80]]`). The last format
   is the one `url/2` and other plain URLs return. Delete, rename, `clean`
   and the doctor handle every format. `PathGenerator.conversion_paths/2`
-  lists a conversion's files.
+  lists a conversion's files. A `formats:` list you set also turns on the
+  original's AVIF and WebP copies in the formats it lists; the default
+  `[:webp]` doesn't.
 - `PhxMediaLibrary.Doctor.check/1` and `repair/1`: the doctor's checks and
   repairs as plain functions, without Mix, for releases, scheduled jobs
   and admin pages. Media is read in batches (`:batch_size`, `:pause`), and

@@ -259,7 +259,10 @@ end
 
 The last format is the safe one: `url(media, :thumb)`, `og:image` and
 emails get it, since AI tools and most link previews can't read AVIF.
-The earlier formats are offered through `<picture>`. The default is
+The earlier formats are offered through `<picture>`. Responsive variants
+come in the same formats, and a `formats:` list you set also makes the
+original's AVIF and WebP copies ([WebP](#webp-conversion), [AVIF](#avif)),
+unless the collection says `webp: false` or `avif: false`. The default is
 `[:webp]`; `:original` is the uploaded file's format, and `avif: true` is
 short for `[:avif, :webp]`. SVGs, PDFs and other files libvips can't
 convert keep their own format.

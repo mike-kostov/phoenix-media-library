@@ -21,12 +21,14 @@ defmodule PhxMediaLibrary.FormatsTest do
       collection(:avif_quality, avif: [quality: 40])
       collection(:avif_off, avif: false)
       collection(:avif_and_listed, avif: true, formats: [:jpg])
+      collection(:listed_webp_off, formats: [:avif, :webp], webp: false)
     end
   end
 
   setup do
     previous =
-      for key <- [:formats, :avif], do: {key, Application.fetch_env(:phx_media_library, key)}
+      for key <- [:formats, :avif, :webp],
+          do: {key, Application.fetch_env(:phx_media_library, key)}
 
     Enum.each(previous, fn {key, _} -> Application.delete_env(:phx_media_library, key) end)
 
@@ -108,6 +110,36 @@ defmodule PhxMediaLibrary.FormatsTest do
 
     test "WebP uploads take the list" do
       assert formats(:listed, nil, "image/webp") == [avif: [quality: 50], webp: [quality: 80]]
+    end
+  end
+
+  # Mike, 2026-10-08: listing a format turns on the original's copy in it.
+  describe "the original's copies" do
+    defp copies(collection) do
+      {Model.webp_settings(Album, collection)[:enabled],
+       Model.avif_settings(Album, collection)[:enabled]}
+    end
+
+    test "are off by default, whatever the default [:webp] says" do
+      assert copies(:plain) == {false, false}
+    end
+
+    test "an explicit formats: list turns on each listed format's copy" do
+      assert copies(:listed) == {true, true}
+      assert copies(:avif_and_listed) == {false, true}
+    end
+
+    test "webp: false at the same level wins" do
+      assert copies(:listed_webp_off) == {false, true}
+    end
+
+    test "a global list turns them on; an explicit off wins" do
+      Application.put_env(:phx_media_library, :formats, [:webp])
+      assert copies(:plain) == {true, false}
+      assert copies(:avif_off) == {true, false}
+
+      Application.put_env(:phx_media_library, :webp, false)
+      assert copies(:plain) == {false, false}
     end
   end
 

@@ -40,7 +40,11 @@ changes are allowed, each with a CHANGELOG entry and an upgrade note.
   in.
 - `:original` means the uploaded file's format (a PNG stays PNG).
 - Covers conversions and variants; the original's own copies stay with
-  `webp:` and `avif:`. `avif: true` becomes shorthand for
+  `webp:` and `avif:`, except that an explicit `formats:` list (on the
+  collection or global, not the default `[:webp]`) turns on the copy in
+  each format it lists, so the original's variants come in them too;
+  `webp: false` or `avif: false` at the same or a more specific level
+  still wins. (Mike, 2026-10-08, at the Formats checkpoint.) `avif: true` becomes shorthand for
   `formats: [:avif, :webp]`; a conversion's `format: x` for
   `formats: [x]`.
 - Delete, clean, rename, the doctor and shared variants (F8 of spec 01)

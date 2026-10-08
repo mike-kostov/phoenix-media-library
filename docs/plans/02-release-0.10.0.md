@@ -289,7 +289,7 @@ with the last as the `<img>`.
 **Scope:** M
 
 ### Checkpoint: Formats
-- [ ] Probe upload with `[:avif, :webp]`: file list and rendered markup
+- [x] Probe upload with `[:avif, :webp]`: file list and rendered markup
       reviewed with Mike.
 
 ### Phase 4: Bringing media in, and moving it
