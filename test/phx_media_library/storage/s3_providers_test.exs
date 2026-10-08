@@ -28,6 +28,17 @@ defmodule PhxMediaLibrary.Storage.S3ProvidersTest do
       refute Keyword.has_key?(opts, :acl)
     end
 
+    # Spec 02, F8; docs/ideas/gcs.md.
+    test ":gcs talks to the XML API: its endpoint, the auto region, PUT uploads" do
+      opts = S3.options([provider: :gcs, bucket: "media"] ++ @keys)
+
+      assert opts[:endpoint] == "https://storage.googleapis.com"
+      assert opts[:region] == "auto"
+      assert opts[:direct_upload] == :put
+      assert opts[:addressing] == :path
+      refute Keyword.has_key?(opts, :acl)
+    end
+
     test ":generic uses PUT uploads" do
       opts = S3.options(provider: :generic, endpoint: "http://localhost:9000", bucket: "m")
 
@@ -105,6 +116,11 @@ defmodule PhxMediaLibrary.Storage.S3ProvidersTest do
              ) == "https://media.example.com/a/b.jpg"
     end
 
+    test ":gcs public URLs need no base_url" do
+      assert S3.url("a/b c.jpg", provider: :gcs, bucket: "media") ==
+               "https://storage.googleapis.com/media/a/b%20c.jpg"
+    end
+
     test ":r2 needs base_url, as R2 serves public files only from a domain" do
       assert_raise ArgumentError, ~r/base_url/, fn ->
         S3.url("a/b.jpg", provider: :r2, account_id: "abc123", bucket: "media")
@@ -121,6 +137,28 @@ defmodule PhxMediaLibrary.Storage.S3ProvidersTest do
         )
 
       assert url =~ "https://abc123.r2.cloudflarestorage.com/media/a/b.jpg?"
+      assert url =~ "X-Amz-Signature="
+    end
+
+    test ":gcs signs with the HMAC key for storage.googleapis.com" do
+      url = S3.url("a/b.jpg", [provider: :gcs, bucket: "media", signed: true] ++ @keys)
+      query = url |> URI.parse() |> Map.fetch!(:query) |> URI.decode_query()
+
+      assert url =~ "https://storage.googleapis.com/media/a/b.jpg?"
+      assert query["X-Amz-Algorithm"] == "AWS4-HMAC-SHA256"
+      assert query["X-Amz-Credential"] =~ ~r|^key/\d{8}/auto/s3/aws4_request$|
+      assert query["X-Amz-Signature"]
+    end
+
+    test ":gcs direct uploads are signed PUTs" do
+      assert {:ok, %{method: :put, url: url}} =
+               S3.presigned_upload(
+                 "a/b.jpg",
+                 [content_type: "image/jpeg"],
+                 [provider: :gcs, bucket: "media"] ++ @keys
+               )
+
+      assert url =~ "https://storage.googleapis.com/media/a/b.jpg?"
       assert url =~ "X-Amz-Signature="
     end
 

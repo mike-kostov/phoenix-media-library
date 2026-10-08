@@ -61,13 +61,13 @@ directly would run it on your domain. With these headers it doesn't. See
 ### Amazon S3 and S3-compatible services
 
 Requires the optional `:ex_aws`, `:ex_aws_s3`, and `:sweet_xml` dependencies.
-The same adapter works with AWS, Cloudflare R2 and any S3-compatible
-service; `provider:` picks the right defaults for each.
+The same adapter works with AWS, Cloudflare R2, Google Cloud Storage and
+any S3-compatible service; `provider:` picks the right defaults for each.
 
 | Option | Required | Description |
 |--------|----------|-------------|
 | `:bucket` | yes | Bucket name |
-| `:provider` | no | `:aws` (default), `:r2` or `:generic` |
+| `:provider` | no | `:aws` (default), `:r2`, `:gcs` or `:generic` |
 | `:region` | AWS | AWS region (e.g. `"us-east-1"`); `"auto"` on R2 |
 | `:account_id` | R2 | Cloudflare account ID; the endpoint is built from it |
 | `:endpoint` | `:generic` | API URL, e.g. `"https://s3.example.com"` |
@@ -95,6 +95,14 @@ disks: [
     access_key_id: System.get_env("R2_ACCESS_KEY_ID"),
     secret_access_key: System.get_env("R2_SECRET_ACCESS_KEY")
   ],
+  # Google Cloud Storage, with an HMAC key of a service account
+  gcs: [
+    adapter: PhxMediaLibrary.Storage.S3,
+    provider: :gcs,
+    bucket: "media",
+    access_key_id: System.get_env("GCS_HMAC_ACCESS_ID"),
+    secret_access_key: System.get_env("GCS_HMAC_SECRET")
+  ],
   # Any other S3-compatible service
   minio: [
     adapter: PhxMediaLibrary.Storage.S3,
@@ -113,7 +121,11 @@ config :ex_aws,
 Public URLs use `:base_url` when set, otherwise the endpoint (or
 `amazonaws.com` on AWS). R2 serves public files only from a custom domain
 or an r2.dev URL, so an `:r2` disk needs `:base_url` for public URLs;
-signed URLs work without it. A disk option always wins over its provider's
+signed URLs work without it. A `:gcs` disk talks to Google's XML API at
+`https://storage.googleapis.com`; its public URLs need the bucket to grant
+`allUsers` read access, buckets with uniform bucket-level access reject
+`:acl`, and direct uploads are signed PUTs. The `:gcs` preset follows
+Google's documentation and hasn't been tried on a real bucket yet. A disk option always wins over its provider's
 default, so a service with its own quirks works as `:generic` plus the
 options it needs.
 

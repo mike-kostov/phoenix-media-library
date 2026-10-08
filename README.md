@@ -190,7 +190,7 @@ uploader.
 | **Signed and download URLs** | Expiring URLs on disk and S3; downloads keep the uploaded name, with a UTF-8 `filename*` |
 | **Any source** | Paths, uploads, `{:binary, ...}`, `{:base64, ...}` (data URIs too) and `{:stream, ...}`, all checked like uploads |
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits |
-| **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, MinIO), in-memory for tests, or your own adapter |
+| **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, Google Cloud Storage, MinIO), in-memory for tests, or your own adapter |
 | **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4`, POST or PUT per provider, limits checked on completion |
 | **Streaming** | Files go to storage in 64 KB chunks, never whole in memory; downloads stream with `send_file` |
 | **Async processing** | Task (default), Oban or inline; conversions and placeholders run in the background |
@@ -281,8 +281,15 @@ Full API documentation is on [HexDocs](https://hexdocs.pm/phx_media_library).
 
 Contributions are welcome. Please open a pull request.
 
-The tests need Postgres on `localhost` (user and password `postgres`), and
-podman or Docker for the S3 tests. Those run against a
+The tests need Postgres on `localhost` (user and password `postgres`), for
+example in a container of its own:
+
+```bash
+podman run -d --name phx-media-library-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:18-alpine
+```
+
+They need podman or Docker for the S3 tests, and poppler's `pdftoppm` for
+the PDF thumbnail tests (skipped without it). Those run against a
 [Ministack](https://hub.docker.com/r/ministackorg/ministack) container that
 the first `mix test` starts and later runs reuse; without podman or Docker
 they are skipped. Run `mix precommit` before opening a pull request.

@@ -366,7 +366,9 @@ usable without an account? Result in `docs/ideas/gcs.md` with sources.
 adapter, or a native adapter.
 **Acceptance criteria:**
 - [ ] Put, get, delete, public and signed URLs and a direct upload work
-      against GCS or its emulator.
+      against GCS or its emulator. (2026-10-08: no emulator accepts S3
+      writes and no bucket is available; the preset ships with unit tests,
+      and a real bucket trial is in the backlog.)
 **Verification:** storage tests (container where possible); `mix precommit`.
 **Dependencies:** Task 16 and Mike's review
 **Scope:** M

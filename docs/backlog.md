@@ -66,7 +66,13 @@ Found during 0.9.0 (Mike, 2026-10-04):
   without an ACL, public URLs through `base_url`). Ticks the open
   assumptions in `docs/ideas/s3-providers.md`.
 - Postgres in a reused test container (deferred in ADR-026: the spike's
-  container was killed at the end of each run).
+  container was killed at the end of each run). For now a manual one,
+  `phx-media-library-db` (README, Contributing), started 2026-10-08 when
+  the database the tests had borrowed went away; next, start it from
+  `test_helper.exs` like Ministack.
+- Try the `:gcs` preset on a real bucket: put, multipart, ranged GET,
+  signed GET and PUT, and whether POST forms with `X-Amz-*` fields work
+  (`docs/ideas/gcs.md` lists what Google's docs don't confirm).
 - Keep the `spike/testcontainers` branch for local experiments.
 
 

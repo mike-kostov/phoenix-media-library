@@ -84,9 +84,12 @@ step. Off unless the app adds the columns (an optional migration) or turns
 it on in config. P1 measures the cost before the design is final.
 
 **F7. PDF thumbnails.** (backlog; Mike 2026-10-05) A PDF's first page
-becomes its image: conversions (`:thumb`, `:preview`), the placeholder and
-responsive variants are made from it, so PDFs show in galleries and
-components like images, while the PDF itself is served for download.
+becomes its image: conversions (`:thumb`, `:preview`) and the placeholder
+are made from it, so PDFs show in galleries and components like images,
+while the PDF itself is served for download. The conversions get
+responsive variants like any image's; the PDF itself gets none, nor does
+any other document, since a `srcset` ends with a full-size image (Mike,
+2026-10-08).
 Rendering uses libvips when it can read PDFs (the precompiled libvips of
 `:image` can't, checked 2026-10-05), else the `pdftoppm` command-line
 tool (poppler) when installed, like video posters use FFmpeg; without

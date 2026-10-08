@@ -68,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- Google Cloud Storage: `provider: :gcs` on an S3 disk, through Google's
+  XML API with HMAC keys (endpoint, `region: "auto"` and PUT direct
+  uploads by default). Built from Google's documentation
+  (`docs/ideas/gcs.md`) and not yet tried on a real bucket.
 - PDF thumbnails: a PDF's first page gives its conversions (`:thumb`,
   `:preview`) and placeholder, so PDFs show in galleries like images. It
   renders with poppler's `pdftoppm` or a libvips that reads PDFs

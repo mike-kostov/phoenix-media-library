@@ -27,6 +27,14 @@ if Code.ensure_loaded?(ExAws.S3) do
               account_id: "...",
               bucket: "media",
               base_url: "https://media.example.com"
+            ],
+            gcs: [
+              adapter: PhxMediaLibrary.Storage.S3,
+              provider: :gcs,
+              bucket: "media",
+              # An HMAC key of a service account
+              access_key_id: "GOOG...",
+              secret_access_key: "..."
             ]
           ]
 
@@ -39,15 +47,24 @@ if Code.ensure_loaded?(ExAws.S3) do
     |---|---|
     | `:aws` (default) | AWS endpoint, `direct_upload: :post` |
     | `:r2` | endpoint `https://<account_id>.r2.cloudflarestorage.com`, `region: "auto"`, `direct_upload: :put`; public URLs need `:base_url` |
+    | `:gcs` | Google Cloud Storage through its XML API with HMAC keys: endpoint `https://storage.googleapis.com`, `region: "auto"`, `direct_upload: :put` |
     | `:generic` | `direct_upload: :put`; set `:endpoint` |
 
     Every provider uses path-style addressing and sends no ACL by default.
     Any other S3-compatible service works as `:generic` with its settings.
 
+    On `:gcs`, create an HMAC key for a service account with access to the
+    bucket. Public URLs are `https://storage.googleapis.com/<bucket>/<key>`
+    and need the bucket to grant `allUsers` read access. Keep the ACL unset
+    on buckets with uniform bucket-level access, which reject ACL headers.
+    Direct uploads are signed PUTs: Google documents POST forms only with
+    its own `x-goog-*` fields (`docs/ideas/gcs.md`). The preset is built
+    from Google's documentation and not yet tried on a real bucket.
+
     ## Options
 
     - `:bucket` - S3 bucket name (required)
-    - `:provider` - `:aws`, `:r2` or `:generic` (default: `:aws`)
+    - `:provider` - `:aws`, `:r2`, `:gcs` or `:generic` (default: `:aws`)
     - `:region` - AWS region (default: from ExAws config; `"auto"` on R2)
     - `:account_id` - Cloudflare account ID, for `provider: :r2`
     - `:endpoint` - API URL of an S3-compatible service, e.g.
@@ -81,6 +98,12 @@ if Code.ensure_loaded?(ExAws.S3) do
     @presets %{
       aws: [direct_upload: :post, addressing: :path],
       r2: [region: "auto", direct_upload: :put, addressing: :path],
+      gcs: [
+        endpoint: "https://storage.googleapis.com",
+        region: "auto",
+        direct_upload: :put,
+        addressing: :path
+      ],
       generic: [direct_upload: :put, addressing: :path]
     }
 
@@ -110,7 +133,7 @@ if Code.ensure_loaded?(ExAws.S3) do
 
           :error ->
             raise ArgumentError,
-                  "unknown S3 provider #{inspect(provider)}; use :aws, :r2 or :generic " <>
+                  "unknown S3 provider #{inspect(provider)}; use :aws, :r2, :gcs or :generic " <>
                     "(any S3-compatible service works as :generic with an :endpoint)"
         end
 
