@@ -97,6 +97,8 @@ if Code.ensure_loaded?(Oban) do
         PhxMediaLibrary.AsyncProcessor.Oban.process_sync(media, conversions)
 
     """
+    @spec process_sync(PhxMediaLibrary.Media.t(), [PhxMediaLibrary.Conversion.t()]) ::
+            :ok | {:error, term()}
     @impl true
     def process_sync(media, conversions) do
       Conversions.process(media, conversions)

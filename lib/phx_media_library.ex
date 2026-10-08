@@ -334,6 +334,14 @@ defmodule PhxMediaLibrary do
     get_first_media_url(model, collection_name, nil, opts)
   end
 
+  @doc """
+  Like `get_first_media_url/3`, with both a conversion and options.
+
+  ## Examples
+
+      PhxMediaLibrary.get_first_media_url(post, :images, :thumb, fallback: "/placeholder.jpg")
+
+  """
   @spec get_first_media_url(Ecto.Schema.t(), atom(), atom() | nil, keyword()) :: String.t() | nil
   def get_first_media_url(model, collection_name, conversion, opts) do
     {fallback, url_opts} = Keyword.pop(opts, :fallback)

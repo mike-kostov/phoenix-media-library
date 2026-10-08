@@ -127,6 +127,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
 
     slot(:drop_zone, doc: "override default drop zone content")
 
+    @spec media_upload(map()) :: Phoenix.LiveView.Rendered.t()
+
     def media_upload(assigns) do
       ~H"""
       <div id={@id} class={["phx-media-upload", @class]}>
@@ -262,6 +264,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     slot(:item, doc: "override item rendering, receives {dom_id, media}")
     slot(:empty, doc: "content when gallery is empty")
 
+    @spec media_gallery(map()) :: Phoenix.LiveView.Rendered.t()
+
     def media_gallery(assigns) do
       grid_class =
         case assigns.columns do
@@ -344,6 +348,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:class, :string, default: nil, doc: "additional CSS classes")
     attr(:icon, :string, default: "hero-arrow-up-tray", doc: "icon name")
 
+    @spec media_upload_button(map()) :: Phoenix.LiveView.Rendered.t()
+
     def media_upload_button(assigns) do
       ~H"""
       <div id={@id} class={["inline-flex", @class]}>
@@ -399,6 +405,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
         />
 
     """
+    @spec media_video(map()) :: Phoenix.LiveView.Rendered.t()
     def media_video(assigns) do
       poster_url = get_in(assigns.media.responsive_images || %{}, ["poster", "url"])
       assigns = assign(assigns, :poster_url, poster_url)
@@ -489,6 +496,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:width, :integer, default: 32)
     attr(:height, :integer, default: 32)
     attr(:class, :string, default: nil)
+
+    @spec blurhash(map()) :: Phoenix.LiveView.Rendered.t()
 
     def blurhash(assigns) do
       hash = get_in(assigns.media.responsive_images || %{}, ["blurhash"])

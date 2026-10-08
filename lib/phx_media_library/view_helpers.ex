@@ -59,6 +59,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:placeholder, :boolean, default: true)
     attr(:rest, :global)
 
+    @spec media_img(map()) :: Phoenix.LiveView.Rendered.t()
+
     def media_img(assigns) do
       assigns = assigns |> with_image_defaults() |> with_loading()
 
@@ -126,6 +128,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:priority, :boolean, default: false, doc: "the page's main image: load first")
     attr(:placeholder, :boolean, default: true)
     attr(:rest, :global)
+
+    @spec responsive_img(map()) :: Phoenix.LiveView.Rendered.t()
 
     def responsive_img(assigns) do
       assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()
@@ -217,6 +221,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:caption_class, :string, default: nil)
     attr(:rest, :global)
 
+    @spec media_figure(map()) :: Phoenix.LiveView.Rendered.t()
+
     def media_figure(assigns) do
       caption = assigns.caption || (assigns.media.custom_properties || %{})["caption"]
       assigns = assign(assigns, :caption, caption)
@@ -283,6 +289,8 @@ if Code.ensure_loaded?(Phoenix.Component) do
     attr(:placeholder, :boolean, default: true)
     attr(:sources, :list, default: [])
     attr(:rest, :global)
+
+    @spec picture(map()) :: Phoenix.LiveView.Rendered.t()
 
     def picture(assigns) do
       assigns = assigns |> with_image_defaults() |> with_loading() |> with_sizes()

@@ -530,6 +530,7 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:fallback_path` - Path when collection is empty
 
   """
+  @spec collection(atom(), keyword()) :: Collection.t()
   def collection(name, opts \\ []) do
     Collection.new(name, opts)
   end
@@ -558,6 +559,7 @@ defmodule PhxMediaLibrary.HasMedia do
   - `:queued` - Process asynchronously (default: true)
 
   """
+  @spec conversion(atom(), keyword()) :: Conversion.t()
   def conversion(name, opts) do
     Conversion.new(name, opts)
   end
@@ -590,6 +592,7 @@ defmodule PhxMediaLibrary.HasMedia do
 
   """
 
+  @spec convert(atom(), keyword()) :: Conversion.t()
   def convert(name, opts) do
     Conversion.new(name, opts)
   end

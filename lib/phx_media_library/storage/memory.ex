@@ -27,11 +27,14 @@ defmodule PhxMediaLibrary.Storage.Memory do
 
   use Agent
 
+  @doc "Start the in-memory store (tests start it in `test_helper.exs`)."
+  @spec start_link(keyword()) :: Agent.on_start()
   def start_link(_opts \\ []) do
     Agent.start_link(fn -> %{} end, name: __MODULE__)
   end
 
   @doc "Clear all stored files. Useful in test setup."
+  @spec clear() :: :ok
   def clear do
     if Process.whereis(__MODULE__) do
       Agent.update(__MODULE__, fn _ -> %{} end)
@@ -41,6 +44,7 @@ defmodule PhxMediaLibrary.Storage.Memory do
   end
 
   @doc "Get all stored files. Useful for debugging."
+  @spec all() :: %{String.t() => binary()}
   def all do
     if Process.whereis(__MODULE__) do
       Agent.get(__MODULE__, & &1)

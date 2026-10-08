@@ -50,6 +50,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get the configured Ecto repo.
   """
+  @spec repo() :: module()
   def repo do
     Application.fetch_env!(:phx_media_library, :repo)
   end
@@ -57,6 +58,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get the default storage disk name.
   """
+  @spec default_disk() :: atom()
   def default_disk do
     Application.get_env(:phx_media_library, :default_disk, :local)
   end
@@ -64,6 +66,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get configuration for a specific disk.
   """
+  @spec disk_config(atom() | String.t()) :: keyword()
   def disk_config(disk_name) do
     disks = Application.get_env(:phx_media_library, :disks, default_disks())
     disk_key = resolve_disk_key(disk_name, disks)
@@ -100,6 +103,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get the storage adapter module for a disk.
   """
+  @spec storage_adapter(atom() | String.t()) :: struct()
   def storage_adapter(disk_name) do
     config = disk_config(disk_name)
     adapter = Keyword.fetch!(config, :adapter)
@@ -114,6 +118,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get the async processor module.
   """
+  @spec async_processor() :: module()
   def async_processor do
     Application.get_env(:phx_media_library, :async_processor, PhxMediaLibrary.AsyncProcessor.Task)
   end
@@ -138,6 +143,7 @@ defmodule PhxMediaLibrary.Config do
         path_generator: PhxMediaLibrary.PathGenerator.DateBased
 
   """
+  @spec path_generator() :: module()
   def path_generator do
     Application.get_env(
       :phx_media_library,
@@ -154,6 +160,7 @@ defmodule PhxMediaLibrary.Config do
   `PhxMediaLibrary.ImageProcessor.Null` which returns clear error messages
   guiding the developer to install an image processing library.
   """
+  @spec image_processor() :: module()
   def image_processor do
     Application.get_env(
       :phx_media_library,
@@ -230,6 +237,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get responsive images configuration.
   """
+  @spec responsive_images_config() :: keyword()
   def responsive_images_config do
     Application.get_env(:phx_media_library, :responsive_images, [])
   end
@@ -237,6 +245,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Check if responsive images are enabled.
   """
+  @spec responsive_images_enabled?() :: boolean()
   def responsive_images_enabled? do
     Keyword.get(responsive_images_config(), :enabled, true)
   end
@@ -244,6 +253,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Get the widths to generate for responsive images.
   """
+  @spec responsive_image_widths() :: [pos_integer()]
   def responsive_image_widths do
     Keyword.get(responsive_images_config(), :widths, [320, 640, 960, 1280, 1920])
   end
@@ -251,6 +261,7 @@ defmodule PhxMediaLibrary.Config do
   @doc """
   Check if tiny placeholders should be generated.
   """
+  @spec tiny_placeholders_enabled?() :: boolean()
   def tiny_placeholders_enabled? do
     Keyword.get(responsive_images_config(), :tiny_placeholder, true)
   end
@@ -287,6 +298,7 @@ defmodule PhxMediaLibrary.Config do
   `:enabled`, `:quality`, `:keep_original`, `:max_dimension`. WebP requires the `:image` library.
   `:enabled` is forced `false` when it is not loaded.
   """
+  @spec resolve_webp(boolean() | keyword() | nil) :: keyword()
   def resolve_webp(override) do
     @webp_defaults
     |> merge_override(webp_config(), override)
@@ -398,6 +410,7 @@ defmodule PhxMediaLibrary.Config do
   end
 
   @doc "Global AVIF config (`config :phx_media_library, :avif`)."
+  @spec avif_config() :: keyword()
   def avif_config do
     case Application.get_env(:phx_media_library, :avif, []) do
       true -> [enabled: true]
@@ -413,6 +426,7 @@ defmodule PhxMediaLibrary.Config do
   (`true`, `false` or a keyword). Returns a keyword with `:enabled` and
   `:quality` (`nil`: the image processor's default).
   """
+  @spec resolve_avif(boolean() | keyword() | nil) :: keyword()
   def resolve_avif(override) do
     @avif_defaults
     |> merge_override(avif_config(), override)
@@ -464,6 +478,7 @@ defmodule PhxMediaLibrary.Config do
   Same merge semantics as `resolve_webp/1`, over the existing `:responsive_images`
   global config. Returns a keyword with `:enabled`, `:widths`, `:tiny_placeholder`.
   """
+  @spec resolve_responsive(boolean() | keyword() | nil) :: keyword()
   def resolve_responsive(override) do
     defaults = [
       enabled: false,
@@ -511,6 +526,7 @@ defmodule PhxMediaLibrary.Config do
         ]
 
   """
+  @spec blurhash_enabled?() :: boolean()
   def blurhash_enabled? do
     Keyword.get(responsive_images_config(), :blurhash, false) and
       Code.ensure_loaded?(Image)
@@ -562,6 +578,7 @@ defmodule PhxMediaLibrary.Config do
       config :phx_media_library, secret_key_base: "long-random-secret"
 
   """
+  @spec secret_key_base() :: String.t() | nil
   def secret_key_base do
     Application.get_env(:phx_media_library, :secret_key_base)
   end
@@ -580,6 +597,7 @@ defmodule PhxMediaLibrary.Config do
       config :phx_media_library, mediable_id_type: :integer
 
   """
+  @spec mediable_id_type() :: :binary_id | :integer | :string
   def mediable_id_type do
     Application.get_env(:phx_media_library, :mediable_id_type, :binary_id)
   end
@@ -596,6 +614,7 @@ defmodule PhxMediaLibrary.Config do
       config :phx_media_library, download_base_url: "/media"
 
   """
+  @spec download_base_url() :: String.t() | nil
   def download_base_url do
     Application.get_env(:phx_media_library, :download_base_url)
   end
