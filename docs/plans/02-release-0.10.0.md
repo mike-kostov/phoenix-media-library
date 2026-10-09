@@ -468,7 +468,9 @@ README says Postgres and SQLite.
 **Description:** shisharka (SQLite, 0.9.0) moves to 0.10 with the
 generated migrations; its tests and a click-through pass.
 **Acceptance criteria:**
-- [ ] Its suite passes; existing media keeps working; uploads work.
+- [x] Its suite passes; existing media keeps working; uploads work.
+      (2026-10-09: 160 tests on 0.10; the SQLite upgrade marked 8 rows
+      done; doctor repairs 16/16; every media URL on its pages loads.)
 **Verification:** the app's tests; a browser check with Mike.
 **Dependencies:** Tasks 22, 23
 **Scope:** M
