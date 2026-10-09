@@ -43,9 +43,9 @@ end
 
 ### 3. JavaScript hooks
 
-The drop zone's drag highlight and `<.blurhash>` run colocated hooks.
-Phoenix builds each dependency's hooks under `phoenix-colocated/<app>`;
-add the library's next to your app's in `assets/js/app.js`:
+`<.blurhash>` draws on a `<canvas>` in a colocated hook. Phoenix builds
+each dependency's hooks under `phoenix-colocated/<app>`; add the
+library's next to your app's in `assets/js/app.js`:
 
 ```javascript
 import {hooks as colocatedHooks} from "phoenix-colocated/my_app"
@@ -57,8 +57,8 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 ```
 
-Without the import, uploads still work, but `<.blurhash>` draws nothing.
-The other image components need no JavaScript.
+Without the import, `<.blurhash>` draws nothing. The upload and image
+components need no JavaScript of their own.
 
 ---
 

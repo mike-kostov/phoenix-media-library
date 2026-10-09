@@ -1,3 +1,20 @@
+defmodule Mix.Tasks.Compile.PhxMediaLibraryHooks do
+  @moduledoc false
+  # LiveView writes phoenix-colocated/phx_media_library/index.js, which apps
+  # import the components' hooks from, only for a project that runs its
+  # compiler. LiveView is optional, so this runs it when LiveView is there.
+  # The check happens here, at compile time: when Mix reads this file,
+  # LiveView's code may not be loaded yet (spec 02, B13).
+  use Mix.Task.Compiler
+
+  @impl true
+  def run(args) do
+    if Code.ensure_loaded?(Mix.Tasks.Compile.PhoenixLiveView),
+      do: Mix.Tasks.Compile.PhoenixLiveView.run(args),
+      else: :noop
+  end
+end
+
 defmodule PhxMediaLibrary.MixProject do
   use Mix.Project
 
@@ -12,6 +29,7 @@ defmodule PhxMediaLibrary.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       # DB=sqlite runs the suite on SQLite (spec 02, F10), in its own build.
       build_path: if(System.get_env("DB") == "sqlite", do: "_build_sqlite", else: "_build"),
+      compilers: [:phx_media_library_hooks] ++ Mix.compilers(),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),

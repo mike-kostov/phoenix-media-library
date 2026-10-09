@@ -82,6 +82,10 @@ Found during 0.9.0 (Mike, 2026-10-04):
   signed GET and PUT, and whether POST forms with `X-Amz-*` fields work
   (`docs/ideas/gcs.md` lists what Google's docs don't confirm).
 - Keep the `spike/testcontainers` branch for local experiments.
+- The drop zone's `.MediaDropZone` hook is rendered but no element sets
+  `phx-hook` to it, so its drag classes (`phx-media-dragging`,
+  `phx-media-dropped`) are never added. Attach it or remove it (found
+  2026-10-09 with spec 02, B13).
 
 
 ## Parking lot

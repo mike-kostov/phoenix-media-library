@@ -321,6 +321,16 @@ dimensions stayed missing, run after run. Present in 0.9.0.
 - Without an image processor, images aren't reported as missing their
   dimensions.
 
+**B13. Apps can import the components' hooks.** (Found 2026-10-09 in an
+app's upgrade.) LiveView writes `phoenix-colocated/<app>/index.js` only
+for a project that runs its `:phoenix_live_view` compiler. The library
+didn't, so `import {hooks} from "phoenix-colocated/phx_media_library"`
+failed the app's JavaScript build, and without it `<.blurhash>` never
+drew. Present since `<.blurhash>` was added (0.6.0).
+- In an app with LiveView, the build has the library's `index.js`
+  exporting its hooks; an app without LiveView still compiles the
+  library.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

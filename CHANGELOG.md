@@ -161,6 +161,11 @@ Upgrading from 0.9: run a migration and rename one function; see
   writing your own image markup from the public functions, and BlurHash.
 
 ### Fixed
+- Apps couldn't import the components' hooks: LiveView builds
+  `phoenix-colocated/phx_media_library/index.js` only for a project that
+  runs its compiler, and the library didn't, so the import failed the
+  JavaScript build and `<.blurhash>` drew nothing. The library now runs
+  LiveView's compiler when LiveView is present.
 - Without `:image`, the doctor reported every image as missing metadata,
   and `--reextract` said each repair was done while nothing changed. It no
   longer reports what it can't repair.
