@@ -86,10 +86,14 @@ s3_available? =
 # PDF thumbnails need poppler's pdftoppm (brew install poppler).
 pdftoppm_available? = System.find_executable("pdftoppm") != nil
 
+# Video tests with the real binaries need FFmpeg (brew install ffmpeg).
+ffmpeg_available? = System.find_executable("ffmpeg") != nil
+
 # Exclude integration tests whose service is not available
 ExUnit.configure(
   exclude:
     if(db_available?, do: [], else: [:db]) ++
       if(s3_available?, do: [], else: [:s3]) ++
-      if(pdftoppm_available?, do: [], else: [:pdftoppm])
+      if(pdftoppm_available?, do: [], else: [:pdftoppm]) ++
+      if(ffmpeg_available?, do: [], else: [:ffmpeg])
 )
