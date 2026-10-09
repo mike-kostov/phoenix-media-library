@@ -24,6 +24,7 @@ defmodule PhxMediaLibrary.Health do
   | `:missing_placeholder`         | repairable | `Pipeline.placeholder/2`      |
   | `:outdated_placeholder`        | repairable | `Pipeline.placeholder/2`      |
   | `:missing_responsive`          | repairable | `Pipeline.responsive/2`       |
+  | `:missing_blurhash`            | repairable | `Pipeline.blurhash/2`         |
   | `:missing_metadata`            | repairable | `Pipeline.metadata/2`         |
   | `:needs_rename`                | repairable | `Pipeline.rename/2`           |
   | `:original_not_dropped`        | repairable | `Pipeline.drop_original/2`    |
@@ -56,6 +57,7 @@ defmodule PhxMediaLibrary.Health do
           | :missing_placeholder
           | :outdated_placeholder
           | :missing_responsive
+          | :missing_blurhash
           | :missing_metadata
           | :needs_rename
           | :original_not_dropped
@@ -93,6 +95,7 @@ defmodule PhxMediaLibrary.Health do
         avif_issue(media, present, original?),
         placeholder_issue(media, original?),
         responsive_issue(media, present, original?),
+        blurhash_issue(media, original?),
         metadata_issue(media),
         name_issue(media),
         drop_issue(media, original?)
@@ -138,6 +141,7 @@ defmodule PhxMediaLibrary.Health do
   def repair(media, :missing_responsive),
     do: Pipeline.responsive(media, of: [nil | Map.keys(media.generated_conversions || %{})])
 
+  def repair(media, :missing_blurhash), do: Pipeline.blurhash(media)
   def repair(media, :missing_metadata), do: Pipeline.metadata(media)
   def repair(media, :needs_rename), do: Pipeline.rename(media)
   def repair(media, :original_not_dropped), do: Pipeline.drop_original(media)
@@ -265,6 +269,15 @@ defmodule PhxMediaLibrary.Health do
 
   defp placeholder_issue(_media, false), do: nil
 
+  # Only when BlurHash is on (it needs the :image library).
+  defp blurhash_issue(media, true = _original?) do
+    if image?(media) and Config.blurhash_enabled?() and
+         not is_binary((media.responsive_images || %{})["blurhash"]),
+       do: :missing_blurhash
+  end
+
+  defp blurhash_issue(_media, false), do: nil
+
   # Placeholders from 0.8 are JPEGs carrying the photo's metadata; a WebP
   # one with alpha was made from an image with transparency, which now
   # gets none. Both are read from the record, without opening the image.
@@ -305,7 +318,7 @@ defmodule PhxMediaLibrary.Health do
   # Dimensions are only read with an image processor; without one (an app
   # without :image) no repair could add them.
   defp metadata_issue(media) do
-    if image?(media) and Config.image_processor() != PhxMediaLibrary.ImageProcessor.Null and
+    if image?(media) and PhxMediaLibrary.ImageProcessor.available?() and
          not Map.has_key?(media.metadata || %{}, "width"),
        do: :missing_metadata
   end

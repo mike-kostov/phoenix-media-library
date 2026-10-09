@@ -45,7 +45,8 @@ defmodule PhxMediaLibrary.Doctor.CLI do
       :missing_conversions,
       :missing_responsive,
       :missing_placeholder,
-      :outdated_placeholder
+      :outdated_placeholder,
+      :missing_blurhash
     ],
     drop_originals: [:original_not_dropped],
     fix: [:no_files]
@@ -60,6 +61,7 @@ defmodule PhxMediaLibrary.Doctor.CLI do
     missing_placeholder: "Missing placeholder",
     outdated_placeholder: "Outdated placeholder (0.8 JPEG, or on a transparent image)",
     missing_responsive: "Missing responsive variants",
+    missing_blurhash: "Missing BlurHash",
     missing_metadata: "Missing metadata",
     needs_rename: "Not named by file_naming",
     original_not_dropped: "Original kept despite keep_original: false"
@@ -74,6 +76,7 @@ defmodule PhxMediaLibrary.Doctor.CLI do
     missing_placeholder: "--regenerate",
     outdated_placeholder: "--regenerate",
     missing_responsive: "--regenerate",
+    missing_blurhash: "--regenerate",
     missing_metadata: "--reextract",
     needs_rename: "--rename",
     original_not_dropped: "--drop-originals"
@@ -127,6 +130,7 @@ defmodule PhxMediaLibrary.Doctor.CLI do
 
     with {:ok, report} <- check(opts) do
       if report.checked > 0, do: info(io, "Checking #{report.checked} media item(s)...\n")
+      report_image_library(io, report)
 
       report_issues(io, report, opts)
       report_orphans(io, report)
@@ -194,6 +198,19 @@ defmodule PhxMediaLibrary.Doctor.CLI do
     Enum.each(examples, fn example -> info(io, "    #{describe(example)}#{detail(example)}") end)
     if count > length(examples), do: info(io, "    ... and #{count - length(examples)} more")
   end
+
+  # Without :image the image checks are quiet: say why.
+  defp report_image_library(io, %{images: images}) when images > 0 do
+    unless PhxMediaLibrary.ImageProcessor.available?() do
+      info(
+        io,
+        "#{yellow("!")} No image library: #{images} image(s) stored as uploaded, without WebP, " <>
+          "AVIF, sizes, conversions or placeholders. Add {:image, \"~> 0.63\"} to your deps."
+      )
+    end
+  end
+
+  defp report_image_library(_io, _report), do: :ok
 
   defp report_orphans(_io, %{orphans: nil}), do: :ok
 

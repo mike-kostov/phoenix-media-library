@@ -515,6 +515,9 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   # The original in storage and the record to insert, not yet inserted.
   defp store(%__MODULE__{} = adder, collection_name, file_info, metadata, opts) do
+    if image?(file_info.mime_type) and not PhxMediaLibrary.ImageProcessor.available?(),
+      do: PhxMediaLibrary.ImageProcessor.log_unavailable_once()
+
     uuid = generate_uuid()
     disk = opts[:disk] || adder.disk || Model.default_disk(adder.model, collection_name)
     storage = Config.storage_adapter(disk)
@@ -604,11 +607,8 @@ defmodule PhxMediaLibrary.MediaAdder do
         media
       end
 
-    # Generate blurhash placeholder when enabled and Image is available.
-    media =
-      if image?(file_info.mime_type) and Config.blurhash_enabled?(),
-        do: maybe_generate_blurhash(media, file_info.path),
-        else: media
+    # BlurHash, when it is on (a failed hash leaves the upload as it is).
+    media = step(media, Pipeline.blurhash(media, steps))
 
     # Poster frame for videos when FFmpeg is available, while the uploaded
     # file is still present.
@@ -732,26 +732,6 @@ defmodule PhxMediaLibrary.MediaAdder do
 
   # Blurhash needs the optional :image library; without it there is nothing
   # to generate (and no clause to compile that could never match).
-  if Code.ensure_loaded?(Image) do
-    defp maybe_generate_blurhash(media, file_path) do
-      case PhxMediaLibrary.Blurhash.generate(file_path) do
-        {:ok, hash} ->
-          updated_responsive = Map.put(media.responsive_images || %{}, "blurhash", hash)
-
-          {:ok, media} =
-            Media.save_changes(media, [responsive_images: updated_responsive], write: false)
-
-          media
-
-        {:error, _} ->
-          # Blurhash generation failed (e.g. unsupported format). Don't
-          # fail the upload, just skip the placeholder.
-          media
-      end
-    end
-  else
-    defp maybe_generate_blurhash(media, _file_path), do: media
-  end
 
   defp stored_at(%Media{inserted_at: %DateTime{} = inserted_at}, _now), do: inserted_at
   defp stored_at(_replacing, now), do: now

@@ -5,7 +5,7 @@ defmodule PhxMediaLibrary.NonImageConversionsTest do
 
   import PhxMediaLibrary.Fixtures
 
-  alias PhxMediaLibrary.{Conversions, Media, Model, RecordingAsyncProcessor}
+  alias PhxMediaLibrary.{Conversions, Doctor, Media, Model, RecordingAsyncProcessor}
 
   @moduletag :db
 
@@ -57,6 +57,42 @@ defmodule PhxMediaLibrary.NonImageConversionsTest do
       png = create_temp_image(format: :png, width: 40, height: 30)
       on_exit(fn -> File.rm(png) end)
       %{png: png}
+    end
+
+    test "an image upload says once that image features need :image", %{png: png} do
+      :persistent_term.erase({PhxMediaLibrary.ImageProcessor, :unavailable_logged})
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          for _ <- 1..2 do
+            {:ok, image} =
+              create_test_post()
+              |> PhxMediaLibrary.add(png)
+              |> PhxMediaLibrary.to_collection(:images)
+
+            Media.delete_files(image)
+          end
+        end)
+
+      assert length(String.split(log, "images are stored as uploaded")) == 2
+      assert log =~ ":image"
+    end
+
+    test "the doctor's report says it too", %{png: png} do
+      {:ok, image} =
+        create_test_post() |> PhxMediaLibrary.add(png) |> PhxMediaLibrary.to_collection(:images)
+
+      on_exit(fn -> Media.delete_files(image) end)
+
+      test = self()
+      io = %{info: &send(test, {:line, &1}), yes?: fn _ -> false end}
+      Doctor.CLI.run(["--id", image.id], io)
+
+      lines =
+        Stream.repeatedly(fn -> receive do: ({:line, l} -> l), after: (0 -> nil) end)
+        |> Enum.take_while(& &1)
+
+      assert Enum.any?(lines, &(&1 =~ "No image library"))
     end
 
     # Spec 02, B12: dimensions can't be read without an image library.

@@ -475,6 +475,21 @@ generated migrations; its tests and a click-through pass.
 **Dependencies:** Tasks 22, 23
 **Scope:** M
 
+#### Task 25: Onboarding without surprises (F11, added 2026-10-09)
+**Description:** What an app's upgrade showed: images without `:image`
+stay as uploaded with no word, BlurHash only reaches new uploads, and the
+hooks and formats aren't explained.
+**Acceptance criteria:**
+- [x] A warning on the first image upload without `:image`; the doctor's
+      report says the same.
+- [x] The doctor checks and makes missing BlurHashes.
+- [x] The LiveView guide covers the hooks import, plain URLs and AVIF,
+      your own markup, and BlurHash.
+**Verification:** `blurhash_repair_test.exs`, `non_image_conversions_test.exs`;
+both fail on the old code.
+**Dependencies:** none
+**Scope:** S
+
 ### Checkpoint: Complete
 - [x] Every acceptance criterion in spec 02 is met, except F8's trial on
       GCS itself (no emulator, no bucket; in the backlog).

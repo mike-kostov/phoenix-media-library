@@ -13,6 +13,8 @@ defmodule PhxMediaLibrary.ImageProcessor do
   back to safe defaults.
   """
 
+  require Logger
+
   alias PhxMediaLibrary.Conversion
 
   @type image :: any()
@@ -82,5 +84,39 @@ defmodule PhxMediaLibrary.ImageProcessor do
     if function_exported?(processor, :supports_format?, 1),
       do: processor.supports_format?(format),
       else: true
+  end
+
+  @logged_key {__MODULE__, :unavailable_logged}
+
+  @doc """
+  Whether images can be processed: `false` in apps without the `:image`
+  library, where `PhxMediaLibrary.ImageProcessor.Null` stands in and images
+  are stored as uploaded.
+
+  ## Examples
+
+      PhxMediaLibrary.ImageProcessor.available?()
+      #=> true
+
+  """
+  @spec available?() :: boolean()
+  def available?,
+    do: PhxMediaLibrary.Config.image_processor() != PhxMediaLibrary.ImageProcessor.Null
+
+  @doc false
+  # Once per node: an image arrived and nothing can process it.
+  @spec log_unavailable_once() :: :ok
+  def log_unavailable_once do
+    unless :persistent_term.get(@logged_key, false) do
+      :persistent_term.put(@logged_key, true)
+
+      Logger.warning(
+        "[PhxMediaLibrary] images are stored as uploaded: without the :image library " <>
+          "(libvips) there are no WebP, AVIF, responsive sizes, conversions or " <>
+          ~s(placeholders. Add {:image, "~> 0.63"} to your deps.)
+      )
+    end
+
+    :ok
   end
 end

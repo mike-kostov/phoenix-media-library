@@ -148,6 +148,18 @@ Upgrading from 0.9: run a migration and rename one function; see
   change URLs or delete things are refused. See
   `PhxMediaLibrary.Doctor.Schedule`.
 
+- The doctor finds images without a BlurHash when `blurhash: true` is
+  set (`missing_blurhash`), and `--regenerate` makes them, so images
+  stored before you turned it on get one. The background job also makes
+  a missing one. `Pipeline.blurhash/2` is the step.
+- Without `:image`, images are stored as uploaded, with no WebP, AVIF,
+  sizes, conversions or placeholders. The first image upload now logs a
+  warning saying so, and the doctor's report says it too.
+  `ImageProcessor.available?/0` tells whether images can be processed.
+- Docs: importing the library's hooks from
+  `phoenix-colocated/phx_media_library`, why plain URLs are never AVIF,
+  writing your own image markup from the public functions, and BlurHash.
+
 ### Fixed
 - Without `:image`, the doctor reported every image as missing metadata,
   and `--reextract` said each repair was done while nothing changed. It no

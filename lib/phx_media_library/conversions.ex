@@ -112,7 +112,7 @@ defmodule PhxMediaLibrary.Conversions do
     {changes, result}
   end
 
-  # The original's WebP, AVIF and variants the record doesn't have yet:
+  # The original's WebP, AVIF, variants and BlurHash the record doesn't have yet:
   # an upload made them already; an import (PhxMediaLibrary.import_media/2)
   # leaves them to this job. Each step skips what its settings turn off.
   defp derive_original(media, source) do
@@ -123,6 +123,10 @@ defmodule PhxMediaLibrary.Conversions do
     |> derive_unless(is_binary(props["webp"]), &Pipeline.webp(&1, steps))
     |> derive_unless(is_binary(props["avif"]), &Pipeline.avif(&1, steps))
     |> derive_unless(ResponsiveImages.formats(media, nil) != [], &Pipeline.responsive(&1, steps))
+    |> derive_unless(
+      is_binary((media.responsive_images || %{})["blurhash"]),
+      &Pipeline.blurhash(&1, steps)
+    )
   end
 
   defp derive_unless(media, true, _step), do: media

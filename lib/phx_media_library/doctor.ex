@@ -63,6 +63,7 @@ defmodule PhxMediaLibrary.Doctor do
     :missing_responsive,
     :missing_placeholder,
     :outdated_placeholder,
+    :missing_blurhash,
     :original_not_dropped,
     :no_files
   ]

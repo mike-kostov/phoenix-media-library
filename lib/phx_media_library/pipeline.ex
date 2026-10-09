@@ -285,6 +285,43 @@ defmodule PhxMediaLibrary.Pipeline do
   defp responsive_key(conversion), do: to_string(conversion)
 
   @doc """
+  Make the image's BlurHash and store it in `responsive_images["blurhash"]`,
+  when `responsive_images: [blurhash: true]` is set and the `:image` library
+  is available. A failed hash never fails an upload or job.
+
+  ## Options
+
+    * `:source`: a local file to read instead of the stored original
+    * `:write`: `false` to return the change instead of saving it
+
+  ## Examples
+
+      {:ok, media} = PhxMediaLibrary.Pipeline.blurhash(media)
+      media.responsive_images["blurhash"]
+      #=> "LKO2?V%2Tw=w]~RBVZRi};RPxuwH"
+
+  """
+  @spec blurhash(Media.t(), keyword()) :: result()
+  def blurhash(%Media{} = media, opts \\ []) do
+    cond do
+      not Config.blurhash_enabled?() ->
+        {:skip, :disabled}
+
+      not String.starts_with?(media.mime_type || "", "image/") ->
+        {:skip, :not_image}
+
+      true ->
+        with {:ok, hash} <- with_source(media, opts, &PhxMediaLibrary.Blurhash.generate/1) do
+          update(
+            media,
+            [responsive_images: Map.put(media.responsive_images || %{}, "blurhash", hash)],
+            opts
+          )
+        end
+    end
+  end
+
+  @doc """
   Generate responsive variants with the collection's widths, and store them
   alongside what `responsive_images` already holds (blurhash, poster, ...).
 

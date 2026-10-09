@@ -139,6 +139,18 @@ library works on SQLite (`ecto_sqlite3`) as on Postgres, and says so.
   parameter limit), Oban's Lite engine in the docs.
 - A guide section: WAL mode, `busy_timeout`, Oban on SQLite.
 
+**F11. Onboarding without surprises.** (Mike, 2026-10-09, after an
+app's upgrade showed JPEGs and no placeholders.)
+- Without `:image`, the first image upload logs that images are stored
+  as uploaded, and the doctor's report says so.
+- With `blurhash: true`, the doctor finds images without a hash
+  (`missing_blurhash`) and `--regenerate` makes them; the background job
+  makes a missing one.
+- The LiveView guide shows the `phoenix-colocated/phx_media_library`
+  import, explains that plain URLs are WebP and AVIF and placeholders
+  come from the components' markup, and lists the public functions for
+  writing that markup yourself.
+
 **F9. The doctor at runtime.** (Mike, 2026-10-05) Releases have no
 `mix`, so today the doctor can't run in production. Its logic moves into
 `PhxMediaLibrary.Doctor`, a regular module: `check/1` returns a report

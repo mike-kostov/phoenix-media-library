@@ -64,7 +64,7 @@ defmodule PhxMediaLibrary.DocumentRenderer do
   """
   @spec image_source?(String.t() | nil) :: boolean()
   def image_source?(mime_type) do
-    Config.image_processor() != PhxMediaLibrary.ImageProcessor.Null and
+    PhxMediaLibrary.ImageProcessor.available?() and
       (match?("image/" <> _, mime_type) or renderable?(mime_type))
   end
 
