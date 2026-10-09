@@ -302,8 +302,12 @@ defmodule PhxMediaLibrary.Health do
 
   defp responsive_issue(_media, _present, false), do: nil
 
+  # Dimensions are only read with an image processor; without one (an app
+  # without :image) no repair could add them.
   defp metadata_issue(media) do
-    if image?(media) and not Map.has_key?(media.metadata || %{}, "width"), do: :missing_metadata
+    if image?(media) and Config.image_processor() != PhxMediaLibrary.ImageProcessor.Null and
+         not Map.has_key?(media.metadata || %{}, "width"),
+       do: :missing_metadata
   end
 
   defp name_issue(media) do

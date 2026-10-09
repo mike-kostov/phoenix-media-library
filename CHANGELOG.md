@@ -149,6 +149,9 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- Without `:image`, the doctor reported every image as missing metadata,
+  and `--reextract` said each repair was done while nothing changed. It no
+  longer reports what it can't repair.
 - BlurHash placeholders rounded the average colour half a step up, one
   shade too bright per channel, unlike other BlurHash encoders.
 - `PathGenerator.DateBased` built paths from today's date, so from the day

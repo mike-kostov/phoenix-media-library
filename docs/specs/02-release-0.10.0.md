@@ -302,6 +302,13 @@ out one too bright and hashes differed from other BlurHash encoders.
 Present in 0.9.0 and before.
 - The DC colour decodes to the image's average colour.
 
+**B12. No metadata the doctor can't repair.** (Found 2026-10-09 in an
+app's upgrade.) Without an image library, the doctor reported every image
+as missing metadata, and `--reextract` reported each repair done while the
+dimensions stayed missing, run after run. Present in 0.9.0.
+- Without an image processor, images aren't reported as missing their
+  dimensions.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

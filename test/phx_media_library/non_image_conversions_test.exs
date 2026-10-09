@@ -59,6 +59,22 @@ defmodule PhxMediaLibrary.NonImageConversionsTest do
       %{png: png}
     end
 
+    # Spec 02, B12: dimensions can't be read without an image library.
+    test "the doctor doesn't report images without dimensions as missing metadata", %{png: png} do
+      {:ok, image} =
+        create_test_post() |> PhxMediaLibrary.add(png) |> PhxMediaLibrary.to_collection(:images)
+
+      on_exit(fn -> Media.delete_files(image) end)
+
+      # As an app without :image stores it: no dimensions.
+      image =
+        TestRepo.update!(
+          Ecto.Changeset.change(image, metadata: %{"type" => "image", "format" => "png"})
+        )
+
+      refute :missing_metadata in PhxMediaLibrary.Health.check(image)
+    end
+
     test "an image upload queues no conversions, and a job does nothing", %{png: png} do
       {:ok, image} =
         create_test_post() |> PhxMediaLibrary.add(png) |> PhxMediaLibrary.to_collection(:images)
