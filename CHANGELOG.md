@@ -161,6 +161,12 @@ Upgrading from 0.9: run a migration and rename one function; see
   writing your own image markup from the public functions, and BlurHash.
 
 ### Fixed
+- Media whose original `keep_original: false` deleted can get new
+  derivatives: responsive widths, AVIF, placeholders, BlurHash, conversions
+  and dimensions are rebuilt from the served WebP, and the doctor reports
+  them missing. Before, rebuilds failed with the original not found, the
+  doctor skipped these media, and re-reading their dimensions said done
+  while saving none. A WebP is still only made from the original.
 - Apps couldn't import the components' hooks: LiveView builds
   `phoenix-colocated/phx_media_library/index.js` only for a project that
   runs its compiler, and the library didn't, so the import failed the

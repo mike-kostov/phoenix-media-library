@@ -331,6 +331,22 @@ drew. Present since `<.blurhash>` was added (0.6.0).
   exporting its hooks; an app without LiveView still compiles the
   library.
 
+**B14. Media without their original can still be rebuilt.** (Found
+2026-10-09 in an app's upgrade: 2,200 photos stored with
+`keep_original: false`.) Every step that makes a derivative read only
+the original, so for these media `--rebuild` failed ("not found"), the
+doctor reported nothing missing (it checked only media with an
+original), and `--reextract` said done while saving no dimensions. Such
+an app could not add AVIF, a new width or 0.10's placeholders to its
+existing images. Present in 0.9.0.
+- With the original gone, derivatives (responsive widths, AVIF,
+  placeholders, BlurHash, conversions, dimensions) are made from the
+  served WebP, which `keep_original: false` makes the file of record.
+- The doctor reports them missing when the original or the WebP is
+  stored; a missing WebP still needs the original, and a WebP is never
+  re-encoded from itself.
+- With neither file stored, the step returns `{:error, :not_found}`.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

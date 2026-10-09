@@ -97,7 +97,9 @@ defmodule PhxMediaLibrary.Pipeline do
       true ->
         storage = Config.storage_adapter(media.disk)
         original = PathGenerator.relative_path(media, nil)
-        with_source(media, opts, &Webp.encode(media, &1, settings, storage, original, opts))
+        # From the original only: the served WebP is never re-encoded from
+        # itself (spec 02, B14).
+        with_original(media, opts, &Webp.encode(media, &1, settings, storage, original, opts))
     end
   end
 
@@ -647,7 +649,16 @@ defmodule PhxMediaLibrary.Pipeline do
 
   # The original as an image (a PDF's first page), from the upload's file
   # or from storage.
+  # The upload's file when the step is given one, else the stored source:
+  # the original, or the served WebP when keep_original: false deleted it.
   defp with_source(media, opts, fun) do
+    case Keyword.fetch(opts, :source) do
+      {:ok, path} -> LocalSource.as_image(path, media.mime_type, fun)
+      :error -> LocalSource.with_source(media, fun)
+    end
+  end
+
+  defp with_original(media, opts, fun) do
     case Keyword.fetch(opts, :source) do
       {:ok, path} -> LocalSource.as_image(path, media.mime_type, fun)
       :error -> LocalSource.with_image(media, fun)

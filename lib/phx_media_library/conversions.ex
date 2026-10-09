@@ -76,7 +76,7 @@ defmodule PhxMediaLibrary.Conversions do
   # placeholders alone never fail the job.
   defp run(media, conversions) do
     if DocumentRenderer.image_source?(media.mime_type) do
-      case LocalSource.with_image(media, &run(media, conversions, &1)) do
+      case LocalSource.with_source(media, &run(media, conversions, &1)) do
         {changes, result} when is_list(changes) -> {changes, result}
         {:error, reason} -> unreadable(media, conversions, reason)
       end
@@ -195,7 +195,7 @@ defmodule PhxMediaLibrary.Conversions do
   """
   @spec process_single(Media.t(), Conversion.t()) :: :ok | {:error, term()}
   def process_single(%Media{} = media, %Conversion{} = conversion) do
-    LocalSource.with_image(media, &process_single(media, conversion, &1))
+    LocalSource.with_source(media, &process_single(media, conversion, &1))
   end
 
   defp process_single(%Media{} = media, %Conversion{} = conversion, original_path) do

@@ -65,7 +65,13 @@ defmodule PhxMediaLibrary.ResponsiveImages do
           {:ok, responsive_data()} | {:error, term()}
   def generate(%Media{} = media, conversion \\ nil, opts \\ []) do
     # Remote storage (S3) has no local path; LocalSource fetches a temp copy.
-    LocalSource.with_path(media, conversion, &generate_from(media, conversion, opts, &1))
+    # The original's variants come from the served WebP when keep_original:
+    # false deleted the original (spec 02, B14).
+    fun = &generate_from(media, conversion, opts, &1)
+
+    if conversion,
+      do: LocalSource.with_path(media, conversion, fun),
+      else: LocalSource.with_source(media, fun)
   end
 
   defp generate_from(media, conversion, opts, source_path) do

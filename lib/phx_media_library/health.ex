@@ -29,8 +29,10 @@ defmodule PhxMediaLibrary.Health do
   | `:needs_rename`                | repairable | `Pipeline.rename/2`           |
   | `:original_not_dropped`        | repairable | `Pipeline.drop_original/2`    |
 
-  Missing derivatives are only reported when the original is present,
-  since that's what they are rebuilt from.
+  Missing derivatives are only reported when there is something to
+  rebuild them from: the original, or the served WebP when
+  `keep_original: false` deleted the original (spec 02, B14). A missing
+  WebP needs the original.
   """
 
   import Ecto.Query
@@ -87,15 +89,16 @@ defmodule PhxMediaLibrary.Health do
       [:no_files]
     else
       original? = PathGenerator.relative_path(media, nil) in present
+      source? = original? or (media.custom_properties || %{})["webp"] in present
 
       [
         checksum_issue(media, opts),
-        conversions_issue(media, present, original?),
+        conversions_issue(media, present, source?),
         webp_issue(media, present, original?),
-        avif_issue(media, present, original?),
-        placeholder_issue(media, original?),
-        responsive_issue(media, present, original?),
-        blurhash_issue(media, original?),
+        avif_issue(media, present, source?),
+        placeholder_issue(media, source?),
+        responsive_issue(media, present, source?),
+        blurhash_issue(media, source?),
         metadata_issue(media),
         name_issue(media),
         drop_issue(media, original?)
@@ -214,7 +217,7 @@ defmodule PhxMediaLibrary.Health do
        do: :checksum_mismatch
   end
 
-  defp conversions_issue(media, present, true = _original?) do
+  defp conversions_issue(media, present, true = _source?) do
     if DocumentRenderer.image_source?(media.mime_type) do
       missing =
         media
@@ -243,7 +246,7 @@ defmodule PhxMediaLibrary.Health do
 
   defp webp_issue(_media, _present, false), do: nil
 
-  defp avif_issue(media, present, true = _original?) do
+  defp avif_issue(media, present, true = _source?) do
     settings = Model.avif_settings(media, media.collection_name)
 
     expected? =
@@ -256,7 +259,7 @@ defmodule PhxMediaLibrary.Health do
 
   defp avif_issue(_media, _present, false), do: nil
 
-  defp placeholder_issue(media, true = _original?) do
+  defp placeholder_issue(media, true = _source?) do
     if DocumentRenderer.image_source?(media.mime_type) and
          Model.placeholder(media, media.collection_name) != false do
       case get_in(media.responsive_images || %{}, ["original", "placeholder"]) do
@@ -270,7 +273,7 @@ defmodule PhxMediaLibrary.Health do
   defp placeholder_issue(_media, false), do: nil
 
   # Only when BlurHash is on (it needs the :image library).
-  defp blurhash_issue(media, true = _original?) do
+  defp blurhash_issue(media, true = _source?) do
     if image?(media) and Config.blurhash_enabled?() and
          not is_binary((media.responsive_images || %{})["blurhash"]),
        do: :missing_blurhash
@@ -305,7 +308,7 @@ defmodule PhxMediaLibrary.Health do
 
   defp webp_alpha?(_lossy), do: false
 
-  defp responsive_issue(media, present, true = _original?) do
+  defp responsive_issue(media, present, true = _source?) do
     if image?(media) and Model.responsive?(media, media.collection_name) do
       paths = ResponsiveImages.paths(media, nil)
 

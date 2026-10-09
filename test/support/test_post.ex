@@ -70,6 +70,14 @@ defmodule PhxMediaLibrary.TestPost do
         accepts: ~w(image/jpeg image/png image/webp)
       ),
       collection(:no_avif, avif: false, accepts: ~w(image/jpeg image/png image/webp)),
+      # Spec 02, B14: the original is deleted after upload; the WebP is the
+      # only full copy, and derivatives are rebuilt from it.
+      collection(:dropped_original,
+        webp: [keep_original: false],
+        avif: true,
+        responsive: [widths: [160, 320]],
+        accepts: ~w(image/jpeg image/png image/webp)
+      ),
       collection(:color_placeholder, placeholder: :color),
       collection(:big_placeholder, placeholder: [size: 48]),
       collection(:no_placeholder, placeholder: false),

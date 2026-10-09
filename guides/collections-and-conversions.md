@@ -403,9 +403,15 @@ mix phx_media_library.doctor --rebuild --only webp
 mix phx_media_library.doctor --rebuild --only webp --collection photos --dry-run
 ```
 
-> Regeneration reads the original, which is why `keep_original: true` is the
-> default. Media stored with `keep_original: false` have no source and are
-> skipped with a warning.
+> A WebP is only made from the original, which is why `keep_original: true`
+> is the default. Everything else is rebuilt from the served WebP when the
+> original is gone: responsive widths, AVIF, placeholders, BlurHash,
+> conversions and dimensions, up to the WebP's size. So a collection that
+> drops its originals can still get AVIF or a new width later:
+>
+> ```bash
+> mix phx_media_library.doctor --rebuild --only avif,responsive
+> ```
 
 Switching an existing collection to `keep_original: false` (or adding a
 `max_dimension`) is a three-step migration, in this order:

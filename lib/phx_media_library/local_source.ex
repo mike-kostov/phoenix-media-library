@@ -53,6 +53,35 @@ defmodule PhxMediaLibrary.LocalSource do
   end
 
   @doc """
+  Call `fun` with a local image to make new files from: the original
+  (see `with_image/2`), or, when `keep_original: false` deleted it, the
+  served WebP, which is then the only full copy. Returns
+  `{:error, :not_found}` without calling `fun` when neither is stored.
+
+  ## Examples
+
+      PhxMediaLibrary.LocalSource.with_source(media, &Image.open/1)
+
+  """
+  @spec with_source(Media.t(), (String.t() -> result)) :: result | {:error, term()}
+        when result: term()
+  def with_source(%Media{} = media, fun) when is_function(fun, 1) do
+    storage = Config.storage_adapter(media.disk)
+    webp = (media.custom_properties || %{})["webp"]
+
+    cond do
+      StorageWrapper.exists?(storage, PathGenerator.relative_path(media, nil)) ->
+        with_image(media, fun)
+
+      is_binary(webp) and StorageWrapper.exists?(storage, webp) ->
+        with_stored_path(media, webp, fun)
+
+      true ->
+        {:error, :not_found}
+    end
+  end
+
+  @doc """
   Call `fun` with `path` when it is an image, or with its first page as a
   PNG when it is a PDF a renderer can read (see `with_image/2`).
 
