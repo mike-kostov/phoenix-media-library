@@ -134,57 +134,27 @@ if Code.ensure_loaded?(Phoenix.LiveComponent) do
     end
 
     def handle_event("save_upload", _params, socket) do
-      %{
-        model: model,
-        collection: collection_name,
-        upload_name: upload_name,
-        responsive: responsive?
-      } = socket.assigns
+      %{collection: collection_name, upload_name: upload_name} = socket.assigns
+      {socket, rejected} = drop_rejected(socket, upload_name)
+
+      # Only finished entries: consume_uploaded_entries/3 raises while any
+      # entry is still pending, and LiveView holds the valid ones back while a
+      # refused one is listed. Those stay for the next submit.
+      {done, _pending} = uploaded_entries(socket, upload_name)
 
       results =
-        consume_uploaded_entries(socket, upload_name, fn meta, entry ->
-          result =
-            model
-            |> PhxMediaLibrary.add(upload_source(meta, entry))
-            |> PhxMediaLibrary.using_filename(entry.client_name)
-            |> maybe_with_responsive(responsive?)
-            |> PhxMediaLibrary.to_collection(collection_name)
+        Enum.map(
+          done,
+          &consume_uploaded_entry(socket, &1, fn meta -> save_entry(socket, meta, &1) end)
+        )
 
-          case result do
-            {:ok, media} -> {:ok, media}
-            {:error, reason} -> {:ok, {:error, reason}}
-          end
-        end)
+      {successes, failures} = Enum.split_with(results, &match?(%Media{}, &1))
+      socket = Enum.reduce(successes, socket, &stream_insert(&2, :media_items, &1))
 
-      {successes, failures} =
-        Enum.split_with(results, fn
-          {:error, _} -> false
-          %Media{} -> true
-          _ -> true
-        end)
+      # The parent hears of every saved file, even when others failed.
+      if successes != [], do: notify_parent(socket, {:uploaded, collection_name, successes})
 
-      socket =
-        Enum.reduce(successes, socket, fn media, sock ->
-          stream_insert(sock, :media_items, media)
-        end)
-
-      socket =
-        case failures do
-          [] ->
-            notify_parent(socket, {:uploaded, collection_name, successes})
-            count = length(successes)
-
-            put_flash(
-              socket,
-              :info,
-              "#{count} file#{if count != 1, do: "s"} uploaded successfully"
-            )
-
-          [{:error, reason} | _] ->
-            put_flash(socket, :error, "Upload failed: #{inspect(reason)}")
-        end
-
-      {:noreply, socket}
+      {:noreply, upload_flash(socket, successes, failures, rejected)}
     end
 
     def handle_event("delete_media", %{"id" => id}, socket) do
@@ -749,6 +719,45 @@ if Code.ensure_loaded?(Phoenix.LiveComponent) do
 
     defp maybe_with_responsive(adder, true), do: PhxMediaLibrary.with_responsive_images(adder)
     defp maybe_with_responsive(adder, false), do: adder
+
+    # Entries LiveView refused (too large, wrong type, too many) are never
+    # uploaded: drop them, and return their names.
+    defp drop_rejected(socket, upload_name) do
+      {_done, pending} = uploaded_entries(socket, upload_name)
+      rejected = Enum.reject(pending, & &1.valid?)
+      socket = Enum.reduce(rejected, socket, &cancel_upload(&2, upload_name, &1.ref))
+      {socket, Enum.map(rejected, & &1.client_name)}
+    end
+
+    defp save_entry(socket, meta, entry) do
+      %{model: model, collection: collection_name, responsive: responsive?} = socket.assigns
+
+      result =
+        model
+        |> PhxMediaLibrary.add(upload_source(meta, entry))
+        |> PhxMediaLibrary.using_filename(entry.client_name)
+        |> maybe_with_responsive(responsive?)
+        |> PhxMediaLibrary.to_collection(collection_name)
+
+      # {:ok, _} either way: the entry is consumed, its error reported.
+      case result do
+        {:ok, media} -> {:ok, media}
+        {:error, reason} -> {:ok, {:error, reason}}
+      end
+    end
+
+    defp upload_flash(socket, [], [], []), do: socket
+
+    defp upload_flash(socket, successes, [], []) do
+      count = length(successes)
+      put_flash(socket, :info, "#{count} file#{if count != 1, do: "s"} uploaded successfully")
+    end
+
+    defp upload_flash(socket, _successes, [{:error, reason} | _], _rejected),
+      do: put_flash(socket, :error, "Upload failed: #{inspect(reason)}")
+
+    defp upload_flash(socket, _successes, [], rejected),
+      do: put_flash(socket, :error, "Not uploaded: #{Enum.join(rejected, ", ")}")
 
     defp notify_parent(socket, message) do
       send(self(), {__MODULE__, message})

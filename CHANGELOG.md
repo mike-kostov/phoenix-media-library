@@ -144,6 +144,12 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- `MediaLive` crashed the page when the form was submitted while a file
+  LiveView had refused (too large, wrong type) was listed. Refused files
+  are now dropped and named in the flash, and finished ones are saved.
+- `MediaLive` didn't tell the parent about saved files when another file
+  of the same upload failed; it now sends `{:uploaded, collection, saved}`
+  for them.
 - The components use colocated hooks, which arrived in Phoenix LiveView
   1.1, but the library accepted LiveView 1.0, where they don't compile.
   It now asks for `phoenix_live_view ~> 1.1`.

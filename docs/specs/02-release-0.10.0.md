@@ -251,6 +251,20 @@ upload to a collection with conversions queued a job that always failed
 library and then failed to compile its components. Present in 0.9.0.
 - The library requires `phoenix_live_view ~> 1.1`.
 
+**B7. `MediaLive` survives a refused file.** (Found 2026-10-09 while
+covering `MediaLive` with tests.) Submitting the upload form while a file
+LiveView had refused (too large, wrong type) was listed crashed the page:
+`consume_uploaded_entries/3` raises while any entry is unfinished.
+Present in 0.9.0 and before.
+- Refused files are dropped on submit and named in the flash; finished
+  ones are saved; the page stays up.
+
+**B8. `MediaLive` reports what it saved.** (Found with B7.) When one file
+of an upload failed, the parent LiveView heard nothing, not even about
+the files that were saved.
+- The parent gets `{:uploaded, collection, saved}` whenever any file was
+  saved, alongside the error.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
