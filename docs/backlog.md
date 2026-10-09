@@ -70,6 +70,8 @@ Found during 0.9.0 (Mike, 2026-10-04):
   `phx-media-library-db` (README, Contributing), started 2026-10-08 when
   the database the tests had borrowed went away; next, start it from
   `test_helper.exs` like Ministack.
+- 0.11: the app's own images through the library, by key, with a
+  repeatable sync (`docs/ideas/system-assets.md`, Mike 2026-10-09).
 - Retest fillfactor on the media table with the 0.10 write pattern: the
   100k rerun saw HOT updates at 20/s fall from 80% to 36–58%, as the
   job's final update rewrites about 2 kB of a row the insert filled
