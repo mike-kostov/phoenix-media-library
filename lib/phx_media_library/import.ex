@@ -151,7 +151,14 @@ defmodule PhxMediaLibrary.Import do
         position =
           Map.get_lazy(next, key, fn -> Model.next_order(entry.model, entry.collection) end)
 
-        media = %{media | order_column: position, inserted_at: now, updated_at: now}
+        # inserted_at is the time the file was stored (date-based paths).
+        media = %{
+          media
+          | order_column: position,
+            inserted_at: media.inserted_at || now,
+            updated_at: now
+        }
+
         {{entry, media}, Map.put(next, key, position + 1)}
       end)
 

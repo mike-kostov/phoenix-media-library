@@ -272,6 +272,14 @@ browser and the aspect ratio was dropped as invalid CSS. Present in 0.9.0
 and before.
 - The canvas's `aspect-ratio` is its width and height.
 
+**B10. Date-based paths keep their day.** (Found 2026-10-09 while
+covering the path generators with tests.) `PathGenerator.DateBased` built
+every path from `Date.utc_today()`, so from the day after an upload its
+URLs, deletes and conversions pointed at a folder that didn't hold the
+file. Present in 0.9.0 and before.
+- Paths use the day of the media's `inserted_at`, which an upload, a move
+  and an import set to the time the file was stored.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

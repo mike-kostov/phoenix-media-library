@@ -8,9 +8,8 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   - Original file: `{year}/{month}/{day}/{mediable_type}/{mediable_id}/{uuid}/{filename}`
   - Conversion:    `{year}/{month}/{day}/{mediable_type}/{mediable_id}/{uuid}/{base}_{conversion}{ext}`
 
-  The date is derived from `Date.utc_today()` at the moment the path is
-  generated (i.e., at upload time), so the path will reflect the upload date
-  even if the database record is created slightly later.
+  The date is the day the media was stored, its `inserted_at`, so a
+  record's paths stay the same on every later day.
 
   ## Benefits
 
@@ -21,12 +20,12 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
 
   ## Examples
 
-      # Assuming today is 2024-03-15
       iex> media = %PhxMediaLibrary.Media{
       ...>   mediable_type: "posts",
       ...>   mediable_id: "abc-123",
       ...>   uuid: "550e8400-e29b-41d4-a716-446655440000",
-      ...>   file_name: "photo.jpg"
+      ...>   file_name: "photo.jpg",
+      ...>   inserted_at: ~U[2024-03-15 09:30:00Z]
       ...> }
       iex> PhxMediaLibrary.PathGenerator.DateBased.relative_path(media, nil)
       "2024/03/15/posts/abc-123/550e8400-e29b-41d4-a716-446655440000/photo.jpg"
@@ -57,7 +56,8 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   @doc """
   Generate the relative storage path for a media item.
 
-  The date prefix (`{year}/{month}/{day}`) is derived from `Date.utc_today()`.
+  The date prefix (`{year}/{month}/{day}`) is the day of the media's
+  `inserted_at`, when it was stored (today for media not stored yet).
   """
   @spec relative_path(Media.t(), atom() | String.t() | nil) :: String.t()
   def relative_path(%Media{} = media, conversion \\ nil) do
@@ -69,7 +69,7 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   Generate the relative storage path with an optional path context.
 
   Accepts an optional `:date` key in `path_context` to override the upload
-  date. When absent, `Date.utc_today()` is used.
+  date. When absent, the day of `inserted_at` is used (today without one).
 
   ## Example
 
@@ -79,7 +79,7 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   """
   @spec relative_path(Media.t(), atom() | String.t() | nil, map()) :: String.t()
   def relative_path(%Media{} = media, conversion, path_context) do
-    date = Map.get(path_context, :date, Date.utc_today())
+    date = Map.get(path_context, :date) || upload_date(media.inserted_at)
     date_prefix = date_path(date)
 
     base_path =
@@ -98,7 +98,7 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   @doc """
   Generate a storage path for new media (before it has been persisted).
 
-  The date prefix is derived from `Date.utc_today()`.
+  The date prefix is the day of `attrs.inserted_at`, else today.
   """
   @spec for_new_media(map()) :: String.t()
   def for_new_media(attrs) do
@@ -110,11 +110,11 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   Generate a storage path for new media with an optional path context.
 
   Accepts an optional `:date` key in `path_context` to override the upload
-  date. When absent, `Date.utc_today()` is used.
+  date. When absent, the day of `inserted_at` is used (today without one).
   """
   @spec for_new_media(map(), map()) :: String.t()
   def for_new_media(attrs, path_context) do
-    date = Map.get(path_context, :date, Date.utc_today())
+    date = Map.get(path_context, :date) || upload_date(attrs[:inserted_at])
     date_prefix = date_path(date)
 
     parts = [
@@ -129,6 +129,12 @@ defmodule PhxMediaLibrary.PathGenerator.DateBased do
   end
 
   # Private helpers
+
+  # The day the media was stored: a record's paths must not change with the
+  # calendar. Today only for media without a time yet.
+  defp upload_date(%DateTime{} = inserted_at), do: DateTime.to_date(inserted_at)
+  defp upload_date(%NaiveDateTime{} = inserted_at), do: NaiveDateTime.to_date(inserted_at)
+  defp upload_date(nil), do: Date.utc_today()
 
   defp date_path(%Date{year: year, month: month, day: day}) do
     Path.join([

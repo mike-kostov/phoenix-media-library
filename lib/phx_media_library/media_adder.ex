@@ -544,8 +544,14 @@ defmodule PhxMediaLibrary.MediaAdder do
         uuid: uuid
       })
 
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
     attrs = %{
       uuid: uuid,
+      # The time the file is stored, kept as the record's: date-based paths
+      # are built from it. A move keeps the record's own.
+      inserted_at: stored_at(opts[:replacing], now),
+      updated_at: now,
       collection_name: to_string(collection_name),
       name: FileName.slug(file_info.filename),
       file_name: file_name,
@@ -556,9 +562,7 @@ defmodule PhxMediaLibrary.MediaAdder do
       metadata: Map.put(metadata, "original_file_name", file_info.filename),
       # Done at once when no background job will run (spec 02, F6).
       processing_finished_at:
-        if(!background_work?(adder, file_info.mime_type, collection_name),
-          do: DateTime.truncate(DateTime.utc_now(), :second)
-        ),
+        if(!background_work?(adder, file_info.mime_type, collection_name), do: now),
       mediable_type: mediable_type,
       mediable_id: adder.model.id,
       # Imports give positions per batch instead (PhxMediaLibrary.Import).
@@ -749,6 +753,9 @@ defmodule PhxMediaLibrary.MediaAdder do
     defp maybe_generate_blurhash(media, _file_path), do: media
   end
 
+  defp stored_at(%Media{inserted_at: %DateTime{} = inserted_at}, _now), do: inserted_at
+  defp stored_at(_replacing, now), do: now
+
   # PhxMediaLibrary.Transfer moves media by adding its original again in
   # place of the record (`replacing:`), which keeps its id.
   defp record_id(opts) do
@@ -766,8 +773,14 @@ defmodule PhxMediaLibrary.MediaAdder do
 
     result =
       case replacing do
-        nil -> %Media{id: derived.id} |> Media.changeset(attrs) |> Config.repo().insert()
-        %Media{} -> replacing |> Media.changeset(attrs) |> Config.repo().update()
+        nil ->
+          %Media{id: derived.id}
+          |> Media.changeset(attrs)
+          |> Ecto.Changeset.force_change(:inserted_at, derived.inserted_at)
+          |> Config.repo().insert()
+
+        %Media{} ->
+          replacing |> Media.changeset(attrs) |> Config.repo().update()
       end
 
     with {:error, _} <- result do

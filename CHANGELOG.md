@@ -144,6 +144,11 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- `PathGenerator.DateBased` built paths from today's date, so from the day
+  after an upload the media's URLs, deletes and conversions pointed at the
+  wrong folder. Paths now use the day of the media's `inserted_at`, the
+  time its file was stored. Media stored before 0.10 under this generator
+  keeps the folders of its upload day, which now match again.
 - `<.blurhash>` rendered `aspect-ratio: {@width} / {@height}` literally in
   its canvas's style, which browsers drop as invalid; the canvas now keeps
   the placeholder's shape.
