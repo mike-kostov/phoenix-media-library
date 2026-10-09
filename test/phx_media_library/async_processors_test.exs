@@ -75,7 +75,7 @@ defmodule PhxMediaLibrary.AsyncProcessorsTest do
 
   describe "Oban" do
     setup do
-      start_supervised!({Oban, repo: TestRepo, testing: :manual})
+      start_supervised!({Oban, PhxMediaLibrary.TestOban.opts()})
       Application.put_env(:phx_media_library, :async_processor, AsyncProcessor.Oban)
       :ok
     end

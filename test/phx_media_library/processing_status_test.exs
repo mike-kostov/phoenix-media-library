@@ -95,25 +95,34 @@ defmodule PhxMediaLibrary.ProcessingStatusTest do
       on_exit(fn -> Mix.shell(Mix.Shell.IO) end)
     end
 
-    test "marks existing rows done without rewriting the table; new rows start empty" do
-      TestRepo.query!("CREATE TABLE media_upgrade_probe (id serial PRIMARY KEY, name text)")
-      TestRepo.query!("INSERT INTO media_upgrade_probe (name) VALUES ('from 0.9')")
+    # A table with one row from 0.9, upgraded by the generated migration.
+    defp upgrade_probe do
+      id = if sqlite?(), do: "INTEGER PRIMARY KEY", else: "serial PRIMARY KEY"
 
-      file_node = fn ->
-        TestRepo.query!("SELECT pg_relation_filenode('media_upgrade_probe')").rows
-      end
+      TestRepo.query!(
+        "CREATE TABLE media_upgrade_probe (id #{id}, name text, inserted_at timestamp)"
+      )
 
-      before = file_node.()
+      TestRepo.query!(
+        "INSERT INTO media_upgrade_probe (name, inserted_at) VALUES ('from 0.9', '2026-01-02 03:04:05')"
+      )
 
       source =
         "media_upgrade_probe"
         |> Gen.Migration.processing_status_template()
-        |> String.replace("PhxMediaLibrary.Repo.Migrations", "UpgradeProbe")
+        |> String.replace(
+          "PhxMediaLibrary.Repo.Migrations",
+          "UpgradeProbe#{System.unique_integer([:positive])}"
+        )
 
       [{module, _}] = Code.compile_string(source)
+      fn -> Runner.run(TestRepo, TestRepo.config(), 1, module, :forward, :up, :up, log: false) end
+    end
 
-      Runner.run(TestRepo, TestRepo.config(), 1, module, :forward, :up, :up, log: false)
+    defp sqlite?, do: TestRepo.sqlite?()
 
+    test "marks existing rows done; new rows start empty" do
+      upgrade_probe().()
       TestRepo.query!("INSERT INTO media_upgrade_probe (name) VALUES ('from 0.10')")
 
       %{rows: rows} =
@@ -121,7 +130,21 @@ defmodule PhxMediaLibrary.ProcessingStatusTest do
           "SELECT name, processing_finished_at IS NOT NULL FROM media_upgrade_probe ORDER BY id"
         )
 
-      assert rows == [["from 0.9", true], ["from 0.10", false]]
+      # SQLite answers 1 and 0.
+      assert Enum.map(rows, fn [name, done] -> [name, done in [true, 1]] end) ==
+               [["from 0.9", true], ["from 0.10", false]]
+    end
+
+    @tag :postgres
+    test "on Postgres, without rewriting the table" do
+      file_node = fn ->
+        TestRepo.query!("SELECT pg_relation_filenode('media_upgrade_probe')").rows
+      end
+
+      run = upgrade_probe()
+      before = file_node.()
+      run.()
+
       assert file_node.() == before
     end
   end

@@ -10,6 +10,8 @@ defmodule PhxMediaLibrary.MixProject do
       version: @version,
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
+      # DB=sqlite runs the suite on SQLite (spec 02, F10), in its own build.
+      build_path: if(System.get_env("DB") == "sqlite", do: "_build_sqlite", else: "_build"),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -61,6 +63,7 @@ defmodule PhxMediaLibrary.MixProject do
 
       # === Dev/Test ===
       {:postgrex, ">= 0.0.0", only: [:dev, :test]},
+      {:ecto_sqlite3, "~> 0.22", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:ex_doc, "~> 0.35", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -81,7 +84,8 @@ defmodule PhxMediaLibrary.MixProject do
         "format --check-formatted",
         "credo --strict",
         "dialyzer",
-        "cmd --cd . sh -c 'MIX_ENV=test mix test'"
+        "cmd --cd . sh -c 'MIX_ENV=test mix test'",
+        "cmd --cd . sh -c 'DB=sqlite MIX_ENV=test mix test'"
       ]
     ]
   end
@@ -90,8 +94,8 @@ defmodule PhxMediaLibrary.MixProject do
     """
     Attach files to Ecto schemas: collections, image conversions, WebP and
     AVIF, responsive images, placeholders, PDF thumbnails, LiveView
-    components, and local, S3, R2 or Google Cloud storage. Inspired by
-    Spatie's Laravel Media Library.
+    components, Postgres or SQLite, and local, S3, R2 or Google Cloud
+    storage. Inspired by Spatie's Laravel Media Library.
     """
   end
 

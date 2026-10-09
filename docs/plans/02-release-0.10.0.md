@@ -446,8 +446,8 @@ picks the SQLite test repo (its own build path); the test migrations and
 the generated ones work on both; Postgres-only tests are tagged and get a
 SQLite counterpart where the behaviour matters; `mix precommit` runs both.
 **Acceptance criteria:**
-- [ ] `mix test` and `DB=sqlite mix test` both pass.
-- [ ] Install, `--processing-status` and `--indexes` migrations run on
+- [x] `mix test` and `DB=sqlite mix test` both pass.
+- [x] Install, `--processing-status` and `--indexes` migrations run on
       SQLite; existing rows read as done after the upgrade.
 **Verification:** both runs; `mix precommit`.
 **Dependencies:** none
@@ -458,8 +458,8 @@ SQLite counterpart where the behaviour matters; `mix precommit` runs both.
 sizes per adapter, Oban's Lite engine; a SQLite section in the guides;
 README says Postgres and SQLite.
 **Acceptance criteria:**
-- [ ] Every Postgres-only path has a SQLite behaviour, tested.
-- [ ] The guide covers WAL mode, `busy_timeout` and Oban on SQLite.
+- [x] Every Postgres-only path has a SQLite behaviour, tested.
+- [x] The guide covers WAL mode, `busy_timeout` and Oban on SQLite.
 **Verification:** tests on both; `mix docs`.
 **Dependencies:** Task 22
 **Scope:** M

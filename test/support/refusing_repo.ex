@@ -9,6 +9,7 @@ defmodule PhxMediaLibrary.RefusingRepo do
 
   def insert(_changeset, _opts \\ []), do: {:error, :refused}
   def update(_changeset, _opts \\ []), do: {:error, :refused}
+  def __adapter__, do: TestRepo.__adapter__()
   def get(queryable, id, opts \\ []), do: TestRepo.get(queryable, id, opts)
   def get!(queryable, id, opts \\ []), do: TestRepo.get!(queryable, id, opts)
   def reload!(struct, opts \\ []), do: TestRepo.reload!(struct, opts)

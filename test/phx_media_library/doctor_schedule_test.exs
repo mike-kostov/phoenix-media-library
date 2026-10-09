@@ -170,6 +170,13 @@ defmodule PhxMediaLibrary.Doctor.ScheduleTest do
       assert_receive {:event, [:phx_media_library, :doctor, :check], _}, 2_000
     end
 
+    @tag :sqlite
+    test "on SQLite, one node, the run needs no lock" do
+      assert {:ok, %{report: _}} =
+               Scheduler.run_once(config(runner: :internal, pause: 0), hold: 0)
+    end
+
+    @tag :postgres
     test "skips the run while another node holds the lock" do
       conn = start_supervised!({Postgrex, Keyword.delete(Repo.config(), :pool)})
       key = :erlang.phash2("phx_media_library:doctor_schedule")
@@ -195,7 +202,7 @@ defmodule PhxMediaLibrary.Doctor.ScheduleTest do
 
   describe "Oban runner" do
     setup do
-      start_supervised!({Oban, name: __MODULE__.Oban, repo: Repo, testing: :manual})
+      start_supervised!({Oban, PhxMediaLibrary.TestOban.opts(name: __MODULE__.Oban)})
       oban = [name: __MODULE__.Oban, queue: :default]
       %{config: config(enabled: true, runner: :oban, oban: oban, pause: 0), oban: oban}
     end

@@ -108,18 +108,26 @@ defmodule Mix.Tasks.PhxMediaLibrary.Gen.Migration do
       use Ecto.Migration
 
       # PhxMediaLibrary 0.10: Media.processing_status/1. Existing rows read
-      # as done: processing_finished_at gets this migration's time as a
-      # default, which Postgres stores once instead of rewriting the table,
-      # and the default is dropped, so new rows start empty.
+      # as done. On Postgres, processing_finished_at gets this migration's
+      # time as a default, which Postgres stores once instead of rewriting
+      # the table, and the default is dropped, so new rows start empty.
+      # SQLite can't drop a default, so it marks the rows in an UPDATE.
       def up do
+        postgres? = repo().__adapter__() == Ecto.Adapters.Postgres
+
         alter table(:#{table}) do
           add :processing_started_at, :utc_datetime
-          add :processing_finished_at, :utc_datetime, default: fragment("timezone('UTC', now())")
+
+          add :processing_finished_at, :utc_datetime,
+            default: if(postgres?, do: fragment("timezone('UTC', now())"))
+
           add :processing_failed_at, :utc_datetime
           add :processing_error, :text
         end
 
-        execute "ALTER TABLE #{table} ALTER COLUMN processing_finished_at DROP DEFAULT"
+        if postgres?,
+          do: execute("ALTER TABLE #{table} ALTER COLUMN processing_finished_at DROP DEFAULT"),
+          else: execute("UPDATE #{table} SET processing_finished_at = inserted_at")
       end
 
       def down do
@@ -140,34 +148,39 @@ defmodule Mix.Tasks.PhxMediaLibrary.Gen.Migration do
     defmodule #{inspect(repo_module())}.Migrations.LeanMediaIndexes do
       use Ecto.Migration
 
-      # Concurrent index builds can't run in a transaction; the table keeps
-      # taking writes while they run.
+      # On Postgres the indexes are built and dropped CONCURRENTLY, which
+      # can't run in a transaction: the table keeps taking writes. SQLite
+      # has no CONCURRENTLY.
       @disable_ddl_transaction true
       @disable_migration_lock true
 
       def up do
+        concurrently = repo().__adapter__() == Ecto.Adapters.Postgres
+
         # The new index first, so lookups of trashed media always have one.
         create_if_not_exists index(:#{table}, [:deleted_at],
                                where: "deleted_at IS NOT NULL",
                                name: :#{table}_deleted_at_partial_index,
-                               concurrently: true
+                               concurrently: concurrently
                              )
 
-        drop_if_exists index(:#{table}, [:deleted_at], concurrently: true)
-        drop_if_exists index(:#{table}, [:mediable_type, :mediable_id], concurrently: true)
-        drop_if_exists index(:#{table}, [:collection_name], concurrently: true)
-        drop_if_exists index(:#{table}, [:checksum], concurrently: true)
+        drop_if_exists index(:#{table}, [:deleted_at], concurrently: concurrently)
+        drop_if_exists index(:#{table}, [:mediable_type, :mediable_id], concurrently: concurrently)
+        drop_if_exists index(:#{table}, [:collection_name], concurrently: concurrently)
+        drop_if_exists index(:#{table}, [:checksum], concurrently: concurrently)
       end
 
       def down do
-        create_if_not_exists index(:#{table}, [:checksum], concurrently: true)
-        create_if_not_exists index(:#{table}, [:collection_name], concurrently: true)
-        create_if_not_exists index(:#{table}, [:mediable_type, :mediable_id], concurrently: true)
-        create_if_not_exists index(:#{table}, [:deleted_at], concurrently: true)
+        concurrently = repo().__adapter__() == Ecto.Adapters.Postgres
+
+        create_if_not_exists index(:#{table}, [:checksum], concurrently: concurrently)
+        create_if_not_exists index(:#{table}, [:collection_name], concurrently: concurrently)
+        create_if_not_exists index(:#{table}, [:mediable_type, :mediable_id], concurrently: concurrently)
+        create_if_not_exists index(:#{table}, [:deleted_at], concurrently: concurrently)
 
         drop_if_exists index(:#{table}, [:deleted_at],
                          name: :#{table}_deleted_at_partial_index,
-                         concurrently: true
+                         concurrently: concurrently
                        )
       end
     end

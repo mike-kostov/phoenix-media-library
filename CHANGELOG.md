@@ -81,6 +81,11 @@ Upgrading from 0.9: run a migration and rename one function; see
   insert now removes the derivatives too, not only the original.
 
 ### Added
+- SQLite support (`ecto_sqlite3`): the whole test suite runs on Postgres
+  and on SQLite, the generated migrations (install, `--processing-status`,
+  `--indexes`) work on both, the scheduled doctor needs no lock there, and
+  `import_media/2` keeps batches within SQLite's limit. The advanced guide
+  covers WAL mode, `busy_timeout` and Oban's Lite engine.
 - `import_media/2` imports many media at once: a list or stream of
   `%{model:, collection:, source:}` entries across any records and
   collections. Files are checked and stored like uploads, rows go in with

@@ -23,7 +23,8 @@ mix ecto.migrate
 
 Without them every media query fails, since the schema selects the new
 columns. Existing rows read as done. Postgres adds the columns without
-rewriting the table, so the migration is quick even on a large table.
+rewriting the table, so the migration is quick even on a large table; on
+SQLite it marks the rows with an `UPDATE`.
 Use `--table NAME` if your media table has another name.
 
 ### 2. Rename `move_to/2`
@@ -142,4 +143,5 @@ checksum index if your app looks media up by checksum.
 | PDF thumbnails | [Collections & conversions](collections-and-conversions.md#pdf-thumbnails) |
 | Google Cloud Storage (`provider: :gcs`) | [Storage](storage.md#amazon-s3-and-s3-compatible-services) |
 | The doctor in releases and on a schedule | [Advanced](advanced.md#the-doctor-on-a-schedule) |
+| SQLite | [Advanced](advanced.md#sqlite) |
 | Autovacuum for busy media tables | [Advanced](advanced.md#busy-media-tables) |

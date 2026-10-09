@@ -212,6 +212,32 @@ Add custom fields to the media table:
 mix phx_media_library.gen.migration add_blurhash_field
 ```
 
+## SQLite
+
+The library runs on SQLite through `ecto_sqlite3` as it does on Postgres;
+its whole test suite runs on both. SQLite has one writer at a time, and
+every upload and background job writes the media row, so give writers
+room to wait:
+
+```elixir
+config :my_app, MyApp.Repo,
+  database: "my_app.db",
+  journal_mode: :wal,
+  busy_timeout: 5_000
+```
+
+What differs from Postgres:
+
+- **Oban** needs its Lite engine on SQLite, and a notifier that doesn't
+  use Postgres: `engine: Oban.Engines.Lite, notifier: Oban.Notifiers.PG`.
+- **The scheduled doctor** runs without the advisory lock it takes on
+  Postgres: a SQLite database belongs to one node.
+- **`import_media/2`** sends at most 1,365 rows per insert, SQLite's
+  parameter limit.
+- **The 0.10 upgrade migration** marks existing media done with an
+  `UPDATE`, since SQLite can't add and drop a default as Postgres does;
+  `--indexes` runs without `CONCURRENTLY`.
+
 ## Busy media tables
 
 Every upload's background job updates its row, and each update leaves a

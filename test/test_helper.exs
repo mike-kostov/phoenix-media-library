@@ -89,10 +89,15 @@ pdftoppm_available? = System.find_executable("pdftoppm") != nil
 # Video tests with the real binaries need FFmpeg (brew install ffmpeg).
 ffmpeg_available? = System.find_executable("ffmpeg") != nil
 
+# DB=sqlite runs the suite on SQLite. Tests of one database's own SQL are
+# tagged :postgres or :sqlite and run only there.
+sqlite? = System.get_env("DB") == "sqlite"
+
 # Exclude integration tests whose service is not available
 ExUnit.configure(
   exclude:
-    if(db_available?, do: [], else: [:db]) ++
+    if(sqlite?, do: [:postgres], else: [:sqlite]) ++
+      if(db_available?, do: [], else: [:db]) ++
       if(s3_available?, do: [], else: [:s3]) ++
       if(pdftoppm_available?, do: [], else: [:pdftoppm]) ++
       if(ffmpeg_available?, do: [], else: [:ffmpeg])

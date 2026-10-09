@@ -191,6 +191,7 @@ uploader.
 | **Bulk import** | `import_media/2`: thousands of files across records and collections, rows in batches, derivatives in the background |
 | **Any source** | Paths, uploads, `{:binary, ...}`, `{:base64, ...}` (data URIs too) and `{:stream, ...}`, all checked like uploads |
 | **Remote URLs** | `add_from_url/3` with SSRF protection, streaming to disk, size and time limits |
+| **Databases** | PostgreSQL and SQLite (`ecto_sqlite3`), the whole suite run on both |
 | **Storage** | Local disk, S3 and S3-compatible services (Cloudflare R2, Google Cloud Storage, MinIO), in-memory for tests, or your own adapter |
 | **Direct S3 uploads** | `presigned_upload/3` + `complete_external_upload/4`, POST or PUT per provider, limits checked on completion |
 | **Streaming** | Files go to storage in 64 KB chunks, never whole in memory; downloads stream with `send_file` |
@@ -290,11 +291,14 @@ example in a container of its own:
 podman run -d --name phx-media-library-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:18-alpine
 ```
 
-They need podman or Docker for the S3 tests, and poppler's `pdftoppm` for
-the PDF thumbnail tests (skipped without it). Those run against a
+`DB=sqlite mix test` runs the same suite on SQLite, in a file under `tmp/`.
+
+The S3 tests need podman or Docker: they run against a
 [Ministack](https://hub.docker.com/r/ministackorg/ministack) container that
-the first `mix test` starts and later runs reuse; without podman or Docker
-they are skipped. Run `mix precommit` before opening a pull request.
+the first `mix test` starts and later runs reuse. The PDF thumbnail tests
+need poppler's `pdftoppm`, and one video test needs FFmpeg. Each group is
+skipped when its tool is missing. Run `mix precommit`, which runs the suite
+on both databases, before opening a pull request.
 
 1. Fork it
 2. Create your feature branch (`git checkout -b feature/my-feature`)

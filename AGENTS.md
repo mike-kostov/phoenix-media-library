@@ -14,7 +14,7 @@ It is a Phoenix library, not an application. It owns a polymorphic `media`
 table, injects `has_many` associations into the host's schemas, and ships
 LiveView components and a Plug. It has no endpoint, router, layouts, auth or
 asset bundle. Optional dependencies: `:image` (libvips), `ex_aws_s3`, `oban`,
-FFmpeg. Tests run on PostgreSQL. Releases go to Hex. There is no CI
+FFmpeg. Tests run on PostgreSQL and on SQLite (`DB=sqlite`). Releases go to Hex. There is no CI
 (ADR-022).
 
 ## Five Non-Negotiables (always active)

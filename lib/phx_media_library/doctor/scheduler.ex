@@ -48,16 +48,27 @@ defmodule PhxMediaLibrary.Doctor.Scheduler do
   end
 
   @doc false
-  # One run, unless the Repo is down or another node holds the lock.
+  # One run, unless the Repo is down or another node holds the lock (on
+  # Postgres; SQLite needs none).
   @spec run_once(Schedule.config(), keyword()) :: {:ok, map()} | {:error, term()} | :skipped
   def run_once(config, opts \\ []) do
     repo = Config.repo()
 
-    if GenServer.whereis(repo.get_dynamic_repo()) do
-      repo.checkout(fn -> with_lock(repo, Keyword.get(opts, :hold, @min_hold), config) end)
-    else
-      Logger.warning("[PhxMediaLibrary] scheduled doctor skipped: #{inspect(repo)} isn't running")
-      :skipped
+    cond do
+      GenServer.whereis(repo.get_dynamic_repo()) == nil ->
+        Logger.warning(
+          "[PhxMediaLibrary] scheduled doctor skipped: #{inspect(repo)} isn't running"
+        )
+
+        :skipped
+
+      # The lock keeps several nodes from running the day twice; a SQLite
+      # database belongs to one node.
+      repo.__adapter__() != Ecto.Adapters.Postgres ->
+        Schedule.run(config)
+
+      true ->
+        repo.checkout(fn -> with_lock(repo, Keyword.get(opts, :hold, @min_hold), config) end)
     end
   end
 

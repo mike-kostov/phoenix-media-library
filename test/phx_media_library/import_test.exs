@@ -127,6 +127,14 @@ defmodule PhxMediaLibrary.ImportTest do
     assert writes == ["INSERT", "INSERT", "INSERT"]
   end
 
+  test "batches stay within the database's parameter limit" do
+    limit = if TestRepo.sqlite?(), do: 32_766, else: 65_535
+    max = PhxMediaLibrary.Import.max_batch_size()
+
+    assert max * length(Media.__schema__(:fields)) <= limit
+    assert max <= 2_000
+  end
+
   test "positions are looked up once per collection and batch", %{jpeg: jpeg} do
     post = create_test_post()
 

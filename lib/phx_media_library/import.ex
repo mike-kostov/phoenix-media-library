@@ -30,9 +30,10 @@ defmodule PhxMediaLibrary.Import do
 
   @default_batch_size 1_000
 
-  # Postgres takes at most 65,535 parameters per statement; a media row has
-  # 24 columns, so 2,730 rows. Stay well below.
+  # A statement takes at most 65,535 parameters on Postgres and 32,766 on
+  # SQLite; a media row has 24 columns, so 2,730 or 1,365 rows. Stay below.
   @max_batch_size 2_000
+  @max_parameters %{Ecto.Adapters.SQLite3 => 32_766}
 
   @typedoc """
   An entry: the record and collection to add to and the source, as for
@@ -53,7 +54,8 @@ defmodule PhxMediaLibrary.Import do
 
   ## Options
 
-  - `:batch_size`: rows per `insert_all` (default 1,000, at most 2,000)
+  - `:batch_size`: rows per `insert_all` (default 1,000, at most 2,000;
+    on SQLite at most 1,365, its limit)
   - `:max_concurrency`: files checked and stored at a time (default: the
     number of schedulers)
   - `:disk`: the disk for entries without their own `:disk` (default: each
@@ -75,7 +77,7 @@ defmodule PhxMediaLibrary.Import do
   @spec run(Enumerable.t(), keyword()) ::
           {:ok, %{inserted: non_neg_integer(), failed: [{entry(), term()}]}}
   def run(entries, opts \\ []) do
-    batch_size = opts |> Keyword.get(:batch_size, @default_batch_size) |> min(@max_batch_size)
+    batch_size = opts |> Keyword.get(:batch_size, @default_batch_size) |> min(max_batch_size())
     concurrency = Keyword.get(opts, :max_concurrency, System.schedulers_online())
 
     Telemetry.span([:phx_media_library, :import], %{}, fn ->
@@ -92,6 +94,16 @@ defmodule PhxMediaLibrary.Import do
 
       {{:ok, totals}, %{inserted: totals.inserted, failed: length(totals.failed)}}
     end)
+  end
+
+  @doc false
+  # The largest batch the configured database takes in one insert_all.
+  @spec max_batch_size() :: pos_integer()
+  def max_batch_size do
+    case @max_parameters[Config.repo().__adapter__()] do
+      nil -> @max_batch_size
+      parameters -> min(@max_batch_size, div(parameters, length(Media.__schema__(:fields))))
+    end
   end
 
   # One entry checked and stored, never raising: an import of thousands
