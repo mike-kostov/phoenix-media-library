@@ -144,6 +144,8 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- BlurHash placeholders rounded the average colour half a step up, one
+  shade too bright per channel, unlike other BlurHash encoders.
 - `PathGenerator.DateBased` built paths from today's date, so from the day
   after an upload the media's URLs, deletes and conversions pointed at the
   wrong folder. Paths now use the day of the media's `inserted_at`, the

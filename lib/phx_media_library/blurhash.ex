@@ -305,10 +305,11 @@ defmodule PhxMediaLibrary.Blurhash do
   defp linear_to_srgb(c) do
     clamped = max(0.0, min(1.0, c))
 
+    # Rounds as the reference encoder does: trunc(x + 0.5).
     if clamped <= 0.0031308 do
-      round(clamped * 12.92 * 255 + 0.5)
+      trunc(clamped * 12.92 * 255 + 0.5)
     else
-      round((1.055 * :math.pow(clamped, 1.0 / 2.4) - 0.055) * 255 + 0.5)
+      trunc((1.055 * :math.pow(clamped, 1.0 / 2.4) - 0.055) * 255 + 0.5)
     end
   end
 

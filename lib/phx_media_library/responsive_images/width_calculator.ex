@@ -27,8 +27,8 @@ defmodule PhxMediaLibrary.ResponsiveImages.WidthCalculator do
   @doc """
   Calculate optimal widths dynamically based on original dimensions.
 
-  This generates widths at roughly 50% intervals down to a minimum size,
-  which provides good coverage without generating too many files.
+  This divides the original width by `:step_factor` until it reaches the
+  minimum, which provides good coverage without generating too many files.
 
   ## Options
 
@@ -38,11 +38,11 @@ defmodule PhxMediaLibrary.ResponsiveImages.WidthCalculator do
 
   ## Examples
 
-      iex> WidthCalculator.calculate_widths(1920)
-      [320, 480, 720, 1080, 1620, 1920]
+      iex> PhxMediaLibrary.ResponsiveImages.WidthCalculator.calculate_widths(1920)
+      [320, 379, 569, 853, 1280, 1920]
 
-      iex> WidthCalculator.calculate_widths(800, min_width: 200)
-      [200, 300, 450, 675, 800]
+      iex> PhxMediaLibrary.ResponsiveImages.WidthCalculator.calculate_widths(800, min_width: 200)
+      [200, 237, 355, 533, 800]
 
   """
   @spec calculate_widths(original_width :: pos_integer(), opts :: keyword()) :: [pos_integer()]

@@ -280,6 +280,13 @@ file. Present in 0.9.0 and before.
 - Paths use the day of the media's `inserted_at`, which an upload, a move
   and an import set to the time the file was stored.
 
+**B11. BlurHash colours round like the reference encoder.** (Found
+2026-10-09 while covering `Blurhash` with tests.) The average colour was
+rounded as `round(x * 255 + 0.5)`, half a step too high, so channels came
+out one too bright and hashes differed from other BlurHash encoders.
+Present in 0.9.0 and before.
+- The DC colour decodes to the image's average colour.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000
