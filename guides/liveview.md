@@ -618,7 +618,9 @@ share these defaults:
   readable (`Media.alt_text/1`). Set it with
   `PhxMediaLibrary.update_alt_text/2`.
 - The stored placeholder as the image's background while it loads;
-  `placeholder={false}` turns it off for one image.
+  `placeholder={false}` turns it off for one image. Turn it off for an
+  image shown whole (`object-fit: contain`) in a box of another shape:
+  the placeholder covers the whole box and would stay visible around it.
 - `decoding="async"`, except for the page's main image, which you mark with
   `priority`: it gets `loading="eager"` and `fetchpriority="high"`.
 - Lazy `<.responsive_img>` defaults `sizes` to `"auto, 100vw"`, so
