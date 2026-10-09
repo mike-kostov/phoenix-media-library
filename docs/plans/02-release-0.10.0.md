@@ -438,6 +438,41 @@ asked.
 **Dependencies:** Task 20
 **Scope:** S
 
+### Phase 8: SQLite (F10, added 2026-10-09)
+
+#### Task 22: The suite on SQLite
+**Description:** `ecto_sqlite3` as a test-only dependency; `DB=sqlite`
+picks the SQLite test repo (its own build path); the test migrations and
+the generated ones work on both; Postgres-only tests are tagged and get a
+SQLite counterpart where the behaviour matters; `mix precommit` runs both.
+**Acceptance criteria:**
+- [ ] `mix test` and `DB=sqlite mix test` both pass.
+- [ ] Install, `--processing-status` and `--indexes` migrations run on
+      SQLite; existing rows read as done after the upgrade.
+**Verification:** both runs; `mix precommit`.
+**Dependencies:** none
+**Scope:** L
+
+#### Task 23: SQLite answers and docs
+**Description:** The scheduler on SQLite (no advisory lock), import batch
+sizes per adapter, Oban's Lite engine; a SQLite section in the guides;
+README says Postgres and SQLite.
+**Acceptance criteria:**
+- [ ] Every Postgres-only path has a SQLite behaviour, tested.
+- [ ] The guide covers WAL mode, `busy_timeout` and Oban on SQLite.
+**Verification:** tests on both; `mix docs`.
+**Dependencies:** Task 22
+**Scope:** M
+
+#### Task 24: An app on SQLite upgrades
+**Description:** shisharka (SQLite, 0.9.0) moves to 0.10 with the
+generated migrations; its tests and a click-through pass.
+**Acceptance criteria:**
+- [ ] Its suite passes; existing media keeps working; uploads work.
+**Verification:** the app's tests; a browser check with Mike.
+**Dependencies:** Tasks 22, 23
+**Scope:** M
+
 ### Checkpoint: Complete
 - [x] Every acceptance criterion in spec 02 is met, except F8's trial on
       GCS itself (no emulator, no bucket; in the backlog).

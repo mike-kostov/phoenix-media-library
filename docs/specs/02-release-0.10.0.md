@@ -21,6 +21,8 @@ changes are allowed, each with a CHANGELOG entry and an upgrade note.
 
 1. Postgres stays the only supported database in 0.10.0; SQLite is
    assessed by the database spike, and built only if Mike agrees after.
+   (Mike, 2026-10-09: SQLite is supported in 0.10.0, F10, after an app
+   that runs on it upgraded.)
 2. The database work starts as a spike (P1); changes it leads to are
    specced here after Mike reviews the numbers.
 3. Commands, project structure, code style, testing and boundaries are
@@ -123,6 +125,19 @@ stored on GCS, with public and signed URLs and direct uploads. Either a
 with HMAC keys, or a native adapter on its JSON API. Decided from Google's
 documentation (as `docs/ideas/s3-providers.md` did for R2): the preset if
 the compatible API covers what the library uses.
+
+**F10. SQLite.** (Mike, 2026-10-09, during the upgrade of an app that
+runs on SQLite; P1's assessment in `docs/ideas/db-performance.md`.) The
+library works on SQLite (`ecto_sqlite3`) as on Postgres, and says so.
+- The whole suite runs on both: `mix test` on Postgres, and on SQLite
+  with an environment switch; `mix precommit` runs both.
+- Generated migrations (install, `--processing-status`, `--indexes`) work
+  on each: SQLite has no `CONCURRENTLY`, no `ALTER COLUMN` and no
+  `timezone()`.
+- What is Postgres-only gets a SQLite answer: the scheduler's advisory
+  lock (one node on SQLite), `import_media`'s batch size (SQLite's
+  parameter limit), Oban's Lite engine in the docs.
+- A guide section: WAL mode, `busy_timeout`, Oban on SQLite.
 
 **F9. The doctor at runtime.** (Mike, 2026-10-05) Releases have no
 `mix`, so today the doctor can't run in production. Its logic moves into
@@ -342,6 +357,8 @@ setting for busy media tables (P1 recommendation 7: the default waits for
 - F9: `PhxMediaLibrary.Doctor.check/1` and `repair/2` work without Mix
   (tested with Mix's shell unavailable), return the same results as the
   mix task, emit a telemetry event per run, and process media in batches.
+- F10: the suite passes on Postgres and on SQLite, and an app on SQLite
+  upgrades from 0.9 with the generated migrations.
 - P1 is reviewed with Mike before F2 and F6 are final.
 - `mix precommit` green, `mix docs` without warnings.
 
