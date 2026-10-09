@@ -144,6 +144,9 @@ Upgrading from 0.9: run a migration and rename one function; see
   `PhxMediaLibrary.Doctor.Schedule`.
 
 ### Fixed
+- `<.blurhash>` rendered `aspect-ratio: {@width} / {@height}` literally in
+  its canvas's style, which browsers drop as invalid; the canvas now keeps
+  the placeholder's shape.
 - `MediaLive` crashed the page when the form was submitted while a file
   LiveView had refused (too large, wrong type) was listed. Refused files
   are now dropped and named in the flash, and finished ones are saved.

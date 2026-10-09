@@ -265,6 +265,13 @@ the files that were saved.
 - The parent gets `{:uploaded, collection, saved}` whenever any file was
   saved, alongside the error.
 
+**B9. `<.blurhash>` keeps its shape.** (Found 2026-10-09 while covering
+the components with tests.) Its canvas had `style="… aspect-ratio:
+{@width} / {@height};"` as a plain string, so the braces reached the
+browser and the aspect ratio was dropped as invalid CSS. Present in 0.9.0
+and before.
+- The canvas's `aspect-ratio` is its width and height.
+
 ### Project
 
 **P1. Database spike.** (`docs/ideas/db-performance.md`) Postgres, 100,000

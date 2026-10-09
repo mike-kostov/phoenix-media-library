@@ -517,7 +517,7 @@ if Code.ensure_loaded?(Phoenix.Component) do
             "transition-opacity duration-300",
             @class
           ]}
-          style="width: 100%; aspect-ratio: {@width} / {@height};"
+          style={"width: 100%; aspect-ratio: #{@width} / #{@height};"}
           aria-hidden="true"
         />
         <._blurhash_hook />
