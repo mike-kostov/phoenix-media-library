@@ -142,6 +142,31 @@ defmodule PhxMediaLibraryTest do
       assert srcset =~ "320w"
       assert srcset =~ "640w"
     end
+
+    test "takes a format, like Media.srcset/3" do
+      media = %Media{
+        uuid: "test-uuid",
+        disk: "memory",
+        collection_name: "images",
+        name: "test",
+        file_name: "test.jpg",
+        mime_type: "image/jpeg",
+        responsive_images: %{
+          "original" => %{
+            "widths" => [320],
+            "width" => 640,
+            "height" => 480,
+            "formats" => ["avif", "webp"]
+          }
+        },
+        mediable_type: "posts",
+        mediable_id: Ecto.UUID.generate()
+      }
+
+      assert PhxMediaLibrary.srcset(media, nil, "avif") == Media.srcset(media, nil, "avif")
+      assert PhxMediaLibrary.srcset(media, nil, "avif") =~ ".avif 320w"
+      assert PhxMediaLibrary.srcset(media) =~ ".webp 320w"
+    end
   end
 
   describe "fluent API chaining" do

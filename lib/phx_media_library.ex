@@ -466,9 +466,18 @@ defmodule PhxMediaLibrary do
 
   @doc """
   Get the srcset attribute value for responsive images.
+
+  `format` (an extension) picks one of several formats; by default the
+  last, the one plain URLs use. See `Media.srcset/3`.
+
+  ## Examples
+
+      PhxMediaLibrary.srcset(media, :preview)
+      PhxMediaLibrary.srcset(media, :preview, "avif")
+
   """
-  @spec srcset(Media.t(), atom() | nil) :: String.t() | nil
-  defdelegate srcset(media, conversion \\ nil), to: Media
+  @spec srcset(Media.t(), atom() | nil, String.t() | nil) :: String.t() | nil
+  defdelegate srcset(media, conversion \\ nil, format \\ nil), to: Media
 
   @doc """
   Delete a media item and its files from storage.

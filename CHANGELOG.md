@@ -57,8 +57,8 @@ Upgrading from 0.9: run a migration and rename one function; see
   `<.picture>`, `<.responsive_img>` and `<.media_figure>` offer each format
   as a typed `<source>`, best first, and the last on the `<img>`; conversions
   get the same. They no longer add a `<source>` for a full-size WebP the
-  `<img>` already serves. `Media.srcset/3` and `ResponsiveImages.variants/3`
-  take a format.
+  `<img>` already serves. `PhxMediaLibrary.srcset/3`, `Media.srcset/3` and
+  `ResponsiveImages.variants/3` take a format.
 - New installs get a leaner media table: `mix phx_media_library.install`
   no longer creates the (mediable_type, mediable_id), (collection_name)
   and (checksum) indexes, which no library query needs, and makes

@@ -638,9 +638,10 @@ returns one file, the WebP when the collection has one, never the AVIF
 the placeholder come from the components' markup.
 
 The placeholder is a 32px blurred WebP inlined in the `style` attribute as
-a data URI. It costs no request, so it doesn't appear in the browser's
-network tab, and it shows only until the image loads; throttle the
-network to see it.
+a data URI, so it downloads nothing. It shows only between the page's
+first paint and the image's arrival: an image that arrives before the
+stylesheet, as a small `priority` image often does, never shows it. To
+see it, block the image's URL in the browser's developer tools.
 
 ### Your own markup
 
@@ -650,7 +651,7 @@ write the markup yourself:
 | Part | Function |
 |---|---|
 | A file's URL, or a variant's (`width:`) | `PhxMediaLibrary.url/3` |
-| `srcset` in one format | `Media.srcset(media, conversion, "avif")` |
+| `srcset` in one format | `PhxMediaLibrary.srcset(media, conversion, "avif")` |
 | The formats a source has | `PhxMediaLibrary.ResponsiveImages.formats(media, conversion)` |
 | `width` and `height` | `Media.dimensions/2` |
 | The placeholder as inline CSS | `PhxMediaLibrary.ViewHelpers.placeholder_style/2` |
@@ -664,10 +665,10 @@ def product_photo(assigns) do
 
   ~H"""
   <picture>
-    <source type="image/avif" srcset={Media.srcset(@photo, :preview, "avif")} sizes="50vw" />
+    <source type="image/avif" srcset={PhxMediaLibrary.srcset(@photo, :preview, "avif")} sizes="50vw" />
     <img
       src={PhxMediaLibrary.url(@photo, :preview)}
-      srcset={Media.srcset(@photo, :preview, "webp")}
+      srcset={PhxMediaLibrary.srcset(@photo, :preview, "webp")}
       sizes="50vw"
       width={elem(@size, 0)}
       height={elem(@size, 1)}
