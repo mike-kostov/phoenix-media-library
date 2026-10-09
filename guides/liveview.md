@@ -41,6 +41,25 @@ defp html_helpers do
 end
 ```
 
+### 3. JavaScript hooks
+
+The drop zone's drag highlight and `<.blurhash>` run colocated hooks.
+Phoenix builds each dependency's hooks under `phoenix-colocated/<app>`;
+add the library's next to your app's in `assets/js/app.js`:
+
+```javascript
+import {hooks as colocatedHooks} from "phoenix-colocated/my_app"
+import {hooks as mediaLibraryHooks} from "phoenix-colocated/phx_media_library"
+
+const liveSocket = new LiveSocket("/live", Socket, {
+  hooks: {...colocatedHooks, ...mediaLibraryHooks},
+  // ...
+})
+```
+
+Without the import, uploads still work, but `<.blurhash>` draws nothing.
+The other image components need no JavaScript.
+
 ---
 
 ## Approach 1: `MediaLive` LiveComponent (recommended)
@@ -609,6 +628,76 @@ share these defaults:
 ```heex
 <%!-- The hero image --%>
 <.responsive_img media={@post.cover} priority class="w-full h-auto" />
+```
+
+### Formats and placeholders outside the components
+
+The components add what a plain URL can't carry: `PhxMediaLibrary.url/2`
+returns one file, the WebP when the collection has one, never the AVIF
+(AI tools and most link previews can't read AVIF). The AVIF sources and
+the placeholder come from the components' markup.
+
+The placeholder is a 32px blurred WebP inlined in the `style` attribute as
+a data URI. It costs no request, so it doesn't appear in the browser's
+network tab, and it shows only until the image loads; throttle the
+network to see it.
+
+### Your own markup
+
+Each part of the components' output is a public function, so you can
+write the markup yourself:
+
+| Part | Function |
+|---|---|
+| A file's URL, or a variant's (`width:`) | `PhxMediaLibrary.url/3` |
+| `srcset` in one format | `Media.srcset(media, conversion, "avif")` |
+| The formats a source has | `PhxMediaLibrary.ResponsiveImages.formats(media, conversion)` |
+| `width` and `height` | `Media.dimensions/2` |
+| The placeholder as inline CSS | `PhxMediaLibrary.ViewHelpers.placeholder_style/2` |
+| The placeholder's data URI | `Media.placeholder/2` |
+| The BlurHash string | `Media.blurhash/1` |
+| `alt` | `Media.alt_text/1` |
+
+```elixir
+def product_photo(assigns) do
+  assigns = assign(assigns, :size, Media.dimensions(assigns.photo, :preview) || {nil, nil})
+
+  ~H"""
+  <picture>
+    <source type="image/avif" srcset={Media.srcset(@photo, :preview, "avif")} sizes="50vw" />
+    <img
+      src={PhxMediaLibrary.url(@photo, :preview)}
+      srcset={Media.srcset(@photo, :preview, "webp")}
+      sizes="50vw"
+      width={elem(@size, 0)}
+      height={elem(@size, 1)}
+      alt={Media.alt_text(@photo)}
+      style={placeholder_style(@photo, :preview)}
+      loading="lazy"
+    />
+  </picture>
+  """
+end
+```
+
+### BlurHash
+
+With `responsive_images: [blurhash: true]`, each image also gets a
+[BlurHash](https://blurha.sh), a string of about 30 characters, for
+clients that draw their own placeholder: a JSON API, a mobile app.
+`mix phx_media_library.doctor --regenerate` makes it for images stored
+before you turned it on.
+
+On your own pages, prefer the inline placeholder. `<.blurhash>` decodes
+the hash in a hook onto a `<canvas>`, so it appears only after the
+JavaScript loads and the LiveView connects, often after the image itself.
+The inline WebP is in the HTML and the browser draws it at first paint.
+
+```heex
+<div class="relative">
+  <.blurhash media={@photo} class="absolute inset-0 h-full w-full" />
+  <img src={PhxMediaLibrary.url(@photo)} class="relative w-full" loading="lazy" />
+</div>
 ```
 
 ### Image with a caption
