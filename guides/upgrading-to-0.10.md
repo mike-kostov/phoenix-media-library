@@ -60,6 +60,15 @@ Run the doctor and read its report:
 mix phx_media_library.doctor
 ```
 
+A release has no `mix`: `mix phx_media_library.gen.release` adds
+`bin/media_doctor`, which takes the same flags
+([Advanced](advanced.md#check-and-repair-the-doctor)). Run the commands of
+this section through it in production.
+
+Collections with `keep_original: false` have no originals to rebuild
+from; 0.10 makes AVIF, new widths, placeholders and dimensions from the
+served WebP instead, up to its size.
+
 Two rebuilds are worth running, both optional:
 
 ```bash
@@ -123,6 +132,19 @@ checksum index if your app looks media up by checksum.
   collections with conversions start getting them.
 - `Conversions.process/2` returns `{:error, {:record_update_failed, reason}}`
   when it can't record what it made, so jobs retry.
+
+### Without `:image`
+
+Without the `:image` library, images are stored as uploaded: no WebP,
+AVIF, widths, conversions or placeholders. 0.10 says so: the first image
+upload logs a warning, and the doctor's report shows it. Add
+`{:image, "~> 0.63"}` to get them.
+
+### Hooks
+
+`<.blurhash>` draws in a colocated hook, which apps can now import from
+`phoenix-colocated/phx_media_library` ([LiveView](liveview.md#3-javascript-hooks));
+in 0.9 the import failed the JavaScript build.
 
 ### Fixes that change behaviour
 

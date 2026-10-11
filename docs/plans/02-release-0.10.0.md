@@ -493,7 +493,12 @@ both fail on the old code.
 ### Checkpoint: Complete
 - [x] Every acceptance criterion in spec 02 is met, except F8's trial on
       GCS itself (no emulator, no bucket; in the backlog).
-- [ ] Ready for Mike to tag, push and publish.
+- [x] Ready for Mike to tag, push and publish. (2026-10-12: `mix precommit`
+      on both databases, S3 against Ministack and PDF thumbnails with
+      pdftoppm included, FFmpeg tests skipped (no FFmpeg here; video code
+      unchanged since 0.9.0); `mix docs` without warnings; package built
+      and unpacked. Upgraded apps: two on Postgres, one on SQLite;
+      `bin/media_doctor` run in two production releases.)
 
 ## Risks and Mitigations
 
