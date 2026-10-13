@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.0] - 2026-10-12
+## [0.10.0] - 2026-10-13
 
 Upgrading from 0.9: run a migration and rename one function; see
 [Upgrading to 0.10](guides/upgrading-to-0.10.md).
