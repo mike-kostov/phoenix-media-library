@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    assignees:
+      - "mike-kostov"
     groups:
       mix-minor-and-patch:
         update-types:
