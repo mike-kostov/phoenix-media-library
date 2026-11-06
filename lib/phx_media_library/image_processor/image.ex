@@ -84,11 +84,12 @@ if Code.ensure_loaded?(Image) do
 
     @impl true
     def average_color(image) do
-      # Image.average/1 flattens alpha and returns one value per band.
+      # Image.average/1 weights by alpha (transparent pixels don't count)
+      # and returns one value per color band.
       case Image.average(image) do
+        {:ok, [gray]} -> {:ok, hex_color([gray, gray, gray])}
+        {:ok, [r, g, b | _]} -> {:ok, hex_color([r, g, b])}
         {:error, _} = error -> error
-        [gray] -> {:ok, hex_color([gray, gray, gray])}
-        [r, g, b | _] -> {:ok, hex_color([r, g, b])}
       end
     end
 

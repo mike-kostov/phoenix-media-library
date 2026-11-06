@@ -66,7 +66,7 @@ defmodule PhxMediaLibrary.MixProject do
       {:telemetry, "~> 1.0"},
 
       # === Optional: Image processing (libvips) ===
-      {:image, "~> 0.54", optional: true},
+      {:image, "~> 0.73", optional: true},
 
       # === Optional: S3 Storage ===
       {:ex_aws, "~> 2.5", optional: true},
