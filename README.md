@@ -215,7 +215,7 @@ def deps do
     {:phx_media_library, "~> 0.10"},
 
     # Optional: image processing (requires libvips)
-    {:image, "~> 0.54"},
+    {:image, "~> 0.73"},
 
     # Optional: S3 storage
     {:ex_aws, "~> 2.5"},
