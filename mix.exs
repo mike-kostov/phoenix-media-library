@@ -100,6 +100,7 @@ defmodule PhxMediaLibrary.MixProject do
     [
       precommit: [
         "format --check-formatted",
+        "hex.audit",
         "credo --strict",
         "dialyzer",
         "cmd --cd . sh -c 'MIX_ENV=test mix test'",
